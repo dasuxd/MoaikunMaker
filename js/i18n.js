@@ -81,6 +81,54 @@ const i18n = {
             // Operation Info
             'operationSummaryLabel': '操作简介:',
             'operationSummary': '移动(WASD)  |  攻击(J)  | 跳跃(K) | 开始(Enter) | 选择(Shift)',
+
+            // others
+            'levelCount' : '关卡总数',
+            'levelLabel': '关卡 ',
+            'selectNesRomFile':'📁 选择 NES ROM 文件',
+
+
+            //messages
+            'levelDataExceedBoundaryError': '关卡数据总大小超出边界！第 {level} 关的结束地址为 {endAddr}，超过最大地址 {maxAddr}。无法保存！',
+            'loadedFromCacheMessage': '已从缓存加载: {fileName}',
+            'romNotFoundWarning':'没有找到游戏 ROM，分享关卡将在加载 ROM 文件后自动运行。',
+            'loadShareLevelError': '加载分享关卡失败',
+            'loadSharedLevelSuccess':'🎮 已加载分享的关卡！',
+            'invalidLevelCountMessageError':'关卡总数必须在1-255之间',
+            'levelCountUpdateSuccess':'关卡总数已更新为 {levelCount}',
+            'levelCountUpdateFailedError':'关卡总数更新失败：{error}',
+            'cacheCleanSuccess':'缓存已清除',
+            'cacheCleanError':'清除缓存失败',
+            'loadFileSuccess':'文件加载成功: {fileNameStr}, 共 {length} 字节)',
+            'emulatorNotRunningWarning':'模拟器未运行',
+            'emulatorStopInfo':'✋ 模拟器已停止',
+            'pleaseSelectLevelFirstWarning':'请先选择一个关卡',
+            'copyShareLevelLinkSuccess':'🔗 分享链接已复制到剪贴板！',
+            'copyShareLevelLinkError':'生成分享链接失败',
+            'testingCurrentLevelSuccess':'🎮 正在测试当前关卡...',
+            'romNotLoadedError': '请先加载 ROM 文件',
+            'emulatorStartSuccess': '🎮 模拟器已启动！',
+            'editorNotInitError': '可视化编辑器未初始化',
+            'saveMapFailedError': '保存地图数据失败！',
+            'monsterDataError': '怪物数据错误 {error}',
+            'saveMapSuccess': '关卡 {currentLevel} 保存成功！地图和怪物数据已更新。',
+            'saveLevelFailedError': '保存失败: {error}' ,
+            'write2RomSuccess': '所有数据已写入ROM！' ,
+            'write2RomFiledError': '写入ROM失败: {error}' ,
+            'cancelModifyWarning': '已取消修改' ,
+            'romDownloadSuccess': 'ROM 文件下载成功!' ,
+            'levelReorderSuccess': '关卡已移动：{draggedIndex} → {targetIndex}' ,
+            'levelReorderError': '关卡移动失败：{error}' ,
+            'changeLevelOrderInfo': '📝 拖拽关卡来调整关卡顺序' ,
+            'changeLevelOrderCancelWarning': '✖️ 已取消修改' ,
+            'changeLevelOrderSuccess': '✅ 关卡顺序已保存（仅在内存中，请点击“写入ROM”按钮保存到文件）' ,
+            'forbiddenPleaceEnemyWarning': '敌人数量已达上限，无法放置更多敌人' ,
+            
+            'emptyEnemyDataError': '怪物数据不能为空' ,
+            'invalidHexValue': '无效的十六进制值: {hexValue}' ,
+
+
+
         },
         
         'en-US': {
@@ -158,14 +206,80 @@ const i18n = {
             // Operation Info
             'operationSummaryLabel': 'Controls:',
             'operationSummary': 'Move (WASD)  |  Attack (J)  |  Jump (K)|  Start (Enter) | Select (Shift)',
+        
+            // others
+            'levelCount' : 'Total Levels',
+            'levelLabel': 'Level ',
+            'selectNesRomFile': '📁 Select NES ROM File',
+
+            //messages
+            'levelDataExceedBoundaryError': 'Level data total size exceeds boundary! Level {level} ends at address {endAddr}, which exceeds the maximum address {maxAddr}. Cannot save!',
+            'loadedFromCacheMessage': 'Loaded from cache: {fileName}',
+            'romNotFoundWarning': 'Game ROM not found. The shared level will auto-run after you load a ROM file.',
+            'loadShareLevelError': 'Failed to load shared level',
+            'loadSharedLevelSuccess': '🎮 Shared level loaded successfully!',
+            'invalidLevelCountMessageError': 'Total number of levels must be between 1 and 255',
+            'levelCountUpdateSuccess': 'Total level count updated to {levelCount}',
+            'levelCountUpdateFailedError': 'Failed to update level count: {error}',
+            'cacheCleanSuccess': 'Cache cleared successfully',
+            'cacheCleanError': 'Failed to clear cache',
+            'loadFileSuccess': 'File loaded successfully: {fileNameStr}, {length} bytes)',
+            'emulatorNotRunningWarning': 'Emulator is not running',
+            'emulatorStopInfo': '✋ Emulator stopped',
+            'pleaseSelectLevelFirstWarning': 'Please select a level first',
+            'copyShareLevelLinkSuccess': '🔗 Share link copied to clipboard!',
+            'copyShareLevelLinkError': 'Failed to generate share link',
+            'testingCurrentLevelSuccess': '🎮 Testing current level...',
+            'romNotLoadedError': 'Please load a ROM file first',
+            'emulatorStartSuccess': '🎮 Emulator started!',
+            'editorNotInitError': 'Visual editor not initialized',
+            'saveMapFailedError': 'Failed to save map data!',
+            'monsterDataError': 'Monster data error {error}',
+            'saveMapSuccess': 'Level {currentLevel} saved successfully! Map and monster data updated.',
+            'saveLevelFailedError': 'Save failed: {error}',
+            'write2RomSuccess': 'All data written to ROM!',
+            'write2RomFiledError': 'Failed to write to ROM: {error}',
+            'cancelModifyWarning': 'Modification canceled',
+            'romDownloadSuccess': 'ROM file downloaded successfully!',
+            'levelReorderSuccess': 'Level moved: {draggedIndex} → {targetIndex}',
+            'levelReorderError': 'Failed to reorder level: {error}',
+            'changeLevelOrderInfo': '📝 Drag levels to reorder them',
+            'changeLevelOrderCancelWarning': '✖️ Modification canceled',
+            'changeLevelOrderSuccess': '✅ Level order saved (in memory only, click "Write to ROM" button to save to file)',
+            'forbiddenPleaceEnemyWarning': 'Enemy limit reached, cannot place more enemies',
+            'emptyEnemyDataError': 'Monster data cannot be empty',
+            'invalidHexValue': 'Invalid hex value: {hexValue}',
         }
     },
     
     /**
      * 获取翻译文本
      */
-    t(key) {
-        return this.translations[this.currentLang][key] || key;
+    t(key, params = {}) {
+        let translation = this.translations[this.currentLang]?.[key];
+        if (!translation) {
+            console.warn('缺失翻译 →', this.currentLang, key);
+            return key;
+        }
+
+        return translation.replace(/{([^}]+)}/g, (match, placeholder) => {
+            // 去掉可能的前后空格
+            const key = placeholder.trim();
+            
+            if (key in params) {
+                return params[key];
+            }
+            
+            // 可选：支持数字索引作为 fallback
+            const num = Number(key);
+            if (!isNaN(num) && num in params) {
+                return params[num];
+            }
+            
+            // 没找到就保留原样（或返回警告）
+            console.warn(`占位符未替换：{${key}} 在 ${this.currentLang}.${this.key}`);
+            return match;
+        });
     },
     
     /**

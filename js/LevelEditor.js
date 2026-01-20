@@ -552,13 +552,13 @@ class LevelEditor {
         } else if (type === 'enemy') {
             const btn = document.getElementById(`enemyBtn${id}`);
             if (btn) btn.classList.add('active');
-            document.getElementById('currentTool').textContent = `敌人 ${id}`;
+            document.getElementById('currentTool').textContent = `Enemy ${id}`;
         } else if (type === 'player') {
             document.getElementById('playerBtn').classList.add('active');
-            document.getElementById('currentTool').textContent = '玩家';
+            document.getElementById('currentTool').textContent = 'Player';
         } else if (type === 'door') {
             document.getElementById('doorBtn').classList.add('active');
-            document.getElementById('currentTool').textContent = '门';
+            document.getElementById('currentTool').textContent = 'Door';
         }
         
         this.render();
@@ -694,7 +694,7 @@ class LevelEditor {
             this.mapData[y][x] = this.currentTileId;
         } else if (this.currentTool === 'enemy' && this.currentEnemyId) {
             if(this.enemies.length >= Config.MAX_ENEMIES){
-                app.showMessage('warning', '敌人数量已达上限，无法放置更多敌人');
+                app.showMessage('warning', i18n.t("forbiddenPleaceEnemyWarning"));
                 return;
             }
             // 放置敌人（检查是否已存在）
@@ -1067,31 +1067,31 @@ class LevelEditor {
     /**
      * 解析敌人数据用于显示
      */
-    decodeEnemyDataForDisplay(enemyBytes) {
-        if (enemyBytes.length === 0) {
-            return '无敌人数据';
-        }
+    // decodeEnemyDataForDisplay(enemyBytes) {
+    //     if (enemyBytes.length === 0) {
+    //         return '无敌人数据';
+    //     }
         
-        const lines = [];
-        const firstByte = enemyBytes[0];
-        const enemyCount = (firstByte - 1) / 2;
+    //     const lines = [];
+    //     const firstByte = enemyBytes[0];
+    //     const enemyCount = (firstByte - 1) / 2;
         
-        lines.push(`${enemyBytes[0].toString(16).toUpperCase().padStart(2, '0')}: 敌人数量标识 (${enemyCount}个敌人)`);
+    //     lines.push(`${enemyBytes[0].toString(16).toUpperCase().padStart(2, '0')}: 敌人数量标识 (${enemyCount}个敌人)`);
         
-        for (let i = 1; i < enemyBytes.length; i += 2) {
-            if (i + 1 < enemyBytes.length) {
-                const enemyId = enemyBytes[i];
-                const position = enemyBytes[i + 1];
-                const x = Math.floor(position / 16);
-                const y = position % 16;
+    //     for (let i = 1; i < enemyBytes.length; i += 2) {
+    //         if (i + 1 < enemyBytes.length) {
+    //             const enemyId = enemyBytes[i];
+    //             const position = enemyBytes[i + 1];
+    //             const x = Math.floor(position / 16);
+    //             const y = position % 16;
                 
-                const hexId = enemyId.toString(16).toUpperCase().padStart(2, '0');
-                const hexPos = position.toString(16).toUpperCase().padStart(2, '0');
+    //             const hexId = enemyId.toString(16).toUpperCase().padStart(2, '0');
+    //             const hexPos = position.toString(16).toUpperCase().padStart(2, '0');
                 
-                lines.push(`${hexId} ${hexPos}: 敌人${enemyId} 位于 (${x}, ${y})`);
-            }
-        }
+    //             lines.push(`${hexId} ${hexPos}: 敌人${enemyId} 位于 (${x}, ${y})`);
+    //         }
+    //     }
         
-        return lines.join('<br>');
-    }
+    //     return lines.join('<br>');
+    // }
 }

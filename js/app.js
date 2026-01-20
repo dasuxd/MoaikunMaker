@@ -45,12 +45,12 @@ class App {
                 // 自动加载缓存的 ROM
                 this.loadRomData(cachedRom.data, cachedRom.fileName, true);
                 //this.initParams();
-                this.showMessage('info', `已从缓存加载: ${cachedRom.fileName}`);
+                this.showMessage('info', i18n.t('loadedFromCacheMessage', {fileName: cachedRom.fileName}));
             }else{
                 const urlParams = new URLSearchParams(window.location.search);
                 const mapDataParam = urlParams.get("mapData");
                 if(mapDataParam != null){
-                    this.showMessage('info', `没有找到游戏 ROM，分享关卡将在加载 ROM 文件后自动运行。`);
+                    this.showMessage('warning', i18n.t('romNotFoundWarning'));
                 }
                
             }
@@ -129,7 +129,7 @@ class App {
             
         } catch (error) {
             console.error('❌ 解析 URL 参数失败:', error);
-            this.showMessage('error', '加载分享关卡失败');
+            this.showMessage('error', i18n.t('loadShareLevelError'));
         }
     }
     
@@ -152,8 +152,7 @@ class App {
         this.levelEditor.testMode = true;
         this.emulator.loadROM(tmpRomData);
         this.emulator.start();
-        
-        this.showMessage('success', '🎮 已加载分享的关卡！');
+        this.showMessage('success', i18n.t('loadSharedLevelSuccess'));
     }
     
     /**
@@ -179,16 +178,18 @@ class App {
             levelCountInput.addEventListener('change', (e) => {
                 const count = parseInt(e.target.value);
                 if (isNaN(count) || count < 1 || count > 255) {
-                    this.showMessage('error', '关卡总数必须在1-255之间');
+                    this.showMessage('error', i18n.t('invalidLevelCountMessage'));
+
                     e.target.value = this.romEditor.getLevelCount();
                     return;
                 }
                 
                 const result = this.romEditor.setLevelCount(count);
                 if (result.success) {
-                    this.showMessage('success', `关卡总数已更新为 ${count}`);
+                    this.showMessage('success', i18n.t('levelCountUpdateSuccess',{levelCount : count}));
                 } else {
-                    this.showMessage('error', result.error);
+                    //this.showMessage('error', result.error);
+                    this.showMessage('error',  i18n.t("levelCountUpdateFailedError",{error: result.error}));
                     e.target.value = this.romEditor.getLevelCount();
                 }
             });
@@ -208,17 +209,17 @@ class App {
                 if (confirm('确定要清除缓存的 ROM 文件吗？')) {
                     try {
                         await this.romCache.clearCache();
-                        this.showMessage('success', '缓存已清除');
+                        this.showMessage('success', i18n.t('cacheCleanSuccess'));
                         
                         // 更新按钮状态
                         const romSelectBtn = document.getElementById('romSelectBtn');
                         if (romSelectBtn) {
-                            romSelectBtn.textContent = '📁 选择 NES ROM 文件';
+                            romSelectBtn.textContent = i18n.t('selectNesRomFile');
                             romSelectBtn.classList.remove('loaded');
                             romSelectBtn.title = '';
                         }
                     } catch (error) {
-                        this.showMessage('error', '清除缓存失败');
+                        this.showMessage('error', i18n.t('cacheCleanError'));
                         console.error(error);
                     }
                 }
@@ -271,7 +272,8 @@ class App {
         const editorSection = document.getElementById('editorSection');
         editorSection.classList.remove('active');
         if (!fromCache) {
-            this.showMessage('success', `文件加载成功: ${fileName} (${this.romEditor.romData.length} 字节)`);
+            //this.showMessage('success', `文件加载成功: ${fileName} (${this.romEditor.romData.length} 字节)`);
+            this.showMessage('success', i18n.t("loadFileSuccess",{fileNameStr: fileName, length: this.romEditor.romData.length}));
         }
         
         // 更新按钮显示文件名
@@ -279,7 +281,7 @@ class App {
         if (romSelectBtn) {
             romSelectBtn.textContent = `📁 ${fileName}`;
             romSelectBtn.classList.add('loaded');
-            romSelectBtn.title = `${fileName} (${this.romEditor.romData.length} 字节)`;
+            romSelectBtn.title = `${fileName} (${this.romEditor.romData.length} Byte)`;
         }
 
         this.testLevelBtn.disabled = true;
@@ -360,13 +362,21 @@ class App {
             content.onclick = () => this.selectLevel(i);
             
             // 构建关卡标签
-            let levelLabel = `关卡 ${level.getLevelNumber()}`;
+            //let levelLabel = `关卡 ${level.getLevelNumber()}`;
+            let levelLabel = i18n.t('levelLabel', {level: level.getLevelNumber()});
             if (this.isEditingOrder && level.isDragged() && level.getOriginalLevelNumber() !== level.getLevelNumber()) {
                 levelLabel += ` <span class="original-label" style="color: #ff9800; font-size: 12px;">(原${level.getOriginalLevelNumber()})</span>`;
             }
-            
+
+            // const span = document.createElement('span');
+            // span.className = `level-number ${level.isDragged() ? 'dragged' : ''}`;
+            // span.textContent = i18n.t('levelLabel', { level: level.getLevelNumber() });  // 或 levelLabel 是 "第 {n} 关"
+            // content.appendChild(span);
             content.innerHTML = `
-                <span class="level-number ${level.isDragged() ? 'dragged' : ''}">${levelLabel}</span>
+                <span class="level-wrapper ${level.isDragged() ? 'dragged' : ''}">
+                    <span class="level-num" data-i18n="levelLabel">Level</span> 
+                    <span class="level-num">${level.getLevelNumber()}</span>
+                </span>
                 <span class="level-info">${level.getDataSize()} B</span>
             `;
             
@@ -496,17 +506,17 @@ class App {
     // 结束模拟器
     stopEmulator() {
         if (!this.testMode) {
-            this.showMessage('warning', '模拟器未运行');
+            this.showMessage('warning', i18n.t("emulatorNotRunningWarning"));
             return;
         }
         this.changeMode();
-        this.showMessage('info', '✋ 模拟器已停止');
+        this.showMessage('info', i18n.t("emulatorStopInfo"));
     }
 
     //分享当前关卡
     shareLevel(){
         if(this.currentLevel === -1){
-            this.showMessage('warning', '请先选择一个关卡');
+            this.showMessage('warning', i18n.t("pleaseSelectLevelFirstWarning"));
             return;
         }
         
@@ -547,17 +557,17 @@ class App {
             // 复制到剪贴板
             navigator.clipboard.writeText(shareUrl)
                 .then(() => {
-                    this.showMessage('success', '🔗 分享链接已复制到剪贴板！');
+                    this.showMessage('success', i18n.t("copyShareLevelLinkSuccess"));
                     console.log('Share URL:', shareUrl);
                     console.log('URL length:', shareUrl.length);
                 })
                 .catch(err => {
                     console.error("复制失败:", err);
-                    prompt("复制失败，请手动复制以下链接：", shareUrl);
+                    //prompt("复制失败，请手动复制以下链接：", shareUrl);
                 });
         } catch (error) {
             console.error('生成分享链接失败:', error);
-            this.showMessage('error', '生成分享链接失败');
+            this.showMessage('error', i18n.t("copyShareLevelLinkError"));
         }
     }
 
@@ -607,7 +617,7 @@ class App {
         this.downloadBtn.disabled = true;
         this.stopEmulatorBtn.disabled = false;
 
-        this.showMessage('success', '🎮 正在测试当前关卡...');
+        this.showMessage('success', i18n.t("testingCurrentLevelSuccess"));
     }
 
     // 添加测试 ROM 的方法
@@ -616,7 +626,7 @@ class App {
             return;
         }
         if (!this.romEditor.romData) {
-            this.showMessage('error', '请先加载 ROM 文件');
+            this.showMessage('error', i18n.t("romNotLoadedError"));
             return;
         }
         
@@ -634,7 +644,7 @@ class App {
         this.downloadBtn.disabled = true;
         this.stopEmulatorBtn.disabled = false;
 
-        this.showMessage('success', '🎮 模拟器已启动！');
+        this.showMessage('success', i18n.t("emulatorStartSuccess"));
 
     }
 
@@ -643,7 +653,7 @@ class App {
         
         // 从可视化编辑器获取数据
         if (!this.levelEditor) {
-            this.showMessage('error', '可视化编辑器未初始化');
+            this.showMessage('error', i18n.t("editorNotInitError"));
             return;
         }
         
@@ -682,20 +692,21 @@ class App {
             const level = this.romEditor.getLevel(this.currentLevel);
             const result = level.saveMapData(romData.mapData);
             if (!result) {
-                this.showMessage('error', '保存地图数据失败！');
+                this.showMessage('error', i18n.t("saveMapFailedError"));
                 return;
             }
             
             // 保存怪物数据
             const monsterResult = level.saveMonsterData(romData.monsterData);
             if (!monsterResult.success) {
-                this.showMessage('error', '怪物数据错误: ' + monsterResult.error);
+                //this.showMessage('error', '怪物数据错误: ' + monsterResult.error);
+                this.showMessage('error', i18n.t("monsterDataError",{error:monsterResult.error}));
                 return;
             }
             
             //document.getElementById('downloadBtn').disabled = false;
-            this.showMessage('success', 
-                `关卡 ${this.currentLevel + 1} 保存成功！地图和怪物数据已更新。`);
+            //this.showMessage('success', `关卡 ${this.currentLevel + 1} 保存成功！地图和怪物数据已更新。`);
+            this.showMessage('success', i18n.t("saveMapSuccess", {currentLevel: this.currentLevel + 1}));
             
             // 刷新显示
             this.displayLevelList();
@@ -705,8 +716,9 @@ class App {
             level.modified = true;
             this.saveBtn.disabled = true;
         } catch (error) {
-            console.error('保存关卡失败:', error);
-            this.showMessage('error', '保存失败: ' + error.message);
+            //console.error('保存关卡失败:', error);
+            //this.showMessage('error', '保存失败: ' + error.message);
+            this.showMessage('error', i18n.t("saveLevelFailedError",{error: error.message}));
         }
     }
 
@@ -718,11 +730,11 @@ class App {
             this.romEditor.recalculateAddresses(this.romEditor.levels);
             RomEditor.writeToROM(this.romEditor.romData, this.romEditor.levels, this.romEditor.levelCount);
             this.romEditor.modified = false;
-            this.showMessage('success', '所有数据已写入ROM！');
-            console.log('ROM数据写入成功');
+            this.showMessage('success', i18n.t("write2RomSuccess"));
+            //console.log('ROM数据写入成功');
         } catch (error) {
-            console.error('写入ROM失败:', error);
-            this.showMessage('error', '写入ROM失败: ' + error.message);
+            //console.error('写入ROM失败:', error);
+            this.showMessage('error', i18n.t("write2RomFiledError", {error: error.message}));
         }
     }
 
@@ -734,7 +746,7 @@ class App {
         
         // 重新加载当前关卡数据
         this.selectLevel(this.currentLevel);
-        this.showMessage('warning', '已取消修改');
+        this.showMessage('warning', i18n.t("cancelModifyWarning"));
     }
 
     /**
@@ -755,7 +767,7 @@ class App {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
 
-        this.showMessage('success', 'ROM 文件下载成功!');
+        this.showMessage('success', i18n.t("romDownloadSuccess"));
     }
 
     /**
@@ -834,7 +846,7 @@ class App {
         // 更新进度条
         document.getElementById('memoryBarFill').style.width = `${percentage}%`;
         document.getElementById('memoryBarText').textContent = 
-            `${usedSize} / ${maxSize} 字节 (${percentage}%)`;
+            `${usedSize} / ${maxSize} Byte (${percentage}%)`;
 
         // 生成分段显示
         this.generateMemorySegments(levels, maxSize);
@@ -868,7 +880,7 @@ class App {
 
             const tooltip = document.createElement('div');
             tooltip.className = 'memory-segment-tooltip';
-            tooltip.textContent = `关卡${level.getLevelNumber()}: ${level.getTotalSize()}字节`;
+            tooltip.textContent = `关卡${level.getLevelNumber()}: ${level.getTotalSize()} Byte`;
             segment.appendChild(tooltip);
 
             container.appendChild(segment);
@@ -1037,9 +1049,10 @@ class App {
             //this.updateMemoryOverview();
             
             //document.getElementById('downloadBtn').disabled = false;
-            this.showMessage('success', `关卡已移动：${this.draggedIndex + 1} → ${targetIndex + 1}`);
+            //this.showMessage('success', `关卡已移动：${this.draggedIndex + 1} → ${targetIndex + 1}`);
+            this.showMessage('success', i18n.t("levelReorderSuccess", {draggedIndex: this.draggedIndex + 1, targetIndex: targetIndex + 1}));
         } else {
-            this.showMessage('error', result.error);
+            this.showMessage('error',  i18n.t("levelReorderError"));
         }
 
         return false;
@@ -1145,7 +1158,7 @@ function startEditOrder() {
     
     // 重新渲染列表以启用拖拽
     app.displayLevelList();
-    app.showMessage('info', '📝 现在可以拖拽调整关卡顺序');
+    app.showMessage('info', i18n.t("changeLevelOrderInfo"));
 }
 
 /**
@@ -1173,7 +1186,7 @@ function cancelEditOrder() {
         app.selectLevel(app.currentLevel);
     }
     
-    app.showMessage('warning', '✖️ 已取消修改');
+    app.showMessage('warning', i18n.t("changeLevelOrderCancelWarning"));
 }
 
 /**
@@ -1196,7 +1209,7 @@ function saveOrder() {
     //重新更新 关卡信息地址
     app.romEditor.updateLevelAddresses();
     
-    app.showMessage('success', '✅ 关卡顺序已保存（仅在内存中，请点击“写入ROM”按钮保存到文件）');
+    app.showMessage('success', i18n.t("changeLevelOrderSuccess"));
 }
 /**
  * 切换语言

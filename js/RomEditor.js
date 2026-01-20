@@ -38,7 +38,6 @@ class RomEditor {
         
         // 0. 读取关卡总数
         this.levelCount = this.romData[Config.LEVEL_COUNT_ADDRESS] - 1;
-        console.log('关卡总数:', this.levelCount);
 
         // 1. 读取地址表（小端序）
         const addresses = this.readAddressTable();
@@ -246,7 +245,8 @@ class RomEditor {
             if (endPos > Config.DATA_START_MAX) {
                 return {
                     success: false,
-                    error: `关卡数据总大小超出边界！第 ${i + 1} 关的结束地址为 0x${endPos.toString(16).toUpperCase()}，超过最大地址 0x7F93。无法保存！`
+                    //error: `关卡数据总大小超出边界！第 ${i + 1} 关的结束地址为 0x${endPos.toString(16).toUpperCase()}，超过最大地址 0x7F93。无法保存！`
+                    error: i18n.t('levelDataExceedBoundaryError', {level: i + 1, endAddr: '0x' + endPos.toString(16).toUpperCase(), maxAddr: '0x7F93' })
                 };
             }
 

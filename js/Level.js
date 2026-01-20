@@ -104,13 +104,13 @@ class Level {
         const hexBytes = monsterHexString.trim().split(/\s+/).filter(s => s.length > 0);
         
         if (hexBytes.length === 0) {
-            return { success: false, error: '怪物数据不能为空' };
+            return { success: false, error: i18n.t("emptyEnemyDataError") };
         }
         
         // 验证十六进制格式
         for (let hex of hexBytes) {
             if (!/^[0-9A-Fa-f]{1,2}$/.test(hex)) {
-                return { success: false, error: `无效的十六进制值: ${hex}` };
+                return { success: false, error: i18n.t("invalidHexValue",{hexValue: hex}) };
             }
         }
 
