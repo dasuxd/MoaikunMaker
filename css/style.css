@@ -632,13 +632,13 @@ h1 {
     display: none;
 }
 
-.editor-section {
+/* .editor-section {
     display: none;
 }
 
 .editor-section.active {
     display: block;
-}
+} */
 
 .editor-header {
     background: #2196F3;

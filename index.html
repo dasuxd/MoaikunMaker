@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <!-- <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"> -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
     <title>Moai-kun Maker</title>
-    <link rel="shortcut icon" href="favicon.ico"/>
+    <link rel="shortcut icon" href="favicon.ico" />
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/level_editor.css">
 </head>
@@ -19,7 +21,7 @@
                 <button class="lang-btn" onclick="switchLanguage('zh-CN')" title="中文">中</button>
                 <button class="lang-btn" onclick="switchLanguage('en-US')" title="English">EN</button>
             </div>
-            
+
             <h1 data-i18n="welcomeTitle">🎮 欢迎使用 Moai-kun Maker</h1>
             <div class="welcome-tips">
                 <div class="tip-item">
@@ -49,13 +51,13 @@
 
     <div class="top-bar">
         <h1 data-i18n="title">🗿 Moai-kun Maker</h1>
-        
+
         <div class="top-bar-actions">
             <!-- 移动端菜单按钮 -->
             <button class="mobile-menu-btn" id="mobileMenuBtn" onclick="toggleMobileMenu()">
                 <span class="menu-icon">☰</span>
             </button>
-            
+
             <!-- 下拉菜单 -->
             <div class="mobile-dropdown-menu" id="mobileDropdownMenu">
                 <label for="fileInput" class="dropdown-item">
@@ -72,14 +74,16 @@
                     <span>🇬🇧 English</span>
                 </button>
             </div>
-            
+
             <!-- 文件操作按钮 -->
             <div class="file-actions">
-                <label for="fileInput" class="rom-select-btn" id="romSelectBtn" data-i18n="selectRom">📁 选择 ROM 文件</label>
+                <label for="fileInput" class="rom-select-btn" id="romSelectBtn" data-i18n="selectRom">📁 选择 ROM
+                    文件</label>
                 <input type="file" id="fileInput" class="file-input" accept=".nes">
-                <button id="clearCacheBtn" class="clear-cache-btn" data-i18n="clearCache" data-i18n-title="clearCacheTitle">🗑️ 清除缓存</button>
+                <button id="clearCacheBtn" class="clear-cache-btn" data-i18n="clearCache"
+                    data-i18n-title="clearCacheTitle">🗑️ 清除缓存</button>
             </div>
-            
+
             <!-- 语言切换按钮 -->
             <div class="language-switcher">
                 <button class="lang-btn" onclick="switchLanguage('zh-CN')" title="中文">中</button>
@@ -96,262 +100,281 @@
 
     <!-- 关卡列表切换按钮 -->
     <button class="sidebar-toggle" id="sidebarToggle" style="display: none;" data-i18n-title="levelList">📋</button>
+    <button class="toolbar-toggle" id="toolbarToggle" style="display: none;">🛠️</button>
 
     <div class="main-layout" id="mainLayout" style="display: none;">
         <div class="sidebar" id="sidebar">
             <h2 data-i18n="levelList">📋 关卡列表</h2>
-            
-            <div class="level-count-editor" style="margin: 12px 15px; padding: 12px; background: #f5f5f5; border-radius: 6px; border: 1px solid #ddd;">
+
+            <div class="level-count-editor"
+                style="margin: 12px 15px; padding: 12px; background: #f5f5f5; border-radius: 6px; border: 1px solid #ddd;">
                 <div style="display: flex; align-items: center; gap: 10px;">
-                    <label for="levelCountInput" style="font-size: 14px; color: #333; font-weight: 500; white-space: nowrap;" data-i18n="totalLevels">🎮 关卡总数:</label>
-                    <input 
-                        type="number" 
-                        id="levelCountInput" 
-                        min="1" 
-                        max="255" 
+                    <label for="levelCountInput"
+                        style="font-size: 14px; color: #333; font-weight: 500; white-space: nowrap;"
+                        data-i18n="totalLevels">🎮 关卡总数:</label>
+                    <input type="number" id="levelCountInput" min="1" max="255"
                         style="flex: 1; padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; text-align: center; width: 80px;"
-                        disabled
-                    />
+                        disabled />
                     <!-- <span style="font-size: 12px; color: #666;">(地址: 0x0BD3)</span> -->
                 </div>
             </div>
-            
+
             <div class="level-order-controls" style="margin: 12px 15px;">
-                <button class="btn-edit-order" id="editOrderBtn" onclick="startEditOrder()" style="width: 100%; padding: 10px; background: #4CAF50; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;" data-i18n="editLevelOrder">
+                <button class="btn-edit-order" id="editOrderBtn" onclick="startEditOrder()"
+                    style="width: 100%; padding: 10px; background: #4CAF50; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;"
+                    data-i18n="editLevelOrder">
                     ✏️ 编辑关卡顺序
                 </button>
                 <div class="order-action-buttons" id="orderActionButtons" style="display: none; gap: 8px;">
-                    <button class="btn-cancel-order" onclick="cancelEditOrder()" style="flex: 1; padding: 10px; background: #f44336; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;" data-i18n="cancel">
+                    <button class="btn-cancel-order" onclick="cancelEditOrder()"
+                        style="flex: 1; padding: 10px; background: #f44336; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;"
+                        data-i18n="cancel">
                         ❌ 取消
                     </button>
-                    <button class="btn-save-order" onclick="saveOrder()" style="flex: 1; padding: 10px; background: #2196F3; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;" data-i18n="saveOrder">
+                    <button class="btn-save-order" onclick="saveOrder()"
+                        style="flex: 1; padding: 10px; background: #2196F3; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;"
+                        data-i18n="saveOrder">
                         ✔️ 保存顺序
                     </button>
                 </div>
             </div>
-            
+
             <div class="drag-tip" data-i18n="dragTip">💡 拖动关卡可调整顺序</div>
             <div id="levelList" class="level-list"></div>
         </div>
 
         <div class="main-content">
-            <div class="memory-overview" id="memoryOverview">
-        <h3 data-i18n="memoryUsage">💾 内存使用情况</h3>
-        
-        <!-- <div class="memory-stats">
-            <div class="memory-stat">
-                <div class="memory-stat-label">已使用</div>
-                <div class="memory-stat-value used" id="memoryUsed">0</div>
-            </div>
-            <div class="memory-stat">
-                <div class="memory-stat-label">可用空间</div>
-                <div class="memory-stat-value free" id="memoryFree">0</div>
-            </div>
-            <div class="memory-stat">
-                <div class="memory-stat-label">总容量</div>
-                <div class="memory-stat-value" id="memoryTotal">0</div>
-            </div>
-            <div class="memory-stat">
-                <div class="memory-stat-label">使用率</div>
-                <div class="memory-stat-value percent" id="memoryPercent">0%</div>
-            </div>
-        </div> -->
+            <!-- <div class="container editor-section" id="editorSection"> -->
+                <div class="editor-layout">
+                    <!-- 工具栏 -->
+                    <div class="toolbar" id="toolbar">
+                        <div class="toolbar-header" id="toolbarHeader">
+                            <span class="toolbar-title" data-i18n="config">🛠️</span>
+                            <!-- <span style="font-size: 12px; opacity: 0.8;" data-i18n="dragToMove">拖动移动</span> -->
+                        </div>
+                        <div class="toolbar-content">
+                            <h3 data-i18n="operations">操作</h3>
 
-        <div class="memory-bar-container">
-            <div class="memory-bar-fill" id="memoryBarFill" style="width: 0%"></div>
-            <div class="memory-bar-text" id="memoryBarText">0 / 0 Byte</div>
-        </div>
-
-            <div class="memory-segments" id="memorySegments"></div>
-        </div>
-
-        <div class="container editor-section" id="editorSection">
-        <!-- <div class="editor-header">
-            <h2 id="editorTitle">关卡数据编辑器</h2>
-        </div> -->
-        <div class="editor-layout">
-            <!-- 工具栏 -->
-            <button class="toolbar-toggle" id="toolbarToggle" style="display: none;">🛠️</button>
-            <div class="toolbar" id="toolbar">
-                <div class="toolbar-header" id="toolbarHeader">
-                    <span class="toolbar-title" data-i18n="config">🛠️</span>
-                    <!-- <span style="font-size: 12px; opacity: 0.8;" data-i18n="dragToMove">拖动移动</span> -->
-                </div>
-                <div class="toolbar-content">
-                <h3 data-i18n="operations">操作</h3>
-                
-                <div style="margin-bottom: 10px;">
-                    <label for="bgSelect" style="display: block; margin-bottom: 5px; font-size: 13px; color: #666;" data-i18n="selectScene">选择场景</label>
-                    <select id="bgSelect" style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 4px; font-size: 13px; cursor: pointer;" data-i18n-options="scene">
-                        <option value="0">场景 0</option>
-                        <option value="1">场景 1</option>
-                        <option value="2">场景 2</option>
-                        <option value="3" selected>场景 3</option>
-                        <option value="4">场景 4</option>
-                        <option value="5">场景 5</option>
-                        <option value="6">场景 6</option>
-                        <option value="7">场景 7</option>
-                        <option value="8">场景 8</option>
-                        <option value="9">场景 9</option>
-                        <option value="10">场景 10</option>
-                        <option value="11">场景 11</option>
-                        <!-- <option value="12">场景 12</option>
+                            <div style="margin-bottom: 10px;">
+                                <label for="bgSelect"
+                                    style="display: block; margin-bottom: 5px; font-size: 13px; color: #666;"
+                                    data-i18n="selectScene">选择场景</label>
+                                <select id="bgSelect"
+                                    style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 4px; font-size: 13px; cursor: pointer;"
+                                    data-i18n-options="scene">
+                                    <option value="0">场景 0</option>
+                                    <option value="1">场景 1</option>
+                                    <option value="2">场景 2</option>
+                                    <option value="3" selected>场景 3</option>
+                                    <option value="4">场景 4</option>
+                                    <option value="5">场景 5</option>
+                                    <option value="6">场景 6</option>
+                                    <option value="7">场景 7</option>
+                                    <option value="8">场景 8</option>
+                                    <option value="9">场景 9</option>
+                                    <option value="10">场景 10</option>
+                                    <option value="11">场景 11</option>
+                                    <!-- <option value="12">场景 12</option>
                         <option value="13">场景 13</option> -->
-                    </select>
+                                </select>
 
-                    <div style="margin-top: 8px;">
-                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; color: #666;">
-                            <input type="checkbox" id="wideScreenCheckbox" style="width: 16px; height: 16px; cursor: pointer;">
-                            <span data-i18n="wideScene">📺 宽场景</span>
-                        </label>
+                                <div style="margin-top: 8px;">
+                                    <label
+                                        style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; color: #666;">
+                                        <input type="checkbox" id="wideScreenCheckbox"
+                                            style="width: 16px; height: 16px; cursor: pointer;">
+                                        <span data-i18n="wideScene">📺 宽场景</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <button class="action-btn" id="clearBtn" style="display: none;"
+                                data-i18n="clearMap">清空地图</button>
+                            <button class="action-btn" id="exportBtn" style="display: none;"
+                                data-i18n="exportData">导出数据</button>
+                            <button class="action-btn" id="applyToRomBtn" style="display: none;"
+                                data-i18n="applyToRom">应用到 ROM 编辑器</button>
+                            <h3 data-i18n="tools">工具</h3>
+                            <!-- 选项卡标题 -->
+                            <div class="tool-tabs">
+                                <button class="tool-tab active" data-tab="tiles" data-i18n="tiles">图块</button>
+                                <button class="tool-tab" data-tab="enemies" data-i18n="enemies">敌人</button>
+                                <button class="tool-tab" data-tab="special" data-i18n="special">特殊</button>
+                            </div>
+
+                            <!-- 选项卡内容 -->
+                            <div class="tool-tab-content active" id="tilesTab">
+                                <div class="tile-buttons" id="tileButtons"></div>
+                            </div>
+
+                            <div class="tool-tab-content" id="enemiesTab">
+                                <div class="enemy-buttons" id="enemyButtons"></div>
+                            </div>
+
+                            <div class="tool-tab-content" id="specialTab">
+                                <div class="special-buttons" id="specialButtons"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Canvas 编辑区 -->
+                    <div class="canvas-container">
+                        <canvas id="levelCanvas" width="1024" height="448"></canvas>
+                        <div class="info-panel">
+                            <div class="info-item" id="currentToolInfoItem">
+                                <span data-i18n="currentTool">当前工具:</span>
+                                <span id="currentTool" data-i18n="notSelected">未选择</span>
+                            </div>
+                            <div class="info-item" id="mousePositionInfoItem">
+                                <span data-i18n="mousePosition">鼠标位置:</span>
+                                <span id="mousePos">-</span>
+                            </div>
+                            <div class="info-item" id="operationInfoItem">
+                                <span data-i18n="operationSummaryLabel">操作简介:</span>
+                                <span data-i18n="operationSummary">移动(WASD) | 攻击(J) | 跳跃(K) | 开始(Enter) |
+                                    选择(Shift)</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                
-                <button class="action-btn" id="clearBtn" style="display: none;" data-i18n="clearMap">清空地图</button>
-                <button class="action-btn" id="exportBtn" style="display: none;" data-i18n="exportData">导出数据</button>
-                <button class="action-btn" id="applyToRomBtn" style="display: none;" data-i18n="applyToRom">应用到 ROM 编辑器</button>
-                <h3 data-i18n="tools">工具</h3>
-                <!-- 选项卡标题 -->
-                <div class="tool-tabs">
-                    <button class="tool-tab active" data-tab="tiles" data-i18n="tiles">图块</button>
-                    <button class="tool-tab" data-tab="enemies" data-i18n="enemies">敌人</button>
-                    <button class="tool-tab" data-tab="special" data-i18n="special">特殊</button>
-                </div>
-                
-                <!-- 选项卡内容 -->
-                <div class="tool-tab-content active" id="tilesTab">
-                    <div class="tile-buttons" id="tileButtons"></div>
-                </div>
-                
-                <div class="tool-tab-content" id="enemiesTab">
-                    <div class="enemy-buttons" id="enemyButtons"></div>
-                </div>
-                
-                <div class="tool-tab-content" id="specialTab">
-                    <div class="special-buttons" id="specialButtons"></div>
-                </div>
-                </div>
+            <!-- </div> -->
+
+            <div class="button-group">
+                <button class="btn-test" id="testLevelBtn" onclick="testLevel()" disabled data-i18n="testLevel">🎮
+                    测试关卡</button>
+                <button class="btn-test" id="testBtn" onclick="testROM()" disabled data-i18n="testRom">🎮 测试
+                    ROM</button>
+                <button class="btn-stop" id="stopEmulatorBtn" onclick="stopEmulator()" disabled
+                    data-i18n="stopEmulator">⏹️ 结束模拟</button>
+                <button class="btn-download" id="shareBtn" onclick="shareLevel()" data-i18n="shareLevel">🔗
+                    分享关卡</button>
             </div>
-            
-            <!-- Canvas 编辑区 -->
-            <div class="canvas-container">
-                <canvas id="levelCanvas" width="1024" height="448"></canvas>
-                <div class="info-panel">
-                    <!-- <div class="info-item">
-                        <span data-i18n="gridSize">网格大小:</span>
-                        <span>16 × 14</span>
-                    </div> --> 
-                    <div class="info-item" id="currentToolInfoItem">
-                        <span data-i18n="currentTool">当前工具:</span>
-                        <span id="currentTool" data-i18n="notSelected">未选择</span>
+
+            <div class="button-group">
+                <button class="btn-save" id="saveBtn" onclick="saveLevel()" disabled data-i18n="saveLevel">💾
+                    保存关卡</button>
+                <button class="btn-write" id="writeRomBtn" onclick="writeToROM()" disabled data-i18n="writeToRom">📝 写入
+                    ROM</button>
+                <button class="btn-download" id="downloadBtn" onclick="downloadROM()" disabled
+                    data-i18n="downloadRom">⬇️ 下载 ROM</button>
+            </div>
+            <div class="memory-overview" id="memoryOverview">
+                <h3 data-i18n="memoryUsage">💾 内存使用情况</h3>
+
+                <!-- <div class="memory-stats">
+                    <div class="memory-stat">
+                        <div class="memory-stat-label">已使用</div>
+                        <div class="memory-stat-value used" id="memoryUsed">0</div>
                     </div>
-                    <div class="info-item" id="mousePositionInfoItem">
-                        <span data-i18n="mousePosition">鼠标位置:</span>
-                        <span id="mousePos">-</span>
+                    <div class="memory-stat">
+                        <div class="memory-stat-label">可用空间</div>
+                        <div class="memory-stat-value free" id="memoryFree">0</div>
                     </div>
-                    <div class="info-item" id="operationInfoItem">
-                        <span data-i18n="operationSummaryLabel">操作简介:</span>
-                        <span data-i18n="operationSummary">移动(WASD)  |  攻击(J)  | 跳跃(K) | 开始(Enter) | 选择(Shift)</span>
+                    <div class="memory-stat">
+                        <div class="memory-stat-label">总容量</div>
+                        <div class="memory-stat-value" id="memoryTotal">0</div>
+                    </div>
+                    <div class="memory-stat">
+                        <div class="memory-stat-label">使用率</div>
+                        <div class="memory-stat-value percent" id="memoryPercent">0%</div>
+                    </div>
+                </div> -->
+
+                <div class="memory-bar-container">
+                    <div class="memory-bar-fill" id="memoryBarFill" style="width: 0%"></div>
+                    <div class="memory-bar-text" id="memoryBarText">0 / 0 Byte</div>
+                </div>
+
+                <div class="memory-segments" id="memorySegments"></div>
+            </div>
+            <!-- 移动端游戏控制面板 -->
+            <div class="mobile-game-controls" id="mobileGameControls">
+                <!-- 停止按钮（居中偏上） -->
+                <button class="control-stop-btn forbidden-text-select" id="mobileStopBtn" onclick="stopEmulator()">
+                    <div class="stop-icon">⏹</div>
+                </button>
+
+                <div class="controls-layout">
+                    <!-- 左侧：十字方向键 -->
+                    <div class="dpad-container">
+                        <button class="forbidden-text-select dpad-btn dpad-up" data-key="up">▲</button>
+                        <button class="forbidden-text-select dpad-btn dpad-left" data-key="left">◀</button>
+                        <button class="forbidden-text-select dpad-btn dpad-center"></button>
+                        <button class="forbidden-text-select dpad-btn dpad-right" data-key="right">▶</button>
+                        <button class="forbidden-text-select dpad-btn dpad-down" data-key="down">▼</button>
+                    </div>
+
+                    <!-- 右侧：A B 按钮 -->
+                    <div class="action-buttons forbidden-text-select">
+                        <button class="action-btn forbidden-text-select btn-b" data-key="b">B</button>
+                        <button class="action-btn forbidden-text-select btn-a" data-key="a">A</button>
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
 
-        <div class="button-group">
-            <button class="btn-test" id="testLevelBtn" onclick="testLevel()" disabled data-i18n="testLevel">🎮 测试关卡</button>
-            <button class="btn-test" id="testBtn" onclick="testROM()" disabled data-i18n="testRom">🎮 测试 ROM</button>
-            <button class="btn-stop" id="stopEmulatorBtn" onclick="stopEmulator()" disabled data-i18n="stopEmulator">⏹️ 结束模拟</button>
-            <button class="btn-download" id="shareBtn" onclick="shareLevel()" data-i18n="shareLevel">🔗 分享关卡</button>
-        </div>
-
-        <div class="button-group">
-            <button class="btn-save" id="saveBtn" onclick="saveLevel()" disabled data-i18n="saveLevel">💾 保存关卡</button>
-            <button class="btn-write" id="writeRomBtn" onclick="writeToROM()" disabled data-i18n="writeToRom">📝 写入 ROM</button>
-            <button class="btn-download" id="downloadBtn" onclick="downloadROM()" disabled data-i18n="downloadRom">⬇️ 下载 ROM</button>
-        </div>
-
-        <!-- 移动端游戏控制面板 -->
-        <div class="mobile-game-controls" id="mobileGameControls">
-            <!-- 停止按钮（居中偏上） -->
-            <button class="control-stop-btn forbidden-text-select" id="mobileStopBtn" onclick="stopEmulator()">
-                <div class="stop-icon">⏹</div>
-            </button>
-            
-            <div class="controls-layout">
-                <!-- 左侧：十字方向键 -->
-                <div class="dpad-container">
-                    <button class="forbidden-text-select dpad-btn dpad-up" data-key="up">▲</button>
-                    <button class="forbidden-text-select dpad-btn dpad-left" data-key="left">◀</button>
-                    <button class="forbidden-text-select dpad-btn dpad-center"></button>
-                    <button class="forbidden-text-select dpad-btn dpad-right" data-key="right">▶</button>
-                    <button class="forbidden-text-select dpad-btn dpad-down" data-key="down">▼</button>
-                </div>
-                
-                <!-- 右侧：A B 按钮 -->
-                <div class="action-buttons forbidden-text-select">
-                    <button class="action-btn forbidden-text-select btn-b" data-key="b">B</button>
-                    <button class="action-btn forbidden-text-select btn-a" data-key="a">A</button>
+                <!-- 底部：Select Start 按钮 -->
+                <div class="system-buttons forbidden-text-select">
+                    <button class="system-btn forbidden-text-select" data-key="select">SELECT</button>
+                    <button class="system-btn forbidden-text-select" data-key="start">START</button>
                 </div>
             </div>
-            
-            <!-- 底部：Select Start 按钮 -->
-            <div class="system-buttons forbidden-text-select">
-                <button class="system-btn forbidden-text-select" data-key="select">SELECT</button>
-                <button class="system-btn forbidden-text-select" data-key="start">START</button>
-            </div>
-        </div>
 
-        <div class="info-panel" style="display: none;">
-            <div class="info-item" >
-                <div class="info-label" data-i18n="mapRomAddress">地图 ROM 地址</div>
-                <div class="info-value" id="romAddress">-</div>
-            </div>
-            <div class="info-item">
-                <div class="info-label" data-i18n="mapCpuAddress">地图 CPU 地址</div>
-                <div class="info-value" id="cpuAddress">-</div>
-            </div>
-            <div class="info-item">
-                <div class="info-label" data-i18n="monsterRomAddress">怪物ROM地址</div>
-                <div class="info-value" id="monsterRomAddress">-</div>
-            </div>
-            <div class="info-item">
-                <div class="info-label" data-i18n="monsterCpuAddress">怪物CPU地址</div>
-                <div class="info-value" id="monsterCpuAddress">-</div>
-            </div>
-            <!-- <div class="info-item">
+            <div class="info-panel" style="display: none;">
+                <div class="info-item">
+                    <div class="info-label" data-i18n="mapRomAddress">地图 ROM 地址</div>
+                    <div class="info-value" id="romAddress">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label" data-i18n="mapCpuAddress">地图 CPU 地址</div>
+                    <div class="info-value" id="cpuAddress">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label" data-i18n="monsterRomAddress">怪物ROM地址</div>
+                    <div class="info-value" id="monsterRomAddress">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label" data-i18n="monsterCpuAddress">怪物CPU地址</div>
+                    <div class="info-value" id="monsterCpuAddress">-</div>
+                </div>
+                <!-- <div class="info-item">
                 <div class="info-label" data-i18n="currentSize">当前大小</div>
                 <div class="info-value" id="currentSize">0 字节</div>
             </div> -->
-            <!-- <div class="info-item">
+                <!-- <div class="info-item">
                 <div class="info-label">最大大小</div>
                 <div class="info-value" id="maxSize">- 字节</div>
             </div> -->
-        </div>
-        <div class="hex-editor" style="display: none;">
-            <label for="hexData" style="display: block; margin-bottom: 10px; font-weight: bold;">
-                <span data-i18n="mapDataLabel">🗺️ 地图数据 (不包含结束符 FF)</span> <span style="color: #999; font-size: 12px; font-weight: normal;" data-i18n="readOnly">[只读参考]</span>
-            </label>
-            <textarea id="hexData" class="hex-input" data-i18n-placeholder="hexDataPlaceholder" placeholder="输入十六进制数据，如: A1 B2 C3 D4..." readonly style="background-color: #f5f5f5; cursor: default;"></textarea>
-        </div>
+            </div>
+            <div class="hex-editor" style="display: none;">
+                <label for="hexData" style="display: block; margin-bottom: 10px; font-weight: bold;">
+                    <span data-i18n="mapDataLabel">🗺️ 地图数据 (不包含结束符 FF)</span> <span
+                        style="color: #999; font-size: 12px; font-weight: normal;" data-i18n="readOnly">[只读参考]</span>
+                </label>
+                <textarea id="hexData" class="hex-input" data-i18n-placeholder="hexDataPlaceholder"
+                    placeholder="输入十六进制数据，如: A1 B2 C3 D4..." readonly
+                    style="background-color: #f5f5f5; cursor: default;"></textarea>
+            </div>
 
-        <div class="hex-editor" style="display: none;">
-            <label for="monsterData" style="display: block; margin-bottom: 10px; font-weight: bold;">
-                <span data-i18n="monsterDataLabel">👾 怪物数据</span> <span style="color: #999; font-size: 12px; font-weight: normal;" data-i18n="readOnly">[只读参考]</span>
-                <br>
-                <span style="font-size: 11px; font-weight: normal; color: #666;" data-i18n="monsterDataFormat">
-                    (格式: 第1字节=怪物数*2+1, 后续为 [类型 位置] 对)
-                </span>
-            </label>
-            <textarea id="monsterData" class="hex-input" style="min-height: 120px; background-color: #f5f5f5; cursor: default;" data-i18n-placeholder="monsterDataPlaceholder" placeholder="输入怪物数据，如: 01 (无怪物) 或 03 01 DD (一个01类型怪物在DD位置)" readonly></textarea>
+            <div class="hex-editor" style="display: none;">
+                <label for="monsterData" style="display: block; margin-bottom: 10px; font-weight: bold;">
+                    <span data-i18n="monsterDataLabel">👾 怪物数据</span> <span
+                        style="color: #999; font-size: 12px; font-weight: normal;" data-i18n="readOnly">[只读参考]</span>
+                    <br>
+                    <span style="font-size: 11px; font-weight: normal; color: #666;" data-i18n="monsterDataFormat">
+                        (格式: 第1字节=怪物数*2+1, 后续为 [类型 位置] 对)
+                    </span>
+                </label>
+                <textarea id="monsterData" class="hex-input"
+                    style="min-height: 120px; background-color: #f5f5f5; cursor: default;"
+                    data-i18n-placeholder="monsterDataPlaceholder"
+                    placeholder="输入怪物数据，如: 01 (无怪物) 或 03 01 DD (一个01类型怪物在DD位置)" readonly></textarea>
+            </div>
         </div>
     </div>
-        </div>
     </div>
     <!-- JavaScript 模块 -->
     <script src="js/i18n.js"></script>
-    <script src="js/lib/jsnes.min.js"></script>   
-    <script src="js/NesEmulator.js"></script>   
+    <script src="js/lib/jsnes.min.js"></script>
+    <script src="js/NesEmulator.js"></script>
     <script src="js/MobileGameController.js"></script>
     <script src="js/Config.js"></script>
     <script src="js/Enemy.js"></script>
@@ -363,8 +386,9 @@
     <script src="js/LevelEditor.js"></script>
 
     <script src="js/app.js"></script>
-    
+
     <!-- 消息提示容器 -->
     <div id="messageContainer" class="message-container"></div>
 </body>
+
 </html>

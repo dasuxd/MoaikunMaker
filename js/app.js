@@ -144,8 +144,8 @@ class App {
             return;
         }
         const tmpRomData = this.createTmpRomData(data);
-        const editorSection = document.getElementById('editorSection');
-        editorSection.classList.add('active');
+        // const editorSection = document.getElementById('editorSection');
+        // editorSection.classList.add('active');
         
 
         // 创建模拟器并加载临时 ROM
@@ -291,8 +291,8 @@ class App {
         this.levelEditor.createButtons();
         this.displayLevelList();
         this.updateMemoryOverview();
-        const editorSection = document.getElementById('editorSection');
-        editorSection.classList.remove('active');
+        // const editorSection = document.getElementById('editorSection');
+        // editorSection.classList.remove('active');
         if (!fromCache) {
             //this.showMessage('success', `文件加载成功: ${fileName} (${this.romEditor.romData.length} 字节)`);
             this.showMessage('success', i18n.t("loadFileSuccess",{fileNameStr: fileName, length: this.romEditor.romData.length}));
@@ -426,8 +426,8 @@ class App {
         });
 
         // 显示编辑器
-        const editorSection = document.getElementById('editorSection');
-        editorSection.classList.add('active');
+        // const editorSection = document.getElementById('editorSection');
+        // editorSection.classList.add('active');
         //editorSection.scrollIntoView({ behavior: 'smooth' });
 
         // 更新编辑器内容
@@ -896,7 +896,7 @@ class App {
         container.appendChild(message);
         
         // 根据屏幕宽度决定显示时长：移动端2秒，桌面端5秒
-        const isMobile = window.innerWidth <= 768;
+        const isMobile = window.matchMedia('(pointer: coarse)').matches;
         const displayTime = isMobile ? 2000 : 5000;
         
         // 显示后自动隐藏

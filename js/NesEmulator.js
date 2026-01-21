@@ -369,7 +369,7 @@ class NesEmulator {
 
         if (canvasContainer) {
             canvasContainer.classList.add('test-mode');
-            if(window.innerWidth < 768){
+            if(window.matchMedia('(pointer: coarse)').matches){
             document.querySelector('#levelCanvas').scrollIntoView({
                 behavior: 'smooth',    // 平滑滚动（推荐）  也可写 'auto'（瞬间跳过去）
                 block: 'start',        // 垂直方向：顶部对齐
