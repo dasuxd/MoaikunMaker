@@ -1,10 +1,13 @@
 class NesEmulator {
+    static LOADING_WAIT_ROM_FRAME = 40;
+    static LOADING_WAIT_START_FRAME = 290;
     constructor(canvasId) {
         this.canvas = document.getElementById(canvasId);
         this.ctx = this.canvas.getContext('2d');
         this.nes = null;
         this.frameBuffer = null;
         this.isRunning = false;
+        this.isPaused = false;
 
         // 帧率控制
         this.fps = 60; // NES 标准帧率
@@ -20,6 +23,8 @@ class NesEmulator {
         this.initNES();
         this.initAudio();
         this.setupKeyboard(); // 初始化键盘控制
+
+        this.loadingProgress = 0;
     }
     
     initNES() {
@@ -161,6 +166,25 @@ class NesEmulator {
         // 绑定事件
         document.addEventListener('keydown', this.onKeyDown);
         document.addEventListener('keyup', this.onKeyUp);
+
+        // 绑定快捷键（例如按下 'P' 键暂停）
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'p' || e.key === 'P') {
+                this.isPaused = !this.isPaused;
+                if (!this.isPaused) frame(); // 恢复运行
+            }
+        });
+
+        // 绑定快捷键（例如按下 'F10' 逐帧执行）
+        // window.addEventListener('keydown', (e) => {
+        //     if (e.key === 'F10') {
+        //         if (this.isPaused) {
+        //             this.nes.frame(); // 强制执行一帧
+        //             updateCanvas(); // 强制刷新画面
+        //             console.log("Current PC:", nes.cpu.pc.toString(16)); // 打印当前指令位置
+        //         }
+        //     }
+        // });
     }
     
     loadROM(romData) {
@@ -179,8 +203,61 @@ class NesEmulator {
         // JSNES 需要字符串格式
         this.nes.loadROM(romString);
     }
+
+    renderLoadingProgress() {
+        const canvasWidth = this.canvas.width;
+        const canvasHeight = this.canvas.height;
+
+        // 创建临时 canvas 用于绘制原始帧
+        // if (!this.tempCanvas) {
+        //     this.tempCanvas = document.createElement('canvas');
+        //     this.tempCanvas.width = nesWidth;
+        //     this.tempCanvas.height = nesHeight;
+        //     this.tempCtx = this.tempCanvas.getContext('2d');
+        // }
+        
+        // 1. 获取当前进度百分比
+        const totalFrames = NesEmulator.LOADING_WAIT_ROM_FRAME + NesEmulator.LOADING_WAIT_START_FRAME;
+        const progress = Math.min(this.loadingProgress / totalFrames, 1);
+        
+        // 2. 这里的宽高是 Canvas 的绘图分辨率（通常 NES 是 256x240）
+        // const W = canvas.width;
+        // const H = canvas.height;
+
+        // 3. 绘制背景遮罩（让游戏画面稍微变暗）
+        this.ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+        this.ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+        // 4. 加载条尺寸设计
+        const barWidth = canvasWidth * 0.7;  // 宽度占屏幕 70%
+        const barHeight = 8;       // 高度
+        const x = (canvasWidth - barWidth) / 2;
+        const y = canvasHeight * 0.8;         // 位置在屏幕 80% 处（偏下）
+
+        // 5. 绘制加载条底槽
+        this.ctx.fillStyle = "#333";
+        this.ctx.beginPath();
+        this.ctx.roundRect(x, y, barWidth, barHeight, 4); // 圆角矩形
+        this.ctx.fill();
+
+        // 6. 绘制进度条（亮色）
+        this.ctx.fillStyle = "#00ffcc"; // 经典的科技青色
+        this.ctx.beginPath();
+        this.ctx.roundRect(x, y, barWidth * progress, barHeight, 4);
+        this.ctx.fill();
+
+        // 7. 绘制文字提示
+        this.ctx.fillStyle = "#ffffff";
+        this.ctx.font = "12px Arial";
+        this.ctx.textAlign = "center";
+        this.ctx.fillText(`LOADING: ${Math.round(progress * 100)}%`, canvasWidth / 2, y - 10);
+    }
     
     renderFrame(frameBuffer) {
+        if(this.loadingProgress < NesEmulator.LOADING_WAIT_ROM_FRAME + NesEmulator.LOADING_WAIT_START_FRAME){
+            this.renderLoadingProgress();
+            return;
+        }
         // NES 原始分辨率
         const nesWidth = 256;
         const nesHeight = 240;
@@ -240,8 +317,38 @@ class NesEmulator {
             offsetX, offsetY, scaledWidth, scaledHeight  // 目标矩形
         );
     }
+
+    async quickStart(){
+        this.loadingProgress = 0;
+        const CHUNK_SIZE = 2;
+        for(let i = 0; i <  NesEmulator.LOADING_WAIT_ROM_FRAME; i++){
+            this.nes.frame();
+            this.loadingProgress++;
+
+            if (i % CHUNK_SIZE === 0) {
+                await new Promise(resolve => setTimeout(resolve, 0));
+            }
+        }
+
+        this.nes.buttonDown(1, 3);
+        this.nes.frame();
+        this.nes.frame();
+        this.nes.frame();
+        this.nes.buttonUp(1, 3);
+
+        for(let i = 0; i <  NesEmulator.LOADING_WAIT_START_FRAME; i++){
+            this.nes.frame();
+            this.loadingProgress++;
+            if (i % CHUNK_SIZE === 0) {
+                await new Promise(resolve => setTimeout(resolve, 0));
+            }
+        }
+
+        this.start();
+    }
     
     start() {
+        this.loadingProgress = NesEmulator.LOADING_WAIT_ROM_FRAME + NesEmulator.LOADING_WAIT_START_FRAME
         if (this.isRunning) return;
         
         this.isRunning = true;
@@ -272,9 +379,23 @@ class NesEmulator {
             this.scriptProcessor.disconnect();
         }
     }
+
+    // async loadingLoop(){
+    //     if(this.loadingProgress < NesEmulator.LOADING_WAIT_ROM_FRAME + NesEmulator.LOADING_WAIT_START_FRAME){
+    //         this.renderLoadingProgress()
+    //         requestAnimationFrame( () => this.loadingLoop());
+    //     }else{
+    //         this.renderLoadingProgress()
+    //     }
+    // }
     
     loop(currentTime) {
         if (!this.isRunning) return;
+
+        if (this.isPaused) {
+            this.animationId = requestAnimationFrame((time) => this.loop(time));
+            return;
+        }
         
         // 计算距离上一帧的时间
         const deltaTime = currentTime - this.lastFrameTime;

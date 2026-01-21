@@ -352,7 +352,7 @@ class RomEditor {
     reorderLevels(fromIndex, toIndex) {
         if (fromIndex < 0 || fromIndex >= this.levelCount || 
             toIndex < 0 || toIndex >= this.levelCount) {
-            return { success: false, error: '无效的关卡索引' };
+            return { success: false, error: i18n.t('invalidLevelIndexError') };
         }
 
         // 移动关卡
@@ -395,7 +395,7 @@ class RomEditor {
      */
     setLevelCount(count) {
         if (count < 1 || count > 255) {
-            return { success: false, error: '关卡总数必须在1-255之间' };
+            return { success: false, error: i18n.t('setLevelCountError') };
         }
         
         this.levelCount = count;

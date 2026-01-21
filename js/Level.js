@@ -118,23 +118,23 @@ class Level {
         const newData = hexBytes.map(h => parseInt(h, 16));
         
         // 验证第一个字节
-        const firstByte = newData[0];
-        if (firstByte === 0x01) {
-            // 没有怪物的情况
-            if (newData.length !== 1) {
-                return { success: false, error: '当第一个字节为01时，不应有其他数据' };
-            }
-        } else {
-            // 有怪物的情况，验证数据长度
-            if (firstByte !== newData.length) {
-                return { success: false, error: `第一个字节表示数据长度为 ${firstByte}，但实际数据长度为 ${newData.length}` };
-            }
+        //const firstByte = newData[0];
+        // if (firstByte === 0x01) {
+        //     // 没有怪物的情况
+        //     if (newData.length !== 1) {
+        //         return { success: false, error: '当第一个字节为01时，不应有其他数据' };
+        //     }
+        // } else {
+        //     // 有怪物的情况，验证数据长度
+        //     if (firstByte !== newData.length) {
+        //         return { success: false, error: `第一个字节表示数据长度为 ${firstByte}，但实际数据长度为 ${newData.length}` };
+        //     }
             
-            // 验证数据长度是否为奇数（第一个字节 + 怪物对数*2）
-            if (firstByte % 2 === 0) {
-                return { success: false, error: '数据长度应该是奇数（怪物数量 * 2 + 1）' };
-            }
-        }
+        //     // 验证数据长度是否为奇数（第一个字节 + 怪物对数*2）
+        //     if (firstByte % 2 === 0) {
+        //         return { success: false, error: '数据长度应该是奇数（怪物数量 * 2 + 1）' };
+        //     }
+        // }
         
         this.monsterData = newData;
         return { success: true };

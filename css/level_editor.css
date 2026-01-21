@@ -39,7 +39,7 @@ h1 {
     max-height: calc(100vh - 120px);
     overflow: hidden;
     z-index: 900;
-    display: flex;
+    display: block;
     flex-direction: column;
 }
 

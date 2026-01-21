@@ -589,7 +589,7 @@ class App {
     }
 
     // 测试当前关卡
-    testLevel(){
+    async testLevel(){
         if(this.changeMode()){
             return;
         }
@@ -608,7 +608,6 @@ class App {
         }
         
         this.emulator.loadROM(romData);
-        this.emulator.start();
 
         this.testLevelBtn.disabled = true;
         this.saveBtn.disabled =  true;
@@ -616,6 +615,10 @@ class App {
         this.testBtn.disabled = true;
         this.downloadBtn.disabled = true;
         this.stopEmulatorBtn.disabled = false;
+
+        await this.emulator.quickStart();
+
+
 
         this.showMessage('success', i18n.t("testingCurrentLevelSuccess"));
     }
@@ -1105,8 +1108,8 @@ function testROM() {
 }
 
 // 全局函数
-function testLevel() {
-    app.testLevel();
+async function testLevel() {
+    await app.testLevel();
 }
 
 // 全局函数

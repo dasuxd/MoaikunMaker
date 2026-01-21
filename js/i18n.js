@@ -123,10 +123,10 @@ const i18n = {
             'changeLevelOrderCancelWarning': '✖️ 已取消修改' ,
             'changeLevelOrderSuccess': '✅ 关卡顺序已保存（仅在内存中，请点击“写入ROM”按钮保存到文件）' ,
             'forbiddenPleaceEnemyWarning': '敌人数量已达上限，无法放置更多敌人' ,
-            
             'emptyEnemyDataError': '怪物数据不能为空' ,
             'invalidHexValue': '无效的十六进制值: {hexValue}' ,
-
+            "setLevelCountError":'关卡总数必须在1-255之间',
+            "invalidLevelIndexError":'无效的关卡索引',   
 
 
         },
@@ -249,6 +249,8 @@ const i18n = {
             'forbiddenPleaceEnemyWarning': 'Enemy limit reached, cannot place more enemies',
             'emptyEnemyDataError': 'Monster data cannot be empty',
             'invalidHexValue': 'Invalid hex value: {hexValue}',
+            "setLevelCountError": 'Total levels must be between 1 and 255',
+            "invalidLevelIndexError": 'Invalid level index',
         }
     },
     
