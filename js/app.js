@@ -165,10 +165,8 @@ class App {
         document.getElementById('fileInput').addEventListener('change', 
             (e) => this.handleFileSelect(e));
 
-                    // 初始化移动控制器
-        if (!this.mobileController) {
-            this.mobileController = new MobileGameController(this.emulator);
-        }
+        // 初始化移动控制器
+
         
         // 关卡列表抽屉切换
         const sidebarToggle = document.getElementById('sidebarToggle');
@@ -670,10 +668,10 @@ class App {
             this.emulator = new NesEmulator('levelCanvas');
         }
         
-        // 初始化移动控制器
-        if (!this.mobileController) {
-            this.mobileController = new MobileGameController(this.emulator);
-        }
+        // // 初始化移动控制器
+        // if (!this.mobileController) {
+        //     this.mobileController = new MobileGameController(this.emulator);
+        // }
         
         this.emulator.loadROM(romData);
         

@@ -59,6 +59,7 @@ class NesEmulator {
             this.nes.ppu.f_bgClipping = 1;
             this.nes.ppu.f_spClipping = 1;
         }
+
     }
     
     /**
@@ -170,18 +171,24 @@ class NesEmulator {
                 this.buttonUp(1, button);
             }
         };
+
+        
+        //绑定屏幕按键
+        if (!app.mobileController) {
+            app.mobileController = new MobileGameController(this);
+        }
         
         // 绑定事件
         document.addEventListener('keydown', this.onKeyDown);
         document.addEventListener('keyup', this.onKeyUp);
 
         // 绑定快捷键（例如按下 'P' 键暂停）
-        window.addEventListener('keydown', (e) => {
-            if (e.key === 'p' || e.key === 'P') {
-                this.isPaused = !this.isPaused;
-                if (!this.isPaused) frame(); // 恢复运行
-            }
-        });
+        // window.addEventListener('keydown', (e) => {
+        //     if (e.key === 'p' || e.key === 'P') {
+        //         this.isPaused = !this.isPaused;
+        //         if (!this.isPaused) frame(); // 恢复运行
+        //     }
+        // });
 
         // 绑定快捷键（例如按下 'F10' 逐帧执行）
         // window.addEventListener('keydown', (e) => {
