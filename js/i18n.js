@@ -25,7 +25,7 @@ const i18n = {
             'memoryUsage': '💾 内存使用情况',
             
             // Toolbar
-            'config': '🛠️ 配置',
+            'config': '🛠️',
             'dragToMove': '拖动移动',
             'operations': '操作',
             'selectScene': '选择场景',
@@ -104,7 +104,7 @@ const i18n = {
             'emulatorStopInfo':'✋ 模拟器已停止',
             'pleaseSelectLevelFirstWarning':'请先选择一个关卡',
             'copyShareLevelLinkSuccess':'🔗 分享链接已复制到剪贴板！',
-            'copyShareLevelLinkError':'生成分享链接失败',
+            'copyShareLevelLinkError':'生成分享链接失败:{error}',
             'testingCurrentLevelSuccess':'🎮 正在测试当前关卡...',
             'romNotLoadedError': '请先加载 ROM 文件',
             'emulatorStartSuccess': '🎮 模拟器已启动！',
@@ -151,7 +151,7 @@ const i18n = {
             'memoryUsage': '💾 Memory Usage',
             
             // Toolbar
-            'config': '🛠️ Config',
+            'config': '🛠️',
             'dragToMove': 'Drag to Move',
             'operations': 'Operations',
             'selectScene': 'Select Scene',

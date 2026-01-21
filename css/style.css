@@ -309,6 +309,7 @@ h1 {
 }
 
 .sidebar {
+    /* touch-action: none;  */
     position: fixed;
     right: -320px;
     top: 55px;

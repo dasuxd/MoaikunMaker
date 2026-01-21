@@ -431,6 +431,7 @@ class LevelEditor {
      * 设置工具栏拖动功能
      */
     setupToolbarDrag() {
+        return ;
         const toolbar = document.getElementById('toolbar');
         const header = document.getElementById('toolbarHeader');
         

@@ -171,6 +171,16 @@ class App {
                 sidebarToggle.classList.toggle('sidebar-open');
             });
         }
+
+        // 工具栏抽屉切换
+        const toolbarToggle = document.getElementById('toolbarToggle');
+        const toolbar = document.querySelector('.toolbar');
+        if (toolbarToggle && toolbar) {
+            toolbarToggle.addEventListener('click', () => {
+                toolbar.classList.toggle('open');
+                toolbarToggle.classList.toggle('toolbar-open');
+            });
+        }
         
         // 关卡总数输入框
         const levelCountInput = document.getElementById('levelCountInput');
@@ -317,6 +327,7 @@ class App {
         // 显示侧边栏切换按钮和主布局
         document.getElementById('mainLayout').style.display = 'flex';
         document.getElementById('sidebarToggle').style.display = 'flex';
+        document.getElementById('toolbarToggle').style.display = 'flex';
         
         // 显示关卡总数
         const levelCountInput = document.getElementById('levelCountInput');
@@ -563,11 +574,11 @@ class App {
                 })
                 .catch(err => {
                     console.error("复制失败:", err);
-                    //prompt("复制失败，请手动复制以下链接：", shareUrl);
+                    prompt("复制失败，请手动复制以下链接：", shareUrl);
                 });
         } catch (error) {
-            console.error('生成分享链接失败:', error);
-            this.showMessage('error', i18n.t("copyShareLevelLinkError"));
+           // console.error('生成分享链接失败:', error);
+            this.showMessage('error', i18n.t("copyShareLevelLinkError",{error: error}));
         }
     }
 
