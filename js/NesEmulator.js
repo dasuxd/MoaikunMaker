@@ -390,11 +390,23 @@ class NesEmulator {
     
     start() {
         if (this.isRunning) return;
-                // 添加测试模式类，在移动端缩小显示
+        // 添加测试模式类，在移动端缩小显示
+        // 延迟滚动到中心位置，等待 CSS 动画完成
+        setTimeout(() => {
+            this.scrollCanvasToCenter();
+        }, 400); // 等待 CSS transition 完成（0.3s + 缓冲）
+
         const canvasContainer = document.querySelector('.canvas-container');
 
         if (canvasContainer) {
             canvasContainer.classList.add('test-mode');
+            if(window.innerWidth < 768){
+            document.querySelector('#levelCanvas').scrollIntoView({
+                behavior: 'smooth',    // 平滑滚动（推荐）  也可写 'auto'（瞬间跳过去）
+                block: 'start',        // 垂直方向：顶部对齐
+                inline: 'nearest'      // 水平方向：就近（一般用不到特别指定）
+            });
+            }
         }
 
         const editorLayout = document.querySelector('.editor-layout');

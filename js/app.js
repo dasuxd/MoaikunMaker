@@ -147,6 +147,7 @@ class App {
         const editorSection = document.getElementById('editorSection');
         editorSection.classList.add('active');
         
+
         // 创建模拟器并加载临时 ROM
         if (!this.emulator) {
             this.emulator = new NesEmulator('levelCanvas');
@@ -156,6 +157,7 @@ class App {
         this.emulator.loadROM(tmpRomData);
         this.emulator.start();
         this.showMessage('success', i18n.t('loadSharedLevelSuccess'));
+        
     }
     
     /**
@@ -675,35 +677,21 @@ class App {
         
         this.emulator.loadROM(romData);
         
-        // 添加测试模式类，在移动端缩小显示
-        const canvasContainer = document.querySelector('.canvas-container');
-        if (canvasContainer) {
-            canvasContainer.classList.add('test-mode');
-            if(window.innerWidth < 768){
-                document.querySelector('#levelCanvas').scrollIntoView({
-                    behavior: 'smooth',    // 平滑滚动（推荐）  也可写 'auto'（瞬间跳过去）
-                    block: 'start',        // 垂直方向：顶部对齐
-                    inline: 'nearest'      // 水平方向：就近（一般用不到特别指定）
-                });
-            }
-
-        }
-
-        const editorLayout = document.querySelector('.editor-layout');
-        if (editorLayout) {
-            editorLayout.classList.add('test-mode');
-        }
+        // const editorLayout = document.querySelector('.editor-layout');
+        // if (editorLayout) {
+        //     editorLayout.classList.add('test-mode');
+        // }
         
-        // 添加body的test-mode类，用于隐藏其他UI元素
-        document.body.classList.add('test-mode');
+        // // 添加body的test-mode类，用于隐藏其他UI元素
+        // document.body.classList.add('test-mode');
         
-        // 显示移动控制面板
-        this.mobileController.show();
+        // // 显示移动控制面板
+        // this.mobileController.show();
         
-        // 延迟滚动到中心位置，等待 CSS 动画完成
-        setTimeout(() => {
-            this.emulator.scrollCanvasToCenter();
-        }, 400); // 等待 CSS transition 完成（0.3s + 缓冲）
+        // // 延迟滚动到中心位置，等待 CSS 动画完成
+        // setTimeout(() => {
+        //     this.emulator.scrollCanvasToCenter();
+        // }, 400); // 等待 CSS transition 完成（0.3s + 缓冲）
         
         this.emulator.quickStart();
 
@@ -732,15 +720,7 @@ class App {
             this.emulator = new NesEmulator('levelCanvas');
         }
         
-
-        
         this.emulator.loadROM(this.romEditor.romData);
-        
-        // 延迟滚动到中心位置，等待 CSS 动画完成
-        setTimeout(() => {
-            this.emulator.scrollCanvasToCenter();
-        }, 400); // 等待 CSS transition 完成（0.3s + 缓冲）
-        
         this.emulator.start();
 
         this.testLevelBtn.disabled = true;
@@ -915,7 +895,11 @@ class App {
         message.appendChild(textElement);
         container.appendChild(message);
         
-        // 5秒后隐藏
+        // 根据屏幕宽度决定显示时长：移动端2秒，桌面端5秒
+        const isMobile = window.innerWidth <= 768;
+        const displayTime = isMobile ? 2000 : 5000;
+        
+        // 显示后自动隐藏
         setTimeout(() => {
             message.classList.add('hiding');
             setTimeout(() => {
@@ -925,7 +909,7 @@ class App {
                     container.remove();
                 }
             }, 300); // 等待退出动画完成
-        }, 5000);
+        }, displayTime);
     }
 
     /**
