@@ -358,38 +358,7 @@ class NesEmulator {
         });
     }
 
-    async quickStart(){
-        this.loadingImg = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
-        this.loadingProgress = 0;
-        const CHUNK_SIZE = 2;
-        for(let i = 0; i <  NesEmulator.LOADING_WAIT_ROM_FRAME; i++){
-            this.nes.frame();
-            this.loadingProgress++;
-
-            if (i % CHUNK_SIZE === 0) {
-                await new Promise(resolve => setTimeout(resolve, 0));
-            }
-        }
-
-        this.nes.buttonDown(1, 3);
-        this.nes.frame();
-        this.nes.frame();
-        this.nes.frame();
-        this.nes.buttonUp(1, 3);
-
-        for(let i = 0; i <  NesEmulator.LOADING_WAIT_START_FRAME; i++){
-            this.nes.frame();
-            this.loadingProgress++;
-            if (i % CHUNK_SIZE === 0) {
-                await new Promise(resolve => setTimeout(resolve, 0));
-            }
-        }
-
-        this.start();
-    }
-    
-    start() {
-        if (this.isRunning) return;
+    adjustUIForMobile() {
         // 添加测试模式类，在移动端缩小显示
         // 延迟滚动到中心位置，等待 CSS 动画完成
         setTimeout(() => {
@@ -421,6 +390,44 @@ class NesEmulator {
         app.mobileController.show();
 
         app.stopEmulatorBtn.disabled = false;
+    }
+
+    async quickStart(){
+        this.adjustUIForMobile()
+        this.loadingImg = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
+        this.loadingProgress = 0;
+        const CHUNK_SIZE = 2;
+        for(let i = 0; i <  NesEmulator.LOADING_WAIT_ROM_FRAME; i++){
+            this.nes.frame();
+            this.loadingProgress++;
+
+            if (i % CHUNK_SIZE === 0) {
+                await new Promise(resolve => setTimeout(resolve, 0));
+            }
+        }
+
+        this.nes.buttonDown(1, 3);
+        this.nes.frame();
+        this.nes.frame();
+        this.nes.frame();
+        this.nes.buttonUp(1, 3);
+
+        for(let i = 0; i <  NesEmulator.LOADING_WAIT_START_FRAME; i++){
+            this.nes.frame();
+            this.loadingProgress++;
+            if (i % CHUNK_SIZE === 0) {
+                await new Promise(resolve => setTimeout(resolve, 0));
+            }
+        }
+
+        this.start();
+    }
+    
+    start() {
+        if (this.isRunning) return;
+        if(this.loadingProgress === 0){
+            this.adjustUIForMobile()
+        }
         const loadingTotal= NesEmulator.LOADING_WAIT_ROM_FRAME + NesEmulator.LOADING_WAIT_START_FRAME;
         this.loadingProgress = loadingTotal;
         
@@ -451,6 +458,7 @@ class NesEmulator {
         if (this.scriptProcessor) {
             this.scriptProcessor.disconnect();
         }
+        this.loadingProgress = 0;
     }
 
     // async loadingLoop(){

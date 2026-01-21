@@ -499,13 +499,6 @@ h1 {
     cursor: pointer;
     box-shadow: 0 4px 15px rgba(255, 68, 68, 0.5);
     transition: all 0.2s;
-    /* 核心：禁止文本选择 */
-    user-select: none;
-    -webkit-user-select: none;     /* Safari/iOS */
-    -moz-user-select: none;        /* Firefox */
-    -ms-user-select: none;         /* Edge/IE */
-    -webkit-touch-callout: none;
-    touch-action: manipulation;    /* 允许 tap，但禁用双击缩放等 */
 }
 
 .control-stop-btn:active {
@@ -550,14 +543,6 @@ h1 {
     user-select: none;
     -webkit-tap-highlight-color: transparent;
     transition: all 0.1s;
-
-      /* 核心：禁止文本选择 */
-    user-select: none;
-    -webkit-user-select: none;     /* Safari/iOS */
-    -moz-user-select: none;        /* Firefox */
-    -ms-user-select: none;         /* Edge/IE */
-    -webkit-touch-callout: none;
-    touch-action: manipulation;    /* 允许 tap，但禁用双击缩放等 */
 }
 
 .dpad-btn:active {
@@ -583,13 +568,6 @@ h1 {
     flex-direction: column; 
     gap: 30px;
     align-items: center;
-    /* 核心：禁止文本选择 */
-    user-select: none;
-    -webkit-user-select: none;     /* Safari/iOS */
-    -moz-user-select: none;        /* Firefox */
-    -ms-user-select: none;         /* Edge/IE */
-    -webkit-touch-callout: none;
-    touch-action: manipulation;    /* 允许 tap，但禁用双击缩放等 */
 }
 
 .action-btn {
@@ -628,13 +606,6 @@ h1 {
     justify-content: center;
     gap: 30px;
     margin-top: 25px;
-    /* 核心：禁止文本选择 */
-    user-select: none;
-    -webkit-user-select: none;     /* Safari/iOS */
-    -moz-user-select: none;        /* Firefox */
-    -ms-user-select: none;         /* Edge/IE */
-    -webkit-touch-callout: none;
-    touch-action: manipulation;    /* 允许 tap，但禁用双击缩放等 */
 }
 
 .system-btn {
@@ -650,6 +621,9 @@ h1 {
     -webkit-tap-highlight-color: transparent;
     transition: all 0.1s;
     box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+}
+
+.forbidden-text-select{
     /* 核心：禁止文本选择 */
     user-select: none;
     -webkit-user-select: none;     /* Safari/iOS */

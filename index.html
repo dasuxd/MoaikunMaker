@@ -59,10 +59,10 @@
             <!-- 下拉菜单 -->
             <div class="mobile-dropdown-menu" id="mobileDropdownMenu">
                 <label for="fileInput" class="dropdown-item">
-                    <span>📁 选择 ROM 文件</span>
+                    <span data-i18n="selectRom">📁 选择 ROM 文件</span>
                 </label>
                 <button class="dropdown-item" id="clearCacheBtnMobile" onclick="clearCache(); toggleMobileMenu();">
-                    <span>🗑️ 清除缓存</span>
+                    <span data-i18n="clearCache">🗑️ 清除缓存</span>
                 </button>
                 <div class="dropdown-divider"></div>
                 <button class="dropdown-item" onclick="switchLanguage('zh-CN'); toggleMobileMenu();">
@@ -274,31 +274,31 @@
         <!-- 移动端游戏控制面板 -->
         <div class="mobile-game-controls" id="mobileGameControls">
             <!-- 停止按钮（居中偏上） -->
-            <button class="control-stop-btn" id="mobileStopBtn" onclick="stopEmulator()">
+            <button class="control-stop-btn forbidden-text-select" id="mobileStopBtn" onclick="stopEmulator()">
                 <div class="stop-icon">⏹</div>
             </button>
             
             <div class="controls-layout">
                 <!-- 左侧：十字方向键 -->
                 <div class="dpad-container">
-                    <button class="dpad-btn dpad-up" data-key="up">▲</button>
-                    <button class="dpad-btn dpad-left" data-key="left">◀</button>
-                    <button class="dpad-btn dpad-center"></button>
-                    <button class="dpad-btn dpad-right" data-key="right">▶</button>
-                    <button class="dpad-btn dpad-down" data-key="down">▼</button>
+                    <button class="forbidden-text-select dpad-btn dpad-up" data-key="up">▲</button>
+                    <button class="forbidden-text-select dpad-btn dpad-left" data-key="left">◀</button>
+                    <button class="forbidden-text-select dpad-btn dpad-center"></button>
+                    <button class="forbidden-text-select dpad-btn dpad-right" data-key="right">▶</button>
+                    <button class="forbidden-text-select dpad-btn dpad-down" data-key="down">▼</button>
                 </div>
                 
                 <!-- 右侧：A B 按钮 -->
-                <div class="action-buttons">
-                    <button class="action-btn btn-b" data-key="b">B</button>
-                    <button class="action-btn btn-a" data-key="a">A</button>
+                <div class="action-buttons forbidden-text-select">
+                    <button class="action-btn forbidden-text-select btn-b" data-key="b">B</button>
+                    <button class="action-btn forbidden-text-select btn-a" data-key="a">A</button>
                 </div>
             </div>
             
             <!-- 底部：Select Start 按钮 -->
-            <div class="system-buttons">
-                <button class="system-btn" data-key="select">SELECT</button>
-                <button class="system-btn" data-key="start">START</button>
+            <div class="system-buttons forbidden-text-select">
+                <button class="system-btn forbidden-text-select" data-key="select">SELECT</button>
+                <button class="system-btn forbidden-text-select" data-key="start">START</button>
             </div>
         </div>
 

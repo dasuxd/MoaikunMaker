@@ -388,7 +388,7 @@ class App {
             //let levelLabel = `关卡 ${level.getLevelNumber()}`;
             let levelLabel = i18n.t('levelLabel', {level: level.getLevelNumber()});
             if (this.isEditingOrder && level.isDragged() && level.getOriginalLevelNumber() !== level.getLevelNumber()) {
-                levelLabel += ` <span class="original-label" style="color: #ff9800; font-size: 12px;">(原${level.getOriginalLevelNumber()})</span>`;
+                levelLabel += ` <span class="original-label forbidden-text-select" style="color: #ff9800; font-size: 12px;">(原${level.getOriginalLevelNumber()})</span>`;
             }
 
             // const span = document.createElement('span');
