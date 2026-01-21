@@ -370,7 +370,7 @@ h1 {
 }
 
 /* 移动端优化 */
-@media (max-width: 768px) {
+@media (pointer: coarse) {
     body {
         padding: 10px;
     }
@@ -640,7 +640,7 @@ h1 {
 }
 
 /* 移动端显示控制面板 */
-@media (max-width: 768px) {
+@media (pointer: coarse) {
     .mobile-game-controls {
         display: block;
     }
