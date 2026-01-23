@@ -10,6 +10,10 @@ body {
     background: #f5f5f5;
     max-width: 1400px;
     margin: 0 auto;
+    /* iOS滚动优化，防止橡皮筋效果和滑动返回 */
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+    overflow-x: hidden;
 }
 
 /* 欢迎提示页面 */
@@ -430,43 +434,45 @@ h1 {
     align-items: flex-start;
     margin: 50px 20px;
     position: relative;
+    /* iOS滚动优化 */
+    overscroll-behavior: contain;
 }
 
 .sidebar {
     /* touch-action: none;  */
     position: fixed;
-    right: -320px;
+    left: -320px;
     top: 55px;
     width: 300px;
     height: calc(100vh - 55px);
     background: white;
-    box-shadow: -2px 0 8px rgba(0,0,0,0.15);
+    box-shadow: 2px 0 8px rgba(0,0,0,0.15);
     padding: 15px;
     overflow-y: auto;
-    transition: right 0.3s ease;
+    transition: left 0.3s ease;
     z-index: 999;
 }
 
 .sidebar.open {
-    right: 0;
+    left: 0;
 }
 
 .sidebar-toggle {
     position: fixed;
-    right: 0;
+    left: 0;
     top: 100px;
     width: 40px;
     height: 60px;
     background: #2196F3;
     color: white;
     border: none;
-    border-radius: 8px 0 0 8px;
+    border-radius: 0 8px 8px 0;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 20px;
-    box-shadow: -2px 2px 8px rgba(0,0,0,0.2);
+    box-shadow: 2px 2px 8px rgba(0,0,0,0.2);
     z-index: 998;
     transition: all 0.3s;
 }
@@ -477,7 +483,7 @@ h1 {
 }
 
 .sidebar-toggle.sidebar-open {
-    right: 300px;
+    left: 300px;
 }
 
 .sidebar h2 {

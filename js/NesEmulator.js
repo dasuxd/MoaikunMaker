@@ -18,7 +18,7 @@ class NesEmulator {
         // 音频设置
         this.audioContext = null;
         this.audioBuffer = [];
-        this.audioBufferSize = 8192;
+        this.audioBufferSize = 4096; // 每次处理的音频样本数
         
         this.initNES();
         this.initAudio();
@@ -433,6 +433,11 @@ class NesEmulator {
         
         this.isRunning = true;
         this.lastFrameTime = performance.now();
+        
+        // 🔧 重新初始化音频（修复iOS黑屏后音频失效）
+        if (!this.audioContext || this.audioContext.state === 'closed') {
+            this.initAudio();
+        }
         
         // 启动音频
         if (this.audioContext && this.scriptProcessor) {

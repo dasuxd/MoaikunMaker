@@ -291,6 +291,7 @@ class App {
         // 加载图片资源
         ResourceManager.getInstance().initResources(this.romEditor.romData, this.romEditor.palettes);
         this.levelEditor.createButtons();
+        levelCountInput.value = this.romEditor.getLevelCount();
         this.createLevelList();
         this.updateMemoryOverview();
         // const editorSection = document.getElementById('editorSection');
@@ -334,6 +335,12 @@ class App {
         const listElement = document.getElementById('levelList');
         //清空列表
         listElement.innerHTML = '';
+        
+        // 销毁旧的 Sortable 实例，避免重复绑定导致移动端无法二次拖拽
+        if (this.sortable) {
+            this.sortable.destroy();
+            this.sortable = null;
+        }
 
         const levels = this.romEditor.getAllLevels();
         
@@ -345,11 +352,19 @@ class App {
         // 禁用关卡总数输入框（仅在编辑模式下启用）
         const levelCountInput = document.getElementById('levelCountInput');
         if (levelCountInput) {
-            levelCountInput.value = this.romEditor.getLevelCount();
+            //levelCountInput.value = this.romEditor.getLevelCount();
             levelCountInput.disabled = true;
         }
 
-        //最后一个是新增按钮
+        if(levelCountInput.value > levels.length){
+            //创建出多余的关卡
+            this.romEditor.setLevelCount(levelCountInput.value);
+            for(let i = levels.length; i < levelCountInput.value; i++){
+                const newLevel = new Level(i);
+                levels.push(newLevel);
+            }
+        }
+
         for (let i = 0; i < levels.length; i++) {
             const level = levels[i];
             // 跳过已删除的关卡
@@ -416,58 +431,51 @@ class App {
         dragHandle.className = 'drag-handle';
         dragHandle.textContent = '⋮⋮';
         dragHandle.style.display = 'none'; // 默认隐藏
-        
-        // 在编辑模式下启用拖拽
-        // if (this.isEditingOrder) {
-        //     dragHandle.draggable = true;
-        //     item.draggable = true;
-            
-        //     // 拖拽事件
-        //     item.addEventListener('dragstart', (e) => this.handleDragStart(e, index));
-        //     item.addEventListener('dragend', (e) => this.handleDragEnd(e));
-        // } else {
-        //     dragHandle.draggable = false;
-        //     item.draggable = false;
-        // }
-        
-        // 在整个item上添加拖放事件（作为放置目标）
-        // if (this.isEditingOrder) {
-        //     item.addEventListener('dragover', (e) => this.handleDragOverNew(e, index));
-        //     item.addEventListener('drop', (e) => this.handleDropNew(e, i));
-        //     item.addEventListener('dragleave', (e) => this.handleDragLeave(e));
-        // }
+    
         item.appendChild(dragHandle);
 
         // 创建可点击的内容区域
         const content = document.createElement('div');
         content.className = 'level-content';
-        content.onclick = () => this.selectLevel(index);
-        // if(index < this.levels.length){
-        //     content.className = 'level-content';
-        //     content.onclick = () => this.selectLevel(index);
-        // }else{
-        //     content.className = 'add-level-content';
-        //     content.onclick = () => this.addLevel();
-        // }
+        
+        // 触摸位置追踪，防止滑动时误触发点击
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let touchStartTime = 0;
+        
+        content.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+            touchStartTime = Date.now();
+        }, { passive: true });
+        
+        content.addEventListener('touchend', (e) => {
+            const touchEndX = e.changedTouches[0].clientX;
+            const touchEndY = e.changedTouches[0].clientY;
+            const touchEndTime = Date.now();
+            
+            // 计算滑动距离
+            const deltaX = Math.abs(touchEndX - touchStartX);
+            const deltaY = Math.abs(touchEndY - touchStartY);
+            const deltaTime = touchEndTime - touchStartTime;
+            
+            // 只有滑动距离小于10px且时间小于300ms才认为是点击
+            if (deltaX < 10 && deltaY < 10 && deltaTime < 300) {
+                e.preventDefault();
+                e.stopPropagation();
+                this.selectLevel(index);
+            }
+        }, { passive: false });
+        
+        // 桌面端保留click事件
+        content.onclick = (e) => {
+            if (!('ontouchstart' in window)) {
+                this.selectLevel(index);
+            }
+        };
 
-        //const level = this.levels[index];
-        // 构建关卡标签
-        //if(index < this.levels.length){
         let levelLabel = i18n.t('levelLabel', {level: level.getLevelNumber()});
-        // if (this.isEditingOrder && level.isDragged() && level.getOriginalLevelNumber() !== level.getLevelNumber()) {
-        //     levelLabel += ` <span class="original-label forbidden-text-select" style="color: #ff9800; font-size: 12px;">(原${level.getOriginalLevelNumber()})</span>`;
-        // }
 
-        // 编辑顺序模式下显示删除按钮
-        const deleteBtn = document.createElement('button');
-        if (this.isEditingLevels) {
-            //deleteBtnHtml = `<button class="level-delete-btn" data-index="${i}" title="删除关卡"">×</button>";
-            deleteBtn.className = 'level-delete-btn';
-            deleteBtn.dataset.index = index;
-            deleteBtn.title = "删除关卡";
-            deleteBtn.textContent = "×";
-            item.appendChild(deleteBtn);
-        }
         
         content.innerHTML = `
             <span class="level-wrapper ${level.isDragged() ? 'dragged' : ''}" style="position:relative;display:block;">
@@ -475,15 +483,6 @@ class App {
             </span>
             <span class="level-info">${level.getDataSize()} B</span>
         `;
-        // }else{
-        //     content.innerHTML = `
-        //         <span class="level-wrapper}">
-        //             <span class="level-num">添加关卡</span> 
-        //             <span class="level-num"></span>
-        //         </span>
-        //         <span class="level-info"> ➕ </span>
-        //     `;
-        // }
         item.appendChild(content);
         return item;
         //listElement.appendChild(item);
@@ -888,18 +887,6 @@ class App {
             this.showMessage('error', i18n.t("write2RomFiledError", {error: error.message}));
         }
     }
-
-    /**
-     * 取消编辑
-     */
-    cancelEdit() {
-        if (this.currentLevel === -1) return;
-        
-        // 重新加载当前关卡数据
-        this.selectLevel(this.currentLevel);
-        this.showMessage('warning', i18n.t("cancelModifyWarning"));
-    }
-
     /**
      * 下载修改后的 ROM
      */
@@ -1041,38 +1028,6 @@ class App {
             container.appendChild(segment);
         }
     }
-
-    /**
-     * 拖拽开始
-     */
-    // handleDragStart(e, index) {
-    //     this.draggedIndex = index;
-    //     e.currentTarget.classList.add('dragging');
-    //     e.dataTransfer.effectAllowed = 'move';
-    //     e.dataTransfer.setData('text/html', e.currentTarget.innerHTML);
-    // }
-    
-    /**
-     * 新的拖拽经过处理（编辑模式）
-     */
-    // handleDragOverNew(e, targetIndex) {
-    //     if (e.preventDefault) {
-    //         e.preventDefault();
-    //     }
-    //     e.dataTransfer.dropEffect = 'move';
-        
-    //     if (this.draggedIndex === targetIndex) {
-    //         return false;
-    //     }
-        
-    //     // 更新占位符位置
-    //     if (this.dropTargetIndex !== targetIndex) {
-    //         this.dropTargetIndex = targetIndex;
-    //         this.updatePlaceholder();
-    //     }
-        
-    //     return false;
-    // }
     
     /**
      * 更新占位符
@@ -1090,61 +1045,6 @@ class App {
             }
         }
     }
-    
-    /**
-     * 新的放下处理（编辑模式）
-     */
-    // handleDropNew(e, targetIndex) {
-    //     if (e.stopPropagation) {
-    //         e.stopPropagation();
-    //     }
-    //     e.preventDefault();
-        
-    //     if (this.draggedIndex === targetIndex) {
-    //         return false;
-    //     }
-        
-    //     // 移动关卡（仅在内存中）
-    //     const [movedLevel] = this.romEditor.levels.splice(this.draggedIndex, 1);
-    //     this.romEditor.levels.splice(targetIndex, 0, movedLevel);
-        
-    //     // 更新索引
-    //     for (let i = 0; i < this.romEditor.levels.length; i++) {
-    //         this.romEditor.levels[i].index = i;
-    //     }
-        
-    //     // 标记为已拖拽
-    //     movedLevel.markAsDragged();
-        
-    //     // 更新当前选中的关卡索引
-    //     if (this.currentLevel === this.draggedIndex) {
-    //         this.currentLevel = targetIndex;
-    //     } else if (this.draggedIndex < this.currentLevel && targetIndex >= this.currentLevel) {
-    //         this.currentLevel--;
-    //     } else if (this.draggedIndex > this.currentLevel && targetIndex <= this.currentLevel) {
-    //         this.currentLevel++;
-    //     }
-        
-    //     // 重新显示列表
-    //     if (this.currentLevel >= 0) {
-    //         const items = document.querySelectorAll('.level-item');
-    //         items[this.currentLevel]?.classList.add('active');
-    //     }
-        
-    //     return false;
-    // }
-
-    /**
-     * 拖拽结束
-     */
-    // handleDragEnd(e) {
-    //     e.currentTarget.classList.remove('dragging');
-    //     this.dropTargetIndex = -1;
-    //     // 移除所有 drag-over 和 placeholder 样式
-    //     document.querySelectorAll('.drag-over, .drop-placeholder').forEach(item => {
-    //         item.classList.remove('drag-over', 'drop-placeholder');
-    //     });
-    // }
 
     /**
      * 拖拽经过
@@ -1157,13 +1057,6 @@ class App {
         e.currentTarget.classList.add('drag-over');
         return false;
     }
-
-    /**
-     * 拖拽离开
-     */
-    // handleDragLeave(e) {
-    //     e.currentTarget.classList.remove('drag-over');
-    // }
 
     /**
      * 放下
@@ -1242,6 +1135,21 @@ class App {
             // 警告但不阻止
         }
     }
+
+    vibrate(ms = 200){
+        // 先檢查是否存在這個方法
+        // I hate webKit
+        if (!("vibrate" in navigator)) {
+            console.log("此裝置/瀏覽器不支援震動");
+            return;
+        }
+
+        try {
+            navigator.vibrate(ms);
+        } catch (err) {
+            console.log("震動被阻擋", err);
+        }
+    }
 }
 
 // 全局应用实例
@@ -1271,14 +1179,6 @@ function stopEmulator() {
 function saveLevel() {
     app.saveLevel();
 }
-
-function cancelEdit() {
-    app.cancelEdit();
-}
-
-// function openVisualEditor() {
-//     app.openVisualEditor();
-// }
 
 function shareLevel(){
     app.shareLevel();
@@ -1354,13 +1254,19 @@ function cancelEditLevels() {
     // 禁用关卡总数输入框
     const levelCountInput = document.getElementById('levelCountInput');
     if (levelCountInput) {
-        levelCountInput.value = this.romEditor.getLevelCount();
+        levelCountInput.value = app.romEditor.getLevelCount();
         levelCountInput.disabled = true;
     }
     
     // 如果用户做了修改，恢复原始顺序
     if (app.levelsListChanged && app.originalLevelsOrder) {
         app.romEditor.levels = app.originalLevelsOrder.slice();
+        
+        // 重新设置所有关卡的 index，确保关卡编号正确
+        for (let i = 0; i < app.romEditor.levels.length; i++) {
+            app.romEditor.levels[i].index = i;
+        }
+        
         app.originalLevelsOrder = null;
         app.levelsListChanged = false;
         
@@ -1496,3 +1402,39 @@ document.addEventListener('click', (e) => {
         }
     }
 });
+
+/**
+ * 防止iOS滑动返回和橡皮筋效果
+ */
+if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+    // 防止iOS边缘滑动返回
+    let startX = 0;
+    let startY = 0;
+    
+    document.addEventListener('touchstart', (e) => {
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+    }, { passive: true });
+    
+    document.addEventListener('touchmove', (e) => {
+        const currentX = e.touches[0].clientX;
+        const currentY = e.touches[0].clientY;
+        const deltaX = currentX - startX;
+        const deltaY = Math.abs(currentY - startY);
+        
+        // 如果是从左边缘向右滑动（iOS返回手势），且垂直移动不多，则阻止
+        if (startX < 30 && deltaX > 10 && deltaY < 50) {
+            e.preventDefault();
+        }
+        
+        // 阻止顶部和底部的橡皮筋效果
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        const scrollHeight = document.documentElement.scrollHeight;
+        const clientHeight = document.documentElement.clientHeight;
+        
+        if ((scrollTop <= 0 && currentY > startY) || 
+            (scrollTop + clientHeight >= scrollHeight && currentY < startY)) {
+            e.preventDefault();
+        }
+    }, { passive: false });
+}

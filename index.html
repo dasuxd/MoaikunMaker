@@ -5,7 +5,10 @@
     <meta charset="UTF-8">
     <!-- <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"> -->
     <meta name="viewport"
-        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <!-- iOS Safari 特殊设置 -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Moai-kun Maker</title>
     <link rel="shortcut icon" href="favicon.ico" />
     <link rel="stylesheet" href="css/style.css">
@@ -135,7 +138,7 @@
                     <button class="btn-save-order" onclick="saveLevels()"
                         style="flex: 1; padding: 10px; background: #2196F3; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;"
                         data-i18n="saveLevelsEdit">
-                        ✔️ 保存顺序
+                        ✔️ 保存关卡配置
                     </button>
                 </div>
             </div>
@@ -345,7 +348,7 @@
                 <div class="info-value" id="maxSize">- 字节</div>
             </div> -->
             </div>
-            <div class="hex-editor" style="display: none;">
+            <div class="hex-editor" style="display: block;">
                 <label for="hexData" style="display: block; margin-bottom: 10px; font-weight: bold;">
                     <span data-i18n="mapDataLabel">🗺️ 地图数据 (不包含结束符 FF)</span> <span
                         style="color: #999; font-size: 12px; font-weight: normal;" data-i18n="readOnly">[只读参考]</span>
@@ -355,7 +358,7 @@
                     style="background-color: #f5f5f5; cursor: default;"></textarea>
             </div>
 
-            <div class="hex-editor" style="display: none;">
+            <div class="hex-editor" style="display: block;">
                 <label for="monsterData" style="display: block; margin-bottom: 10px; font-weight: bold;">
                     <span data-i18n="monsterDataLabel">👾 怪物数据</span> <span
                         style="color: #999; font-size: 12px; font-weight: normal;" data-i18n="readOnly">[只读参考]</span>

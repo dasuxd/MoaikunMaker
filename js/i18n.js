@@ -18,7 +18,7 @@ const i18n = {
             'editLevels': '✏️ 编辑关卡组',
             'address': '(地址: 0x0BD3)',
             'cancel': '❌ 取消',
-            'saveLevels': '✔️ 保存关卡集',
+            'saveLevelsEdit': '✔️ 保存',
             'dragTip': '💡 拖动关卡可调整顺序',
             
             // Memory
@@ -121,7 +121,7 @@ const i18n = {
             'levelReorderError': '关卡移动失败：{error}' ,
             'changeLevelOrderInfo': '📝 拖拽关卡来调整关卡顺序' ,
             'changeLevelOrderCancelWarning': '✖️ 已取消修改' ,
-            'changeLevelOrderSuccess': '✅ 关卡顺序已保存（仅在内存中，请点击“写入ROM”按钮保存到文件）' ,
+            'changeLevelOrderSuccess': '关卡顺序已保存（仅在内存中，请点击“写入ROM”按钮保存到文件）' ,
             'forbiddenPleaceEnemyWarning': '敌人数量已达上限，无法放置更多敌人' ,
             'emptyEnemyDataError': '怪物数据不能为空' ,
             'invalidHexValue': '无效的十六进制值: {hexValue}' ,
@@ -145,7 +145,7 @@ const i18n = {
             'editLevels': '✏️ Edit Level Group',
             'address': '(Address: 0x0BD3)',
             'cancel': '❌ Cancel',
-            'saveLevels': '✔️ Save Levels',
+            'saveLevelsEdit': '✔️ Save',
             'dragTip': '💡 Drag levels to reorder',
             
             // Memory
@@ -246,7 +246,7 @@ const i18n = {
             'levelReorderError': 'Failed to reorder level: {error}',
             'changeLevelOrderInfo': '📝 Drag levels to reorder them',
             'changeLevelOrderCancelWarning': '✖️ Modification canceled',
-            'changeLevelOrderSuccess': '✅ Level order saved (in memory only, click "Write to ROM" button to save to file)',
+            'changeLevelOrderSuccess': 'Level order saved (in memory only, click "Write to ROM" button to save to file)',
             'forbiddenPleaceEnemyWarning': 'Enemy limit reached, cannot place more enemies',
             'emptyEnemyDataError': 'Monster data cannot be empty',
             'invalidHexValue': 'Invalid hex value: {hexValue}',

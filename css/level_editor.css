@@ -29,20 +29,20 @@ h1 {
 
 .toolbar-toggle {
     position: fixed;
-    right: 0;
-    top: 200px;
+    left: 0;
+    top: 175px;
     width: 40px;
     height: 60px;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
     border: none;
-    border-radius: 8px 0 0 8px;
+    border-radius: 0 8px 8px 0;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 20px;
-    box-shadow: -2px 2px 8px rgba(0,0,0,0.2);
+    box-shadow: 2px 2px 8px rgba(0,0,0,0.2);
     z-index: 998;
     transition: all 0.3s;
     display: none;
@@ -54,7 +54,7 @@ h1 {
 }
 
 .toolbar-toggle.toolbar-open {
-    right: 230px;
+    left: 230px;
 }
 
 /* 工具栏 */
@@ -77,23 +77,23 @@ h1 {
 .toolbar {
     /* touch-action: none; */
     position: fixed;
-    right: -230px;
-    top: 100px;
+    left: -230px;
+    top: 55px;
     width: 230px;
     height: calc(100vh - 55px);
     background: white;
     border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    max-height: calc(100vh - 120px);
+    box-shadow: 2px 0 8px rgba(0,0,0,0.15);
+    max-height: calc(100vh - 55px);
     overflow-y: auto;
-    transition: right 0.3s ease;
+    transition: left 0.3s ease;
     z-index: 999;
     /* display: block; */
     flex-direction: column;
 }
 
 .toolbar.open {
-    right: 0;
+    left: 0;
 }
 
 
@@ -468,7 +468,7 @@ h1 {
 
 /* 移动端游戏控制面板 */
 .mobile-game-controls {
-    touch-action: none;             /* 禁用所有默认触摸行为，包括滚动 */
+    /* 🔧 移除 touch-action: none，允许页面在面板上滚动 */
     display: none;
     position: fixed;
     bottom: -100%;
@@ -501,8 +501,11 @@ h1 {
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    box-shadow: 0 4px 15px rgba(255, 68, 68, 0.5);
-    transition: all 0.2s;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: none;  /* 🔧 阻止按钮触发滚动 */
+    transition: all 0.1s;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
 .control-stop-btn:active {
@@ -546,6 +549,7 @@ h1 {
     justify-content: center;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
+    touch-action: none;  /* 🔧 阻止按钮触发滚动 */
     transition: all 0.1s;
 }
 
@@ -585,6 +589,7 @@ h1 {
     cursor: pointer;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
+    touch-action: none;  /* 🔧 阻止按钮触发滚动 */
     transition: all 0.1s;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
@@ -623,6 +628,7 @@ h1 {
     cursor: pointer;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
+    touch-action: none;  /* 🔧 阻止按钮触发滚动 */
     transition: all 0.1s;
     box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
 }

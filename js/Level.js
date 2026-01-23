@@ -12,7 +12,7 @@ class Level {
      * @param {number} monsterCpuAddress - 怪物数据CPU地址
      * @param {number} monsterRomAddress - 怪物数据ROM地址
      */
-    constructor(index, cpuAddress, romAddress, data = [], monsterData = [0x01], monsterCpuAddress = 0, monsterRomAddress = 0) {
+    constructor(index, cpuAddress = 0, romAddress = 0, data = [0x00, 0x88, 0x08, 0x08], monsterData = [0x01], monsterCpuAddress = 0, monsterRomAddress = 0) {
         this.index = index;
         this.originalIndex = index; // 记录原始索引
         this.cpuAddress = cpuAddress;

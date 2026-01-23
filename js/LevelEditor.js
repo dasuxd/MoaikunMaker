@@ -679,7 +679,7 @@ class LevelEditor {
 
         let wideScreenOffset = 0;
         if(!this.isWideScreen){
-                wideScreenOffset = this.canvas.width / 4;
+            wideScreenOffset = this.canvas.width / 4;
         }
 
         const rect = this.canvas.getBoundingClientRect();
@@ -747,7 +747,7 @@ class LevelEditor {
             return;
         }
         const rect = this.canvas.getBoundingClientRect();
-        const x = Math.floor((e.clientX - rect.left) / Config.TILE_SIZE);
+        const x = Math.floor((e.clientX - rect.left - (this.isWideScreen ? 0 : this.canvas.width / 4)) / Config.TILE_SIZE);
         const y = Math.floor((e.clientY - rect.top) / Config.TILE_SIZE);
         
         if (x >= 0 && x < Config.GRID_WIDTH && y >= 0 && y < Config.GRID_HEIGHT) {

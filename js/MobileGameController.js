@@ -37,6 +37,7 @@ class MobileGameController {
             // 触摸开始
             button.addEventListener('touchstart', (e) => {
                 e.preventDefault();
+                app.vibrate(200)  
                 this.handleButtonDown(key, button);
             });
             

@@ -23,6 +23,9 @@
     margin-bottom: 4px;
     display: flex;
     align-items: center;
+    /* 防止iOS自动调整文本大小 */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
 }
 
 /* 关卡列表项基础样式 */
@@ -65,6 +68,8 @@
     user-select: none;
     transition: color 0.2s;
     flex-shrink: 0;
+    /* 移动端：防止触摸事件被浏览器拦截 */
+    touch-action: none;
 }
 
 .drag-handle:hover {
@@ -86,6 +91,8 @@
 .sortable-chosen {
     opacity: 0.8;
     box-shadow: 0 0 8px rgba(33, 150, 243, 0.5);
+    /* 拖拽时禁用 transition */
+    transition: none !important;
 }
 
 /* SortableJS 拖拽中状态（ghost） */
@@ -100,6 +107,8 @@
     opacity: 1;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     transform: rotate(2deg);
+    /* 拖拽时禁用 transition，确保元素实时跟随手指 */
+    transition: none !important;
 }
 
 /* 占位符样式（拖拽到目标位置时的提示） */
@@ -156,6 +165,10 @@
     align-items: center;
     padding: 8px 4px;
     cursor: pointer;
+    /* iOS Safari 点击优化 */
+    -webkit-tap-highlight-color: rgba(33, 150, 243, 0.2);
+    -webkit-touch-callout: none;
+    touch-action: manipulation;
 }
 
 .level-content:hover {
@@ -252,17 +265,24 @@
 /* 响应式设计：移动端 */
 @media (pointer: coarse) {
     .level-list {
-        grid-template-columns: 1fr;
     }
     
     .level-item {
-        font-size: 13px;
+        font-size: 12px; /* iOS优化：稍微减小字体避免自动放大 */
         min-height: 48px;
+        /* iOS Safari优化 */
+        -webkit-text-size-adjust: none;
+    }
+    
+    .level-content {
+        /* 增大触摸区域，改善iOS点击体验 */
+        padding: 12px 4px;
     }
     
     .drag-handle {
         font-size: 18px;
-        padding: 6px;
+        padding: 8px;
+        min-width: 32px; /* iOS优化：增大触摸区域 */
     }
 }
 
