@@ -9,6 +9,7 @@
     <title>Moai-kun Maker</title>
     <link rel="shortcut icon" href="favicon.ico" />
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/sortable.css">
     <link rel="stylesheet" href="css/level_editor.css">
 </head>
 
@@ -120,20 +121,20 @@
             </div>
 
             <div class="level-order-controls" style="margin: 12px 15px;">
-                <button class="btn-edit-order" id="editOrderBtn" onclick="startEditOrder()"
+                <button class="btn-edit-order" id="editLevelsBtn" onclick="startEditLevels()"
                     style="width: 100%; padding: 10px; background: #4CAF50; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;"
-                    data-i18n="editLevelOrder">
-                    ✏️ 编辑关卡顺序
+                    data-i18n="editLevels">
+                    ✏️ 编辑关卡组
                 </button>
-                <div class="order-action-buttons" id="orderActionButtons" style="display: none; gap: 8px;">
-                    <button class="btn-cancel-order" onclick="cancelEditOrder()"
+                <div class="order-action-buttons" id="editLevelsActionButtons" style="display: none; gap: 8px;">
+                    <button class="btn-cancel-order" onclick="cancelEditLevels()"
                         style="flex: 1; padding: 10px; background: #f44336; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;"
                         data-i18n="cancel">
                         ❌ 取消
                     </button>
-                    <button class="btn-save-order" onclick="saveOrder()"
+                    <button class="btn-save-order" onclick="saveLevels()"
                         style="flex: 1; padding: 10px; background: #2196F3; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;"
-                        data-i18n="saveOrder">
+                        data-i18n="saveLevelsEdit">
                         ✔️ 保存顺序
                     </button>
                 </div>
@@ -372,6 +373,9 @@
     </div>
     </div>
     <!-- JavaScript 模块 -->
+
+    <!-- 引入 SortableJS v1.15.0 -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <script src="js/i18n.js"></script>
     <script src="js/lib/jsnes.min.js"></script>
     <script src="js/NesEmulator.js"></script>

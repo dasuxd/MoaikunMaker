@@ -15,10 +15,10 @@ const i18n = {
             // Sidebar
             'levelList': '📋 关卡列表',
             'totalLevels': '🎮 关卡总数:',
-            'editLevelOrder': '✏️ 编辑关卡顺序',
+            'editLevels': '✏️ 编辑关卡组',
             'address': '(地址: 0x0BD3)',
             'cancel': '❌ 取消',
-            'saveOrder': '✔️ 保存顺序',
+            'saveLevels': '✔️ 保存关卡集',
             'dragTip': '💡 拖动关卡可调整顺序',
             
             // Memory
@@ -84,7 +84,7 @@ const i18n = {
 
             // others
             'levelCount' : '关卡总数',
-            'levelLabel': '关卡 ',
+            'levelLabel': '关卡 {level}',
             'selectNesRomFile':'📁 选择 NES ROM 文件',
 
 
@@ -142,10 +142,10 @@ const i18n = {
             // Sidebar
             'levelList': '📋 Level List',
             'totalLevels': '🎮 Total Levels:',
-            'editLevelOrder': '✏️ Edit Level Order',
+            'editLevels': '✏️ Edit Level Group',
             'address': '(Address: 0x0BD3)',
             'cancel': '❌ Cancel',
-            'saveOrder': '✔️ Save Order',
+            'saveLevels': '✔️ Save Levels',
             'dragTip': '💡 Drag levels to reorder',
             
             // Memory
@@ -210,7 +210,7 @@ const i18n = {
         
             // others
             'levelCount' : 'Total Levels',
-            'levelLabel': 'Level ',
+            'levelLabel': 'Level {level}',
             'selectNesRomFile': '📁 Select NES ROM File',
 
             //messages

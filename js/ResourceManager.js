@@ -27,10 +27,17 @@ class ResourceManager{
         
         //加载调色板
         this.loadPalettes(romData);
-        //加载背景
-        await this.loadBgImg(romData);
+        
+        // 并行加载背景图片和资源，等待都完成后继续
 
-        await this.loadBgResources(romData);
+        await Promise.all([
+            await this.loadBgImg(romData),
+            await this.loadBgResources(romData),
+            app.selectLevel(0)
+        ]);
+        
+        // 所有资源加载完成后可以在这里添加逻辑
+        console.log('所有背景图片和资源加载完成');
     }
 
     getResource(levelType, resourceKey){

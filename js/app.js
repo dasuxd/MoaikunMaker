@@ -6,12 +6,12 @@ class App {
         this.romEditor = new RomEditor();
         this.levelEditor = new LevelEditor('levelCanvas');
         this.converter = new DataConverter();
-        this.currentLevel = -1;
+        this.currentLevel = 0;
         this.fileName = '';
         this.draggedIndex = -1;
         this.dropTargetIndex = -1;
-        this.isEditingOrder = false;
-        this.originalLevelsOrder = null;
+        this.isEditingLevels = false;
+        this.levelsListChanged =false;
 
         this.isShareLevelRan = false;
 
@@ -32,6 +32,7 @@ class App {
         this.writeRomBtn = document.getElementById('writeRomBtn');
         this.downloadBtn = document.getElementById('downloadBtn');
 
+        this.sortable = null;
         //
         this.toggleInfoItems(false);
     }
@@ -48,6 +49,7 @@ class App {
                 // 自动加载缓存的 ROM
                 this.loadRomData(cachedRom.data, cachedRom.fileName, true);
                 //this.initParams();
+                //this.selectLevel(this.currentLevel);
                 this.showMessage('info', i18n.t('loadedFromCacheMessage', {fileName: cachedRom.fileName}));
             }else{
                 const urlParams = new URLSearchParams(window.location.search);
@@ -193,21 +195,21 @@ class App {
         // 关卡总数输入框
         const levelCountInput = document.getElementById('levelCountInput');
         if (levelCountInput) {
-            levelCountInput.addEventListener('change', (e) => {
+            // 使用 input 事件实现实时监听
+            levelCountInput.addEventListener('input', (e) => {
+                const count = parseInt(e.target.value);
+                // 只有输入完整有效数字时才更新
+                if (!isNaN(count) && count >= 1 && count <= 255) {
+                    this.romEditor.setLevelCount(count);
+                    this.levelsListChanged = true;
+                }
+            });
+            
+            // 失去焦点时验证并修正无效值
+            levelCountInput.addEventListener('blur', (e) => {
                 const count = parseInt(e.target.value);
                 if (isNaN(count) || count < 1 || count > 255) {
                     this.showMessage('error', i18n.t('invalidLevelCountMessage'));
-
-                    e.target.value = this.romEditor.getLevelCount();
-                    return;
-                }
-                
-                const result = this.romEditor.setLevelCount(count);
-                if (result.success) {
-                    this.showMessage('success', i18n.t('levelCountUpdateSuccess',{levelCount : count}));
-                } else {
-                    //this.showMessage('error', result.error);
-                    this.showMessage('error',  i18n.t("levelCountUpdateFailedError",{error: result.error}));
                     e.target.value = this.romEditor.getLevelCount();
                 }
             });
@@ -289,7 +291,7 @@ class App {
         // 加载图片资源
         ResourceManager.getInstance().initResources(this.romEditor.romData, this.romEditor.palettes);
         this.levelEditor.createButtons();
-        this.displayLevelList();
+        this.createLevelList();
         this.updateMemoryOverview();
         // const editorSection = document.getElementById('editorSection');
         // editorSection.classList.remove('active');
@@ -327,11 +329,10 @@ class App {
         }
     }
 
-    /**
-     * 显示关卡列表
-     */
-    displayLevelList() {
+    //创建关卡列表
+    createLevelList(){
         const listElement = document.getElementById('levelList');
+        //清空列表
         listElement.innerHTML = '';
 
         const levels = this.romEditor.getAllLevels();
@@ -341,81 +342,162 @@ class App {
         document.getElementById('sidebarToggle').style.display = 'flex';
         document.getElementById('toolbarToggle').style.display = 'flex';
         
-        // 显示关卡总数
+        // 禁用关卡总数输入框（仅在编辑模式下启用）
         const levelCountInput = document.getElementById('levelCountInput');
         if (levelCountInput) {
             levelCountInput.value = this.romEditor.getLevelCount();
-            levelCountInput.disabled = false;
+            levelCountInput.disabled = true;
         }
-        
+
+        //最后一个是新增按钮
         for (let i = 0; i < levels.length; i++) {
             const level = levels[i];
-            const item = document.createElement('div');
-            item.className = 'level-item';
-            item.dataset.index = i;
-            
-            // 创建拖拽手柄
-            const dragHandle = document.createElement('span');
-            dragHandle.className = 'drag-handle';
-            dragHandle.textContent = '⋮⋮';
-            
-            // 在编辑模式下启用拖拽
-            if (this.isEditingOrder) {
-                dragHandle.draggable = true;
-                item.draggable = true;
-                
-                // 拖拽事件
-                item.addEventListener('dragstart', (e) => this.handleDragStart(e, i));
-                item.addEventListener('dragend', (e) => this.handleDragEnd(e));
-            } else {
-                dragHandle.draggable = false;
-                item.draggable = false;
+            // 跳过已删除的关卡
+            if (level.isDeleted) {
+                continue;
             }
-            
-            // 在整个item上添加拖放事件（作为放置目标）
-            if (this.isEditingOrder) {
-                item.addEventListener('dragover', (e) => this.handleDragOverNew(e, i));
-                item.addEventListener('drop', (e) => this.handleDropNew(e, i));
-                item.addEventListener('dragleave', (e) => this.handleDragLeave(e));
-            }
-            
-            // 创建可点击的内容区域
-            const content = document.createElement('div');
-            content.className = 'level-content';
-            content.onclick = () => this.selectLevel(i);
-            
-            // 构建关卡标签
-            //let levelLabel = `关卡 ${level.getLevelNumber()}`;
-            let levelLabel = i18n.t('levelLabel', {level: level.getLevelNumber()});
-            if (this.isEditingOrder && level.isDragged() && level.getOriginalLevelNumber() !== level.getLevelNumber()) {
-                levelLabel += ` <span class="original-label forbidden-text-select" style="color: #ff9800; font-size: 12px;">(原${level.getOriginalLevelNumber()})</span>`;
-            }
-
-            // const span = document.createElement('span');
-            // span.className = `level-number ${level.isDragged() ? 'dragged' : ''}`;
-            // span.textContent = i18n.t('levelLabel', { level: level.getLevelNumber() });  // 或 levelLabel 是 "第 {n} 关"
-            // content.appendChild(span);
-            content.innerHTML = `
-                <span class="level-wrapper ${level.isDragged() ? 'dragged' : ''}">
-                    <span class="level-num" data-i18n="levelLabel">Level</span> 
-                    <span class="level-num">${level.getLevelNumber()}</span>
-                </span>
-                <span class="level-info">${level.getDataSize()} B</span>
-            `;
-            
-            item.appendChild(dragHandle);
-            item.appendChild(content);
-            listElement.appendChild(item);
+           level.htmlItem = this.createLevelItem(level, i);
+           level.htmlItem.classList.add('no-drag');
+           listElement.append(level.htmlItem);
         }
 
-        document.getElementById('mainLayout').style.display = 'flex';
-        //this.updateMemoryOverview();
+        this.sortable = new Sortable(listElement, {
+            swapThreshold: 1,
+            animation: 150,
+            ghostClass: 'sortable-ghost',
+            chosenClass: 'sortable-chosen',
+            dragClass: 'sortable-drag',
+            filter: '.no-drag',
+            handle: '.drag-handle',
+            onEnd: function(evt) {
+                // 如果位置没有变化，直接返回
+                if (evt.oldIndex === evt.newIndex) {
+                    return;
+                }
+                
+                // 更新 levels 数组顺序
+                const [movedLevel] = app.romEditor.levels.splice(evt.oldIndex, 1);
+                app.romEditor.levels.splice(evt.newIndex, 0, movedLevel);
+                
+                // 更新所有关卡的 index 和 dataset.index
+                for (let i = 0; i < app.romEditor.levels.length; i++) {
+                    app.romEditor.levels[i].index = i;
+                    if (app.romEditor.levels[i].htmlItem) {
+                        app.romEditor.levels[i].htmlItem.dataset.index = i;
+                    }
+                }
+                
+                // 标记顺序已改变
+                app.levelsListChanged = true;
+                
+                // 更新当前选中的关卡索引
+                if (app.currentLevel === evt.oldIndex) {
+                    app.currentLevel = evt.newIndex;
+                } else if (evt.oldIndex < app.currentLevel && evt.newIndex >= app.currentLevel) {
+                    app.currentLevel--;
+                } else if (evt.oldIndex > app.currentLevel && evt.newIndex <= app.currentLevel) {
+                    app.currentLevel++;
+                }
+            }
+            });
+    }
+
+    createLevelItem(level, index){
+        const item = document.createElement('div');
+        //item.className = (index === levels.length) ? 'add-level-item' : 'level-item';
+        item.className = 'level-item';
+        if(level.isDeleted){
+            item.classList.add('deleted-level');
+        }
+        item.dataset.index =index;
+        
+        // 创建拖拽手柄
+        const dragHandle = document.createElement('span');
+        dragHandle.className = 'drag-handle';
+        dragHandle.textContent = '⋮⋮';
+        dragHandle.style.display = 'none'; // 默认隐藏
+        
+        // 在编辑模式下启用拖拽
+        // if (this.isEditingOrder) {
+        //     dragHandle.draggable = true;
+        //     item.draggable = true;
+            
+        //     // 拖拽事件
+        //     item.addEventListener('dragstart', (e) => this.handleDragStart(e, index));
+        //     item.addEventListener('dragend', (e) => this.handleDragEnd(e));
+        // } else {
+        //     dragHandle.draggable = false;
+        //     item.draggable = false;
+        // }
+        
+        // 在整个item上添加拖放事件（作为放置目标）
+        // if (this.isEditingOrder) {
+        //     item.addEventListener('dragover', (e) => this.handleDragOverNew(e, index));
+        //     item.addEventListener('drop', (e) => this.handleDropNew(e, i));
+        //     item.addEventListener('dragleave', (e) => this.handleDragLeave(e));
+        // }
+        item.appendChild(dragHandle);
+
+        // 创建可点击的内容区域
+        const content = document.createElement('div');
+        content.className = 'level-content';
+        content.onclick = () => this.selectLevel(index);
+        // if(index < this.levels.length){
+        //     content.className = 'level-content';
+        //     content.onclick = () => this.selectLevel(index);
+        // }else{
+        //     content.className = 'add-level-content';
+        //     content.onclick = () => this.addLevel();
+        // }
+
+        //const level = this.levels[index];
+        // 构建关卡标签
+        //if(index < this.levels.length){
+        let levelLabel = i18n.t('levelLabel', {level: level.getLevelNumber()});
+        // if (this.isEditingOrder && level.isDragged() && level.getOriginalLevelNumber() !== level.getLevelNumber()) {
+        //     levelLabel += ` <span class="original-label forbidden-text-select" style="color: #ff9800; font-size: 12px;">(原${level.getOriginalLevelNumber()})</span>`;
+        // }
+
+        // 编辑顺序模式下显示删除按钮
+        const deleteBtn = document.createElement('button');
+        if (this.isEditingLevels) {
+            //deleteBtnHtml = `<button class="level-delete-btn" data-index="${i}" title="删除关卡"">×</button>";
+            deleteBtn.className = 'level-delete-btn';
+            deleteBtn.dataset.index = index;
+            deleteBtn.title = "删除关卡";
+            deleteBtn.textContent = "×";
+            item.appendChild(deleteBtn);
+        }
+        
+        content.innerHTML = `
+            <span class="level-wrapper ${level.isDragged() ? 'dragged' : ''}" style="position:relative;display:block;">
+                <span class="level-num">${levelLabel}</span>
+            </span>
+            <span class="level-info">${level.getDataSize()} B</span>
+        `;
+        // }else{
+        //     content.innerHTML = `
+        //         <span class="level-wrapper}">
+        //             <span class="level-num">添加关卡</span> 
+        //             <span class="level-num"></span>
+        //         </span>
+        //         <span class="level-info"> ➕ </span>
+        //     `;
+        // }
+        item.appendChild(content);
+        return item;
+        //listElement.appendChild(item);
     }
 
     /**
      * 选择关卡进行编辑
      */
     selectLevel(index) {
+        if(index === -1){
+            app.showMessage('warning', "");
+            //app.showMessage('warning', i18n.t("rom"));
+            return;
+        }
         this.currentLevel = index;
         const level = this.romEditor.getLevel(index);
         
@@ -455,6 +537,11 @@ class App {
         
         // 显示/隐藏可视化编辑按钮
         //document.getElementById('visualEditBtn').style.display = 'inline-block';
+    }
+
+    addLevel(){
+        //新增关卡
+        console.log("TODO : Add Level");
     }
     
     /**
@@ -670,28 +757,7 @@ class App {
             this.emulator = new NesEmulator('levelCanvas');
         }
         
-        // // 初始化移动控制器
-        // if (!this.mobileController) {
-        //     this.mobileController = new MobileGameController(this.emulator);
-        // }
-        
         this.emulator.loadROM(romData);
-        
-        // const editorLayout = document.querySelector('.editor-layout');
-        // if (editorLayout) {
-        //     editorLayout.classList.add('test-mode');
-        // }
-        
-        // // 添加body的test-mode类，用于隐藏其他UI元素
-        // document.body.classList.add('test-mode');
-        
-        // // 显示移动控制面板
-        // this.mobileController.show();
-        
-        // // 延迟滚动到中心位置，等待 CSS 动画完成
-        // setTimeout(() => {
-        //     this.emulator.scrollCanvasToCenter();
-        // }, 400); // 等待 CSS transition 完成（0.3s + 缓冲）
         
         this.emulator.quickStart();
 
@@ -795,7 +861,6 @@ class App {
             this.showMessage('success', i18n.t("saveMapSuccess", {currentLevel: this.currentLevel + 1}));
             
             // 刷新显示
-            this.displayLevelList();
             this.selectLevel(this.currentLevel);
             this.updateMemoryOverview();
             this.writeRomBtn.disabled = false;
@@ -980,34 +1045,34 @@ class App {
     /**
      * 拖拽开始
      */
-    handleDragStart(e, index) {
-        this.draggedIndex = index;
-        e.currentTarget.classList.add('dragging');
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/html', e.currentTarget.innerHTML);
-    }
+    // handleDragStart(e, index) {
+    //     this.draggedIndex = index;
+    //     e.currentTarget.classList.add('dragging');
+    //     e.dataTransfer.effectAllowed = 'move';
+    //     e.dataTransfer.setData('text/html', e.currentTarget.innerHTML);
+    // }
     
     /**
      * 新的拖拽经过处理（编辑模式）
      */
-    handleDragOverNew(e, targetIndex) {
-        if (e.preventDefault) {
-            e.preventDefault();
-        }
-        e.dataTransfer.dropEffect = 'move';
+    // handleDragOverNew(e, targetIndex) {
+    //     if (e.preventDefault) {
+    //         e.preventDefault();
+    //     }
+    //     e.dataTransfer.dropEffect = 'move';
         
-        if (this.draggedIndex === targetIndex) {
-            return false;
-        }
+    //     if (this.draggedIndex === targetIndex) {
+    //         return false;
+    //     }
         
-        // 更新占位符位置
-        if (this.dropTargetIndex !== targetIndex) {
-            this.dropTargetIndex = targetIndex;
-            this.updatePlaceholder();
-        }
+    //     // 更新占位符位置
+    //     if (this.dropTargetIndex !== targetIndex) {
+    //         this.dropTargetIndex = targetIndex;
+    //         this.updatePlaceholder();
+    //     }
         
-        return false;
-    }
+    //     return false;
+    // }
     
     /**
      * 更新占位符
@@ -1029,58 +1094,57 @@ class App {
     /**
      * 新的放下处理（编辑模式）
      */
-    handleDropNew(e, targetIndex) {
-        if (e.stopPropagation) {
-            e.stopPropagation();
-        }
-        e.preventDefault();
+    // handleDropNew(e, targetIndex) {
+    //     if (e.stopPropagation) {
+    //         e.stopPropagation();
+    //     }
+    //     e.preventDefault();
         
-        if (this.draggedIndex === targetIndex) {
-            return false;
-        }
+    //     if (this.draggedIndex === targetIndex) {
+    //         return false;
+    //     }
         
-        // 移动关卡（仅在内存中）
-        const [movedLevel] = this.romEditor.levels.splice(this.draggedIndex, 1);
-        this.romEditor.levels.splice(targetIndex, 0, movedLevel);
+    //     // 移动关卡（仅在内存中）
+    //     const [movedLevel] = this.romEditor.levels.splice(this.draggedIndex, 1);
+    //     this.romEditor.levels.splice(targetIndex, 0, movedLevel);
         
-        // 更新索引
-        for (let i = 0; i < this.romEditor.levels.length; i++) {
-            this.romEditor.levels[i].index = i;
-        }
+    //     // 更新索引
+    //     for (let i = 0; i < this.romEditor.levels.length; i++) {
+    //         this.romEditor.levels[i].index = i;
+    //     }
         
-        // 标记为已拖拽
-        movedLevel.markAsDragged();
+    //     // 标记为已拖拽
+    //     movedLevel.markAsDragged();
         
-        // 更新当前选中的关卡索引
-        if (this.currentLevel === this.draggedIndex) {
-            this.currentLevel = targetIndex;
-        } else if (this.draggedIndex < this.currentLevel && targetIndex >= this.currentLevel) {
-            this.currentLevel--;
-        } else if (this.draggedIndex > this.currentLevel && targetIndex <= this.currentLevel) {
-            this.currentLevel++;
-        }
+    //     // 更新当前选中的关卡索引
+    //     if (this.currentLevel === this.draggedIndex) {
+    //         this.currentLevel = targetIndex;
+    //     } else if (this.draggedIndex < this.currentLevel && targetIndex >= this.currentLevel) {
+    //         this.currentLevel--;
+    //     } else if (this.draggedIndex > this.currentLevel && targetIndex <= this.currentLevel) {
+    //         this.currentLevel++;
+    //     }
         
-        // 重新显示列表
-        this.displayLevelList();
-        if (this.currentLevel >= 0) {
-            const items = document.querySelectorAll('.level-item');
-            items[this.currentLevel]?.classList.add('active');
-        }
+    //     // 重新显示列表
+    //     if (this.currentLevel >= 0) {
+    //         const items = document.querySelectorAll('.level-item');
+    //         items[this.currentLevel]?.classList.add('active');
+    //     }
         
-        return false;
-    }
+    //     return false;
+    // }
 
     /**
      * 拖拽结束
      */
-    handleDragEnd(e) {
-        e.currentTarget.classList.remove('dragging');
-        this.dropTargetIndex = -1;
-        // 移除所有 drag-over 和 placeholder 样式
-        document.querySelectorAll('.drag-over, .drop-placeholder').forEach(item => {
-            item.classList.remove('drag-over', 'drop-placeholder');
-        });
-    }
+    // handleDragEnd(e) {
+    //     e.currentTarget.classList.remove('dragging');
+    //     this.dropTargetIndex = -1;
+    //     // 移除所有 drag-over 和 placeholder 样式
+    //     document.querySelectorAll('.drag-over, .drop-placeholder').forEach(item => {
+    //         item.classList.remove('drag-over', 'drop-placeholder');
+    //     });
+    // }
 
     /**
      * 拖拽经过
@@ -1097,9 +1161,9 @@ class App {
     /**
      * 拖拽离开
      */
-    handleDragLeave(e) {
-        e.currentTarget.classList.remove('drag-over');
-    }
+    // handleDragLeave(e) {
+    //     e.currentTarget.classList.remove('drag-over');
+    // }
 
     /**
      * 放下
@@ -1132,7 +1196,6 @@ class App {
                 this.currentLevel++;
             }
 
-            this.displayLevelList();
             if (this.currentLevel >= 0) {
                 this.selectLevel(this.currentLevel);
             }
@@ -1236,72 +1299,146 @@ async function clearCache(){
 /**
  * 开始编辑关卡顺序
  */
-function startEditOrder() {
-    app.isEditingOrder = true;
+function startEditLevels() {
+    app.isEditingLevels = true;
     
-    // 备份当前顺序
-    app.originalLevelsOrder = app.romEditor.levels.map(level => ({
-        level: level,
-        index: level.index,
-        originalIndex: level.originalIndex
-    }));
+    // 备份当前顺序（浅拷贝数组，Level 对象保持引用）
+    app.originalLevelsOrder = app.romEditor.levels.slice();
+    app.levelsListChanged = false;
     
     // 切换按钮显示
-    document.getElementById('editOrderBtn').style.display = 'none';
-    document.getElementById('orderActionButtons').style.display = 'flex';
+    document.getElementById('editLevelsBtn').style.display = 'none';
+    document.getElementById('editLevelsActionButtons').style.display = 'flex';
     
-    // 重新渲染列表以启用拖拽
-    app.displayLevelList();
-    app.showMessage('info', i18n.t("changeLevelOrderInfo"));
+    // 启用关卡总数输入框
+    const levelCountInput = document.getElementById('levelCountInput');
+    if (levelCountInput) {
+        levelCountInput.disabled = false;
+    }
+
+    //修改 item 为拖拽样式
+    for(let i=0; i< app.romEditor.levels.length; i++){
+        const level = app.romEditor.getLevel(i);
+        const item = level.htmlItem;
+        const dragHandle = item.querySelector('.drag-handle');
+        if (dragHandle) {
+            dragHandle.style.display = 'flex';
+        }
+        item.classList.remove('no-drag');
+    }
+}
+
+
+function hideDragHandle(){
+    // 隐藏 dragHandle
+    for(let i=0; i< app.romEditor.levels.length; i++){
+        const level = app.romEditor.getLevel(i);
+        const item = level.htmlItem;
+        const dragHandle = item.querySelector('.drag-handle');
+        if (dragHandle) {
+            dragHandle.style.display = 'none';
+        }
+    }
 }
 
 /**
  * 取消编辑关卡顺序
  */
-function cancelEditOrder() {
-    if (!app.originalLevelsOrder) return;
-    
-    // 恢复原始顺序
-    app.romEditor.levels = app.originalLevelsOrder.map(item => {
-        item.level.index = item.index;
-        return item.level;
-    });
-    
-    app.isEditingOrder = false;
-    app.originalLevelsOrder = null;
+function cancelEditLevels() {
+    app.isEditingLevels = false;
     
     // 切换按钮显示
-    document.getElementById('editOrderBtn').style.display = 'block';
-    document.getElementById('orderActionButtons').style.display = 'none';
+    document.getElementById('editLevelsBtn').style.display = 'block';
+    document.getElementById('editLevelsActionButtons').style.display = 'none';
     
-    // 重新渲染列表
-    app.displayLevelList();
-    if (app.currentLevel >= 0) {
-        app.selectLevel(app.currentLevel);
+    // 禁用关卡总数输入框
+    const levelCountInput = document.getElementById('levelCountInput');
+    if (levelCountInput) {
+        levelCountInput.value = this.romEditor.getLevelCount();
+        levelCountInput.disabled = true;
     }
     
-    app.showMessage('warning', i18n.t("changeLevelOrderCancelWarning"));
+    // 如果用户做了修改，恢复原始顺序
+    if (app.levelsListChanged && app.originalLevelsOrder) {
+        app.romEditor.levels = app.originalLevelsOrder.slice();
+        app.originalLevelsOrder = null;
+        app.levelsListChanged = false;
+        
+        // 重新创建列表以反映恢复的顺序
+        app.createLevelList();
+        
+        // 恢复当前选中关卡（如果有）
+        if (app.currentLevel >= 0 && app.currentLevel < app.romEditor.levels.length) {
+            app.selectLevel(app.currentLevel);
+        }
+        
+        app.showMessage('warning', i18n.t("changeLevelOrderCancelWarning"));
+    } else {
+        // 没有修改，只需隐藏拖拽手柄
+        hideDragHandle();
+        app.originalLevelsOrder = null;
+    }
 }
 
 /**
  * 保存关卡顺序
  */
-function saveOrder() {
-    app.isEditingOrder = false;
-    app.originalLevelsOrder = null;
+function saveLevels() {
+    app.isEditingLevels = false;
     
     // 切换按钮显示
-    document.getElementById('editOrderBtn').style.display = 'block';
-    document.getElementById('orderActionButtons').style.display = 'none';
+    document.getElementById('editLevelsBtn').style.display = 'block';
+    document.getElementById('editLevelsActionButtons').style.display = 'none';
+    hideDragHandle();
     
-    // 重新渲染列表
-    app.displayLevelList();
-    if (app.currentLevel >= 0) {
-        app.selectLevel(app.currentLevel);
-    }
+    // 禁用关卡总数输入框
+    const levelCountInput = document.getElementById('levelCountInput');
 
-    //重新更新 关卡信息地址
+    if (levelCountInput) {
+        levelCountInput.disabled = true;
+    }
+    
+    // 如果没有修改，直接返回
+    if (!app.levelsListChanged) {
+        app.originalLevelsOrder = null;
+        return;
+    }
+    
+    // 获取当前关卡总数，标记超出部分的关卡为已删除
+    const levelCount = app.romEditor.getLevelCount();
+    for (let i = 0; i < app.romEditor.levels.length; i++) {
+        if (i >= levelCount) {
+            app.romEditor.levels[i].isDeleted = true;
+        } else {
+            app.romEditor.levels[i].isDeleted = false;
+        }
+    }
+    
+    // 重新计算所有关卡的 ROM 地址（昂贵操作，只在保存时执行）
     app.romEditor.updateLevelAddresses();
+    
+    // 标记 ROM 已修改，需要写入
+    app.romEditor.modified = true;
+    if (app.writeRomBtn) {
+        app.writeRomBtn.disabled = false;
+    }
+    
+    // 清理备份和标志
+    app.originalLevelsOrder = null;
+    app.levelsListChanged = false;
+    
+    // 重新创建列表以更新所有 htmlItem 引用和关卡编号显示
+    app.createLevelList();
+    
+    // 恢复当前选中关卡（如果在有效范围内）
+    if (app.currentLevel >= 0 && app.currentLevel < levelCount) {
+        app.selectLevel(app.currentLevel);
+    } else if (app.currentLevel >= levelCount && levelCount > 0) {
+        // 如果当前关卡被删除，选中最后一个有效关卡
+        app.selectLevel(levelCount - 1);
+    }else{
+        app.selectLevel(0);
+    }
     
     app.showMessage('success', i18n.t("changeLevelOrderSuccess"));
 }

@@ -19,12 +19,23 @@ class Level {
         this.romAddress = romAddress;
         this.data = data;
         this.monsterData = monsterData;
+        // 关卡/怪物地址在“编辑逻辑”中并不重要，只需要在最终写回 ROM/CPU 时再计算或使用。
+        // 这里仍然接受并保存 monsterCpuAddress/monsterRomAddress，是为了：
+        // 1. 与现有代码和数据结构保持兼容；
+        // 2. 在写回时（如需要）可以使用原有或预先计算好的地址信息。
+        // 因此编辑过程中可以忽略这些字段，但 Level 实例本身仍会记录它们。
         this.monsterCpuAddress = monsterCpuAddress;
         this.monsterRomAddress = monsterRomAddress;
         this.dragged = false; // 标记是否被拖拽过
 
         //是否修改过
         this.modified = false;
+
+        //对应的HTML元素
+        this.htmlItem = null;
+        
+        //是否被标记为删除（关卡总数减少时）
+        this.isDeleted = false;
         //是否已经保存
         //this.saved = false;
     }

@@ -1,0 +1,272 @@
+/* ========================================
+   SortableJS 拖拽列表样式
+   用于关卡列表的拖拽排序功能
+   ======================================== */
+
+/* 关卡列表网格布局 */
+.level-list {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+}
+
+/* 关卡列表项基础样式 */
+.level-item {
+    position: relative;
+    padding: 0;
+    background: #f9f9f9;
+    border-left: 3px solid #ddd;
+    border-radius: 4px;
+    transition: all 0.3s;
+    overflow: hidden;
+    font-size: 11px;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+}
+
+/* 关卡列表项基础样式 */
+.level-item.deleted-level {
+    position: relative;
+    padding: 0;
+    background: #262424;
+    border-left: 3px solid #ddd;
+    border-radius: 4px;
+    transition: all 0.3s;
+    overflow: hidden;
+    font-size: 11px;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+}
+
+.level-item:hover {
+    background: #e3f2fd;
+    border-left-color: #64B5F6;
+}
+
+.level-item.active {
+    background: #2196F3;
+    color: white;
+    border-left-color: #1976D2;
+    font-weight: bold;
+}
+
+/* 拖拽手柄 */
+.drag-handle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: move;
+    font-size: 16px;
+    color: #bbb;
+    padding: 4px 8px;
+    min-width: 24px;
+    user-select: none;
+    transition: color 0.2s;
+    flex-shrink: 0;
+}
+
+.drag-handle:hover {
+    color: #2196F3;
+}
+
+/* 拖拽状态样式 */
+.level-item[draggable="true"] {
+    cursor: move;
+}
+
+/* SortableJS 选中状态 */
+.no-drag {
+    /* opacity: 0.8;
+    box-shadow: 0 0 8px rgb(74, 75, 76); */
+}
+
+/* SortableJS 选中状态 */
+.sortable-chosen {
+    opacity: 0.8;
+    box-shadow: 0 0 8px rgba(33, 150, 243, 0.5);
+}
+
+/* SortableJS 拖拽中状态（ghost） */
+.sortable-ghost {
+    opacity: 0.4;
+    background: #ffe082 !important;
+    border-left-color: #FF9800 !important;
+}
+
+/* SortableJS 拖拽元素样式 */
+.sortable-drag {
+    opacity: 1;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transform: rotate(2deg);
+}
+
+/* 占位符样式（拖拽到目标位置时的提示） */
+.drop-placeholder {
+    background: #e3f2fd !important;
+    border: 2px dashed #2196F3 !important;
+    opacity: 0.6;
+    min-height: 50px;
+}
+
+.drop-placeholder .level-content,
+.drop-placeholder .drag-handle {
+    visibility: hidden;
+}
+
+/* 删除按钮样式 */
+.level-delete-btn {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 20px;
+    height: 20px;
+    background: #ff4d4f;
+    color: #fff;
+    border: none;
+    border-radius: 3px;
+    font-weight: bold;
+    cursor: pointer;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+    font-size: 14px;
+    line-height: 1;
+    transition: all 0.2s;
+}
+
+.level-delete-btn:hover {
+    background: #ff1a1a;
+    transform: scale(1.1);
+}
+
+.level-delete-btn:active {
+    transform: scale(0.95);
+}
+
+/* 关卡内容区域 */
+.level-content {
+    position: relative;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 4px;
+    cursor: pointer;
+}
+
+.level-content:hover {
+    background: rgba(33, 150, 243, 0.05);
+}
+
+.level-item.active .level-content:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* 关卡编号样式 */
+.level-wrapper {
+    display: block;
+    text-align: center;
+}
+
+.level-num {
+    font-weight: 600;
+    font-size: 12px;
+    margin-bottom: 2px;
+}
+
+.level-item.active .level-num {
+    color: white;
+}
+
+/* 关卡信息（字节数） */
+.level-info {
+    font-size: 9px;
+    opacity: 0.7;
+    text-align: center;
+}
+
+.level-item.active .level-info {
+    opacity: 0.9;
+}
+
+/* 原始关卡标签（拖拽后显示） */
+.original-label {
+    font-size: 11px;
+    opacity: 0.7;
+    font-weight: normal;
+}
+
+/* 新增关卡按钮样式 */
+.add-level-item {
+    padding: 0;
+    background: #b9f561;
+    border-left: 3px solid #eada61;
+    border-radius: 4px;
+    transition: all 0.3s;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    font-size: 11px;
+}
+
+.add-level-item:hover {
+    background: #a8e450;
+    border-left-color: #d9c950;
+}
+
+.add-level-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 4px;
+    cursor: pointer;
+}
+
+.add-level-content:hover {
+    background: rgba(185, 245, 97, 0.2);
+}
+
+/* 拖拽提示 */
+.drag-tip {
+    font-size: 11px;
+    color: #666;
+    padding: 8px;
+    background: #fff3cd;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+/* 编辑模式下的样式 */
+.edit-mode .drag-handle {
+    cursor: move;
+    opacity: 1;
+}
+
+/* 响应式设计：移动端 */
+@media (pointer: coarse) {
+    .level-list {
+        grid-template-columns: 1fr;
+    }
+    
+    .level-item {
+        font-size: 13px;
+        min-height: 48px;
+    }
+    
+    .drag-handle {
+        font-size: 18px;
+        padding: 6px;
+    }
+}
+
+/* 平滑过渡动画 */
+.level-item {
+    transition: transform 0.2s, box-shadow 0.2s, background 0.3s, opacity 0.3s;
+}
