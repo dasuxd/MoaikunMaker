@@ -359,6 +359,11 @@ class NesEmulator {
     }
 
     adjustUIForMobile() {
+        //app.stopEmulatorBtn.disabled = false;
+        //判断是不是触摸屏设备
+        if (!window.matchMedia('(pointer: coarse)').matches) {
+            return;
+        }
         // 添加测试模式类，在移动端缩小显示
         // 延迟滚动到中心位置，等待 CSS 动画完成
         setTimeout(() => {
@@ -399,7 +404,7 @@ class NesEmulator {
         // 显示移动控制面板
         app.mobileController.show();
 
-        app.stopEmulatorBtn.disabled = false;
+
     }
 
     async quickStart(){
@@ -444,7 +449,7 @@ class NesEmulator {
         this.isRunning = true;
         this.lastFrameTime = performance.now();
         
-        // 🔧 重新初始化音频（修复iOS黑屏后音频失效）
+        // 🔧 重新初始化音频（修复iOS黑屏后音频失效）  fuck webkit
         if (!this.audioContext || this.audioContext.state === 'closed') {
             this.initAudio();
         }
@@ -458,6 +463,8 @@ class NesEmulator {
                 this.audioContext.resume();
             }
         }
+
+        app.stopEmulatorBtn.disabled = false;
         
         this.loop(this.lastFrameTime);
     }
