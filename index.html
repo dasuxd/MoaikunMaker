@@ -295,13 +295,12 @@
             </div>
             <!-- 移动端游戏控制面板 -->
             <div class="mobile-game-controls" id="mobileGameControls">
-                <!-- 停止按钮（居中偏上） -->
-                <button class="control-stop-btn forbidden-text-select" id="mobileStopBtn" onclick="stopEmulator()">
-                    <div class="stop-icon">⏹</div>
-                </button>
-
-                <div class="controls-layout">
-                    <!-- 左侧：十字方向键 -->
+                <!-- 左侧控制区：十字方向键 + Select/Start -->
+                <div class="controls-left">
+                    <!-- Select Start 按钮（左侧底部） -->
+                    <div class="system-buttons forbidden-text-select">
+                        <button class="system-btn forbidden-text-select" data-key="select">SELECT</button>
+                    </div>
                     <div class="dpad-container">
                         <button class="forbidden-text-select dpad-btn dpad-up" data-key="up">▲</button>
                         <button class="forbidden-text-select dpad-btn dpad-left" data-key="left">◀</button>
@@ -309,18 +308,23 @@
                         <button class="forbidden-text-select dpad-btn dpad-right" data-key="right">▶</button>
                         <button class="forbidden-text-select dpad-btn dpad-down" data-key="down">▼</button>
                     </div>
+                    
 
-                    <!-- 右侧：A B 按钮 -->
+                </div>
+
+                <!-- 右侧控制区：A/B按钮 + 停止按钮 -->
+                <div class="controls-right">
+                    <!-- 停止按钮（右上角） -->
+                    <button class="system-btn forbidden-text-select" data-key="start">START</button>
+                    <button class="control-stop-btn forbidden-text-select" id="mobileStopBtn" onclick="stopEmulator()">
+                        <div class="stop-icon">⏹</div>
+                    </button>
+                    
+                    <!-- A B 按钮（对角线排列） -->
                     <div class="action-buttons forbidden-text-select">
                         <button class="action-btn forbidden-text-select btn-b" data-key="b">B</button>
                         <button class="action-btn forbidden-text-select btn-a" data-key="a">A</button>
                     </div>
-                </div>
-
-                <!-- 底部：Select Start 按钮 -->
-                <div class="system-buttons forbidden-text-select">
-                    <button class="system-btn forbidden-text-select" data-key="select">SELECT</button>
-                    <button class="system-btn forbidden-text-select" data-key="start">START</button>
                 </div>
             </div>
 

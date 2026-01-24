@@ -90,7 +90,7 @@ class NesEmulator {
             };
 
             // 额外：页面获得焦点时也试一次
-            window.addEventListener('focus', () => {
+            window.addEventListener('visibilitychange', () => {
             if (this.audioContext?.state !== 'running') {
                 this.audioContext.resume();
             }
@@ -101,7 +101,7 @@ class NesEmulator {
             console.error('音频初始化失败:', error);
         }
     }
-    
+
     /**
      * 处理音频采样
      */
@@ -454,7 +454,7 @@ class NesEmulator {
             this.scriptProcessor.connect(this.audioContext.destination);
             
             // 恢复音频上下文（某些浏览器需要用户交互后才能播放）
-            if (this.audioContext.state === 'suspended') {
+            if (this.audioContext.state === 'suspended' || this.audioContext.state !== 'interrupted') {
                 this.audioContext.resume();
             }
         }
