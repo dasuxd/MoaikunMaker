@@ -23,6 +23,36 @@ class RomEditor {
         this.romData = new Uint8Array(arrayBuffer);
         this.parseROM();
 
+        //修复 boss 图像
+        //测试功能，将魔王图层数据写入其他场景，并备份其他场景的原本数据。方便恢复
+        //0x6A60 ~ 0x6E00
+        //0xEA70 ~ 0xEE10
+        let index = 0xEA70;
+        let indexEnd = 0xEE10;
+        const backupAddr = 0x8C50;
+
+        //如果0x8C50 全是0则代表没有备份过
+        let needBackup = true;
+        for(let i = backupAddr; i < backupAddr + (indexEnd - index); i++){
+            if(this.romData[i] !== 0x00){
+                needBackup = false;
+                break;
+            }
+        }
+
+        if(needBackup){
+            const page1Addr = 0xAA70;
+            const page2Addr = 0xCA70;
+            for(;index < indexEnd; index++){
+                let offset = index - 0xEA70;
+                //备份地址
+                this.romData[backupAddr + offset] = this.romData[page1Addr + offset];
+                //写入新数据
+                this.romData[page1Addr + offset] = this.romData[index];
+                this.romData[page2Addr + offset] = this.romData[index];
+            }
+        }
+
         //如果存在参数，则需要加载参数关卡，然后 让 nes 运行
         
         this.modified = false;
@@ -349,35 +379,6 @@ class RomEditor {
             const cpuAddr = levels[0].cpuAddress;
             romData[offset7] = cpuAddr & 0xFF;
             romData[offset7 + 1] = (cpuAddr >> 8) & 0xFF;
-        }
-
-        //测试功能，将魔王图层数据写入其他场景，并备份其他场景的原本数据。方便恢复
-        //0x6A60 ~ 0x6E00
-        //0xEA70 ~ 0xEE10
-        let index = 0xEA70;
-        let indexEnd = 0xEE10;
-        const backupAddr = 0x8C50;
-
-        //如果0x8C50 全是0则代表没有备份过
-        let needBackup = true;
-        for(let i = backupAddr; i < backupAddr + (indexEnd - index); i++){
-            if(romData[i] !== 0x00){
-                needBackup = false;
-                break;
-            }
-        }
-
-        if(needBackup){
-            const page1Addr = 0xAA70;
-            const page2Addr = 0xCA70;
-            for(;index < indexEnd; index++){
-                let offset = index - 0xEA70;
-                //备份地址
-                romData[backupAddr + offset] = romData[page1Addr + offset];
-                //写入新数据
-                romData[page1Addr + offset] = romData[index];
-                romData[page2Addr + offset] = romData[index];
-            }
         }
 
         //this.modified = false;
