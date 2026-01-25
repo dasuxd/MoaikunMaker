@@ -12,7 +12,7 @@ class DataConverter {
      * @param {Array<number>} monsterData - ROM关卡的怪物数据
      * @returns {Object} {background, player, door, map, enemies}
      */
-    fromROMtoEditor(mapData, monsterData) {
+    static fromROMtoEditor(mapData, monsterData) {
         // 1. 解析地图数据的第一个字节（背景ID）
         const background = mapData[0];
         
@@ -35,10 +35,10 @@ class DataConverter {
         const door = (doorX > 0 || doorY > 0) ? { x: doorX, y: doorY } : null;
         
         // 4. 解析地图tile数据（从第5个字节开始，RLE编码）
-        const map = this.decodeRLEMap(mapData.slice(4), isWideScreen, isBugScreen);
+        const map = DataConverter.decodeRLEMap(mapData.slice(4), isWideScreen, isBugScreen);
         
         // 5. 解析怪物数据
-        const enemies = this.decodeMonsterData(monsterData);
+        const enemies = DataConverter.decodeMonsterData(monsterData);
         
         return {
             background: bgId,
@@ -56,7 +56,7 @@ class DataConverter {
      * @param {Object} levelEditorData - {background, player, door, map, enemies}
      * @returns {Object} {mapData, monsterData}
      */
-    fromLevelEditorToROMData(levelEditorData, isWideScreen) {
+    static fromLevelEditorToROMData(levelEditorData, isWideScreen) {
         const mapBytes = [];
         
         // 1. 背景ID
@@ -85,11 +85,11 @@ class DataConverter {
         }
         
         // 5. 地图数据（RLE编码）
-        const rleBytes = this.encodeRLEMap(levelEditorData.map, isWideScreen);
+        const rleBytes = DataConverter.encodeRLEMap(levelEditorData.map, isWideScreen);
         mapBytes.push(...rleBytes);
         
         // 6. 怪物数据
-        const monsterBytes = this.encodeMonsterData(levelEditorData.enemies);
+        const monsterBytes = DataConverter.encodeMonsterData(levelEditorData.enemies);
         
         return {
             mapData: mapBytes,
@@ -102,7 +102,7 @@ class DataConverter {
      * @param {Array<number>} rleData - RLE编码的数据
      * @returns {Array<Array<number>>} 16x14的二维数组
      */
-    decodeRLEMap(rleData, isWideScreen, isBugScreen) {
+    static decodeRLEMap(rleData, isWideScreen, isBugScreen) {
         let gridWidth = Config.GRID_WIDTH;
         if(!(isWideScreen || isBugScreen)){
             gridWidth = Config.GRID_WIDTH / 2;
@@ -136,12 +136,10 @@ class DataConverter {
      * @param {Array<Array<number>>} map - 16x14的二维数组
      * @returns {Array<number>} RLE编码的字节数组
      */
-    encodeRLEMap(map, isWideScreen) {
+    static encodeRLEMap(map, isWideScreen) {
         const bytes = [];
         const flatMap = [];
 
-
-        
         // 展平二维数组
         for (let y = 0; y < Config.GRID_HEIGHT; y++) {
             let gridWidth = Config.GRID_WIDTH;
@@ -155,20 +153,39 @@ class DataConverter {
         
         // RLE编码
         let i = 0;
+
+        //地图末尾的 0x00 不进行编码，直接丢弃
+        const tmpBytes = [];
         while (i < flatMap.length) {
             const currentTile = flatMap[i];
             let count = 1;
-            
-            while (i + count < flatMap.length && 
-                   flatMap[i + count] === currentTile && 
-                   count < 16) {
-                count++;
+            if(currentTile === 0){
+                while (i + count < flatMap.length && 
+                    flatMap[i + count] === currentTile && 
+                    count < 16) {
+                    count++;
+                }
+                
+                const encodedByte = ((count - 1) << 4) | (currentTile & 0x0F);
+                tmpBytes.push(encodedByte);
+                
+                i += count;
+            }else{
+                // 对于非0的tile，正常编码
+                bytes.push(...tmpBytes);
+                tmpBytes.length = 0;
+                while (i + count < flatMap.length && 
+                    flatMap[i + count] === currentTile && 
+                    count < 16) {
+                    count++;
+                }
+                
+                const encodedByte = ((count - 1) << 4) | (currentTile & 0x0F);
+                bytes.push(encodedByte);
+                
+                i += count;
             }
-            
-            const encodedByte = ((count - 1) << 4) | (currentTile & 0x0F);
-            bytes.push(encodedByte);
-            
-            i += count;
+
         }
         
         return bytes;
@@ -179,7 +196,7 @@ class DataConverter {
      * @param {Array<number>} monsterData - 怪物数据字节数组
      * @returns {Array<Object>} [{id, x, y}, ...]
      */
-    decodeMonsterData(monsterData) {
+    static decodeMonsterData(monsterData) {
         if (!monsterData || monsterData.length === 0) {
             return [];
         }
@@ -211,7 +228,7 @@ class DataConverter {
      * @param {Array<Object>} enemies - [{id, x, y}, ...]
      * @returns {Array<number>} 怪物数据字节数组
      */
-    encodeMonsterData(enemies) {
+    static encodeMonsterData(enemies) {
         const bytes = [];
         
         // 如果没有敌人或敌人数组为空，返回 [0x01]

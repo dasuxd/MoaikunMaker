@@ -5,7 +5,7 @@ class App {
     constructor() {
         this.romEditor = new RomEditor();
         this.levelEditor = new LevelEditor('levelCanvas');
-        this.converter = new DataConverter();
+        //this.converter = new DataConverter();
         this.currentLevel = 0;
         this.fileName = '';
         this.draggedIndex = -1;
@@ -583,7 +583,7 @@ class App {
             const monsterData = level.monsterData;
             
             // 转换为可视化编辑器格式
-            const editorData = this.converter.fromROMtoEditor(mapData, monsterData);
+            const editorData = DataConverter.fromROMtoEditor(mapData, monsterData);
             
             // 加载到可视化编辑器
             if (this.levelEditor) {
@@ -729,7 +729,7 @@ class App {
         
         try {
             const tmpEditorData = this.getLevelEditorData();
-            const levelRomData = this.converter.fromLevelEditorToROMData(tmpEditorData, this.levelEditor.isWideScreen);
+            const levelRomData = DataConverter.fromLevelEditorToROMData(tmpEditorData, this.levelEditor.isWideScreen);
 
             // 获取当前页面完整 URL
             const url = new URL(window.location.href);
@@ -787,7 +787,7 @@ class App {
         // 新建一个 romData，然后把当前关卡当作第一关塞进去。
         // 修改关卡总数为 1.
         const tmpEditorData = this.getLevelEditorData();
-        const levelRomData = this.converter.fromLevelEditorToROMData(tmpEditorData, this.levelEditor.isWideScreen);
+        const levelRomData = DataConverter.fromLevelEditorToROMData(tmpEditorData, this.levelEditor.isWideScreen);
         const romData = this.createTmpRomData(levelRomData);
 
         
@@ -870,7 +870,7 @@ class App {
 
         try {
             // 转换为ROM格式
-            const romData = this.converter.fromLevelEditorToROMData(levelEditorData, this.levelEditor.isWideScreen);
+            const romData = DataConverter.fromLevelEditorToROMData(levelEditorData, this.levelEditor.isWideScreen);
             
             console.log('转换后的ROM数据:', {
                 mapDataLength: romData.mapData.length,

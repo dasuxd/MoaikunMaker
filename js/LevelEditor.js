@@ -84,30 +84,6 @@ class LevelEditor {
     }
     
     /**
-     * 从 sessionStorage 加载关卡数据
-     */
-    // loadFromSessionStorage() {
-    //     const stored = sessionStorage.getItem('levelEditorData');
-    //     if (!stored) return;
-        
-    //     try {
-    //         const { levelIndex, data } = JSON.parse(stored);
-    //         console.log(`Loading level ${levelIndex} from ROM editor`, data);
-            
-    //         this.loadFromData(data, levelIndex);
-
-    //         // 初始化
-
-
-            
-    //         // 清除 sessionStorage
-    //         sessionStorage.removeItem('levelEditorData');
-    //     } catch (error) {
-    //         console.error('Failed to load data from sessionStorage:', error);
-    //     }
-    // }
-    
-    /**
      * 从数据对象加载关卡
      * @param {Object} data - {background, map, player, door, enemies}
      * @param {number} levelIndex - 关卡索引（可选）
@@ -841,6 +817,8 @@ class LevelEditor {
         this.saveStatusEnabled();
         // 立即渲染更新
         this.render();
+        // Update the map and monster data displays.
+        this.updateDataDisplays();
     }
     
     /**
@@ -884,6 +862,8 @@ class LevelEditor {
         this.saveStatusEnabled();
         // 立即渲染更新
         this.render();
+
+        this.updateDataDisplays();
     }
 
     saveStatusEnabled(){
@@ -904,25 +884,6 @@ class LevelEditor {
             this.saveStatusEnabled();
             this.render();
         }
-    }
-    
-    /**
-     * 解析地图数据用于显示
-     */
-    decodeMapDataForDisplay(mapBytes) {
-        const lines = [];
-        let position = 0;
-        
-        for (const byte of mapBytes) {
-            const count = ((byte >> 4) & 0x0F) + 1;
-            const tileId = byte & 0x0F;
-            const hex = byte.toString(16).toUpperCase().padStart(2, '0');
-            
-            lines.push(`${hex}: ${count}个 Tile_${tileId} (位置: ${position}-${position + count - 1})`);
-            position += count;
-        }
-        
-        return lines.join('<br>');
     }
     
     /**
@@ -1209,6 +1170,21 @@ class LevelEditor {
             this.ctx.globalAlpha = 1.0;
 
         }
+    }
+
+    updateDataDisplays(){
+        const levelEditorData = app.getLevelEditorData();
+        const levelRomData = DataConverter.fromLevelEditorToROMData(levelEditorData, this.isWideScreen);
+        const showMapDataStr = levelRomData.mapData.map(b => 
+            b.toString(16).toUpperCase().padStart(2, '0')
+        ).join(' ')
+
+        const showMonsterDataStr = levelRomData.monsterData.map(b => 
+            b.toString(16).toUpperCase().padStart(2, '0')
+        ).join(' ')
+
+         document.getElementById('hexData').value = showMapDataStr;
+         document.getElementById('monsterData').value = showMonsterDataStr;
     }
     
     /**
