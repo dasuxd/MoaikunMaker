@@ -108,7 +108,7 @@
     <button class="sidebar-toggle" id="sidebarToggle" style="display: none;" data-i18n-title="levelList">📋</button>
     <button class="toolbar-toggle" id="toolbarToggle" style="display: none;">🛠️</button>
 
-    <div class="main-layout" id="mainLayout" style="display: none;">
+    <div class="main-layout" id="mainLayout">
         <div class="sidebar" id="sidebar">
             <h2 data-i18n="levelList">📋 关卡列表</h2>
 
@@ -346,13 +346,13 @@
                     <div class="info-value" id="monsterCpuAddress-old">-</div>
                 </div>
                 <div class="info-item">
-                <div class="info-label" data-i18n="currentSize">当前大小</div>
-                <div class="info-value" id="currentSize-old">0 字节</div>
-            </div>
-                <!-- <div class="info-item">
+                    <div class="info-label" data-i18n="currentSize">当前大小</div>
+                    <div class="info-value" id="currentSize-old">0 字节</div>
+                </div>
+                <div class="info-item">
                 <div class="info-label">最大大小</div>
                 <div class="info-value" id="maxSize">- 字节</div>
-            </div> -->
+            </div>
             </div>
             <div class="hex-editor" style="display: block;">
                 <label for="hexData" style="display: block; margin-bottom: 10px; font-weight: bold;">
@@ -369,10 +369,10 @@
                         <span data-i18n="mapCpuAddress">地图 CPU 地址:</span>
                         <code id="cpuAddress" style="background: #e3f2fd; padding: 2px 6px; border-radius: 3px; color: #1976D2; font-weight: 600; font-family: 'Courier New', monospace;">-</code>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 6px;">
+                    <!-- <div style="display: flex; align-items: center; gap: 6px;">
                         <span data-i18n="currentSize">大小:</span>
                         <code id="currentSize" style="background: #e3f2fd; padding: 2px 6px; border-radius: 3px; color: #1976D2; font-weight: 600; font-family: 'Courier New', monospace;">0 字节</code>
-                    </div>
+                    </div> -->
                 </div>
                 <textarea id="hexData" class="hex-input" data-i18n-placeholder="hexDataPlaceholder"
                     placeholder="输入十六进制数据，如: A1 B2 C3 D4..." readonly

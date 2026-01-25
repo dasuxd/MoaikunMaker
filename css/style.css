@@ -10,7 +10,7 @@ html {
     text-size-adjust: 100%;
     /* 确保html使用全部宽度 */
     width: 100%;
-    overflow-x: hidden;
+    /* overflow-x: hidden; */
 }
 
 body {
@@ -343,6 +343,9 @@ body {
 
 /* 移动端优化 - 顶栏不固定，释放更多空间 */
 @media (pointer: coarse) {
+    html {
+        overflow-x: hidden;
+    }
     .top-bar {
         position: relative;
         height: auto;
@@ -460,7 +463,7 @@ h1 {
     margin: 50px 20px;
     position: relative;
     /* iOS滚动优化 */
-    overscroll-behavior: contain;
+    /* overscroll-behavior: contain; */
 }
 
 /* 移动端main-layout居中对齐 */
