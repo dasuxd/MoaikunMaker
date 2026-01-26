@@ -757,8 +757,13 @@ class LevelEditor {
 
     //禁止放置区域
     isProhibitedArea(x, y) {
-         if (y === 0 && this.currentTool
-            || (this.currentTool === 'player' && (x >= Config.GRID_WIDTH / 2))){
+        // 第一行禁止放置
+         if (y === 0 && this.currentTool.includes('tile')
+            // 玩家不能放置在第二屏幕
+            || (this.currentTool === 'player' && (x >= Config.GRID_WIDTH / 2))
+            // 如果非宽屏模式，门不能放在左屏幕的最后一格
+            || (this.isWideScreen === false && this.currentTool === 'door' && (x === (Config.GRID_WIDTH / 2 -1)))
+            ){
                 return true;
             }
         return false;
@@ -771,7 +776,7 @@ class LevelEditor {
     performDraw(x, y, isDragging = false) {
         //if (!this.currentTool) return;
         
-        // 第一行（y=0）禁止放置 玩家不能放置在第二屏幕
+        // 第一行（y=0）禁止放置贴图 玩家不能放置在第二屏幕
         if (this.isProhibitedArea(x, y)) {
             return;
         }
