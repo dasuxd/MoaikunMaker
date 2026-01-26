@@ -302,6 +302,11 @@ class RomEditor {
         return { success: true };
     }
 
+    updateRomData() {
+        this.recalculateAddresses(this.levels);
+        RomEditor.writeToROM(this.romData, this.levels, this.levelCount);
+    }
+
     /**
      * 将数据写入 ROM
      * @private

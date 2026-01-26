@@ -865,25 +865,25 @@ class App {
 
         try {
             // 转换为ROM格式
-            const romData = DataConverter.fromLevelEditorToROMData(levelEditorData, this.levelEditor.isWideScreen);
+            const levelromData = DataConverter.fromLevelEditorToROMData(levelEditorData, this.levelEditor.isWideScreen);
             
             console.log('转换后的ROM数据:', {
-                mapDataLength: romData.mapData.length,
-                monsterDataLength: romData.monsterData.length,
-                monsterData: romData.monsterData
+                mapDataLength: levelromData.mapData.length,
+                monsterDataLength: levelromData.monsterData.length,
+                monsterData: levelromData.monsterData
             });
             
 
             // 保存到ROM
             const level = this.romEditor.getLevel(this.currentLevel);
-            const result = level.saveMapData(romData.mapData);
+            const result = level.saveMapData(levelromData.mapData);
             if (!result) {
                 this.showMessage('error', i18n.t("saveMapFailedError"));
                 return;
             }
             
             // 保存怪物数据
-            const monsterResult = level.saveMonsterData(romData.monsterData);
+            const monsterResult = level.saveMonsterData(levelromData.monsterData);
             if (!monsterResult.success) {
                 //this.showMessage('error', '怪物数据错误: ' + monsterResult.error);
                 this.showMessage('error', i18n.t("monsterDataError",{error:monsterResult.error}));
@@ -894,7 +894,9 @@ class App {
             //this.showMessage('success', `关卡 ${this.currentLevel + 1} 保存成功！地图和怪物数据已更新。`);
             this.showMessage('success', i18n.t("saveMapSuccess", {currentLevel: this.currentLevel + 1}));
             
+            //将关卡信息写入到 ROM 数据中
 
+            this.romEditor.updateRomData()
             //保存到缓存
             this.romCache.saveRom(this.romEditor.romData, this.fileName).catch((error) => {
                 console.error('保存到缓存失败:', error);
