@@ -458,7 +458,7 @@ class RomEditor {
      * 获取关卡总数
      */
     getLevelCount() {
-        return this.levelCount - 1;
+        return this.levelCount;
     }
     
     /**
@@ -470,12 +470,34 @@ class RomEditor {
             return { success: false, error: i18n.t('setLevelCountError') };
         }
         
-        this.levelCount = count + 1; // 实际存储值比显示值多1
+        this.levelCount = count; // 实际存储值比显示值多1
         this.modified = true;
         
         // 立即写入ROM
-        this.romData[Config.LEVEL_COUNT_ADDRESS] = this.levelCount;
+        this.romData[Config.LEVEL_COUNT_ADDRESS] = this.levelCount + 1;
         
         return { success: true };
     }
+
+    // static saveLevelToROM(romData, level, levelIndex) {
+    //     // 计算关卡起始地址
+    //     const addresses = [];
+    //     for (let i = 0; i < levelIndex; i++) {
+    //         const offset = Config.ADDRESS_TABLE_START + i * 2;
+    //         const lowByte = romData[offset];
+    //         const highByte = romData[offset + 1];
+    //         const cpuAddress = (highByte << 8) | lowByte;
+    //         const romAddress = cpuAddress + Config.ADDRESS_OFFSET;
+    //         addresses.push(romAddress);
+    //     }
+
+    //     const startAddr = Config.ADDRESS_TABLE_START + levelIndex * 2;
+    //     const levelAddr = (romData[startAddr + 1] << 8) | romData[startAddr];
+    //     const levelRomAddr = levelAddr + Config.ADDRESS_OFFSET;
+
+
+    //     // 写入关卡数据
+    //     let writePos = startAddr;
+    //     const data = level.data;
+    // }
 }

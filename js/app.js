@@ -894,6 +894,12 @@ class App {
             //this.showMessage('success', `关卡 ${this.currentLevel + 1} 保存成功！地图和怪物数据已更新。`);
             this.showMessage('success', i18n.t("saveMapSuccess", {currentLevel: this.currentLevel + 1}));
             
+
+            //保存到缓存
+            this.romCache.saveRom(this.romEditor.romData, this.fileName).catch((error) => {
+                console.error('保存到缓存失败:', error);
+            });
+
             // 刷新显示
             this.selectLevel(this.currentLevel);
             this.updateMemoryOverview();
@@ -914,6 +920,12 @@ class App {
         try {
             this.romEditor.recalculateAddresses(this.romEditor.levels);
             RomEditor.writeToROM(this.romEditor.romData, this.romEditor.levels, this.romEditor.levelCount);
+            
+            //保存到缓存
+            this.romCache.saveRom(this.romEditor.romData, this.fileName).catch((error) => {
+                console.error('保存到缓存失败:', error);
+            });
+
             this.romEditor.modified = false;
             this.showMessage('success', i18n.t("write2RomSuccess"));
             //console.log('ROM数据写入成功');
