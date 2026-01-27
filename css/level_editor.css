@@ -58,22 +58,6 @@ h1 {
 }
 
 /* 工具栏 */
-/* .toolbar {
-    position: fixed;
-    left: 20px;
-    top: 100px;
-    width: 220px;
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    max-height: calc(100vh - 120px);
-    overflow: hidden;
-    z-index: 900;
-    display: block;
-    flex-direction: column;
-} */
-
-/* 工具栏 */
 .toolbar {
     position: fixed;
     left: -230px;

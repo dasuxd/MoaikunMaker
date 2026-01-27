@@ -1215,6 +1215,9 @@ class LevelEditor {
 
     updateDataDisplays(){
         const levelEditorData = app.getLevelEditorData();
+        if(!levelEditorData){
+            return;
+        }
         const levelRomData = DataConverter.fromLevelEditorToROMData(levelEditorData, this.isWideScreen);
         const showMapDataStr = levelRomData.mapData.map(b => 
             b.toString(16).toUpperCase().padStart(2, '0')
@@ -1297,29 +1300,6 @@ class LevelEditor {
             return false;
         }
 
-        return true;
-    }
-    
-    /**
-     */
-    checkConsecutiveMoai() {
-        let rows = Config.GRID_HEIGHT;
-        let cols = this.isWideScreen ? Config.GRID_WIDTH : Config.GRID_WIDTH / 2;
-        let consecutiveCount = 0;
-        for (let y = 0; y < rows; y++) {
-            for (let x = 0; x < cols; x++) {
-                const tileId = this.mapData[y][x];
-                if(tileId === 0xF) {
-                    if (consecutiveCount >= 0xF) {
-                        return false;
-                    }
-                    consecutiveCount++;
-                }else{
-                    consecutiveCount = 0;
-                }
-
-            }
-        }
         return true;
     }
 }

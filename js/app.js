@@ -17,6 +17,9 @@ class App {
 
         this.testMode = false;
         this.romCache = RomCache.getInstance();
+
+        // 消息框数据
+        this.messageSet = new Set();
         
         // 移动端游戏控制器（延迟初始化）
         this.mobileController = null;
@@ -724,6 +727,9 @@ class App {
         
         try {
             const tmpEditorData = this.getLevelEditorData();
+            if(!tmpEditorData){
+                return;
+            }
             const levelRomData = DataConverter.fromLevelEditorToROMData(tmpEditorData, this.levelEditor.isWideScreen);
 
             // 获取当前页面完整 URL
@@ -782,6 +788,10 @@ class App {
         // 新建一个 romData，然后把当前关卡当作第一关塞进去。
         // 修改关卡总数为 1.
         const tmpEditorData = this.getLevelEditorData();
+        if(!tmpEditorData){
+            this.changeMode();
+            return;
+        }
         const levelRomData = DataConverter.fromLevelEditorToROMData(tmpEditorData, this.levelEditor.isWideScreen);
         const romData = this.createTmpRomData(levelRomData);
 
@@ -842,6 +852,12 @@ class App {
             this.showMessage('error', i18n.t("editorNotInitError"));
             return;
         }
+
+        //确定没有 15 个 0xF 数据出现
+        if(!checkConsecutiveMoai(this.levelEditor.mapData, this.levelEditor.isWideScreen)){
+            this.showMessage('error', i18n.t("consecutiveMoaiError"));
+            return;
+        }
         
         // 获取编辑器数据
         let bgId = parseInt(this.levelEditor.currentBgId) +  (this.levelEditor.isWideScreen ? 16 : 0);
@@ -863,6 +879,9 @@ class App {
     saveLevel() {
         const levelEditorData = this.getLevelEditorData();
 
+        if (!levelEditorData) {
+            return;
+        }
         try {
             // 转换为ROM格式
             const levelromData = DataConverter.fromLevelEditorToROMData(levelEditorData, this.levelEditor.isWideScreen);
@@ -962,7 +981,10 @@ class App {
      */
     showMessage(type, text) {
         console.log(`${type.toUpperCase()}: ${text}`);
-        
+        if(this.messageSet.has(text)){
+            return;
+        }
+        this.messageSet.add(text);
         // 获取或创建消息容器
         let container = document.getElementById('messageContainer');
         if (!container) {
@@ -1007,6 +1029,7 @@ class App {
                 message.remove();
                 // 如果容器为空，移除容器
                 if (container.children.length === 0) {
+                    this.messageSet.delete(text);
                     container.remove();
                 }
             }, 300); // 等待退出动画完成
@@ -1275,6 +1298,29 @@ function cancelEditLevels() {
         hideDragHandle();
         app.originalLevelsOrder = null;
     }
+}
+
+/**
+ */
+function checkConsecutiveMoai(mapData, isWideScreen) {
+    let rows = Config.GRID_HEIGHT;
+    let cols = isWideScreen ? Config.GRID_WIDTH : Config.GRID_WIDTH / 2;
+    let consecutiveCount = 0;
+    for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+            const tileId = mapData[y][x];
+            if(tileId === 0xF) {
+                consecutiveCount++;
+                if (consecutiveCount >= 0xF) {
+                    return false;
+                }
+            }else{
+                consecutiveCount = 0;
+            }
+
+        }
+    }
+    return true;
 }
 
 /**

@@ -129,11 +129,11 @@ const i18n = {
             "invalidLevelIndexError":'无效的关卡索引',   
             'clearRomCacheConfirm': '确定要清除缓存的 ROM 吗？',
             'clearRomCacheConfirm': '确定要清除缓存的 ROM 吗？',
-            'forbiddenPleaceConsecutiveMoaiWarning': '由于系统限制，无法连续放置 15 个以上的摩艾像，否则压缩后的数据意味着地图结束符号。',
+            'forbiddenPleaceConsecutiveMoaiWarning': '由于系统限制，无法连续放置 14 个以上的摩艾 NPC，否则压缩后的数据意味着地图结束符号。',
             'prohibitedTileAreaWarning': '第一行为非法放置区域，无法放置图块',
             'prohibitedPlayerAreaWarning': '由于系统限制，玩家起始点只能放在左半边区域',
             'prohibitedDoorAreaWarning': '由于系统限制，该位置将导致玩家无法通关。',
-
+            'consecutiveMoaiError': "由于系统限制，无法防止连续14个摩艾 NPC，否则压缩后的数据意味着地图结束符号。",
         },
         
         'en-US': {
@@ -257,10 +257,11 @@ const i18n = {
             "setLevelCountError": 'Total levels must be between 1 and 255',
             "invalidLevelIndexError": 'Invalid level index',
             'clearRomCacheConfirm': 'Are you sure you want to clear the cached ROM?',
-            'forbiddenPleaceConsecutiveMoaiWarning': 'Due to system limitations, you cannot place more than 15 consecutive Moai statues, otherwise the compressed data indicates the end of the map.',
+            'forbiddenPleaceConsecutiveMoaiWarning': 'Due to system limitations, you cannot place more than 14 consecutive Moai NPCs, otherwise the compressed data indicates the end of the map.',
             'prohibitedTileAreaWarning': 'The first row is a prohibited area for placing tiles',
             'prohibitedPlayerAreaWarning': 'Due to system limitations, the player start point can only be placed in the left half area',
             'prohibitedDoorAreaWarning': 'Due to system limitations, this position will prevent the player from completing the level.',
+            'consecutiveMoaiError': "Due to system limitations, it is not possible to prevent 14 consecutive Moai NPCs, otherwise the compressed data indicates the end of the map.",
         }   
     },
     
