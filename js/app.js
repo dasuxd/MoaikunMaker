@@ -854,7 +854,7 @@ class App {
         }
 
         //确定没有 15 个 0xF 数据出现
-        if(!checkConsecutiveMoai(this.levelEditor.mapData, this.levelEditor.isWideScreen)){
+        if(!checkConsecutiveMoai(this.levelEditor.optimizedMapData, this.levelEditor.isWideScreen)){
             this.showMessage('error', i18n.t("consecutiveMoaiError"));
             return;
         }
@@ -864,7 +864,7 @@ class App {
         
         const editorData = {
             background: bgId,
-            map: this.levelEditor.mapData,
+            map: this.levelEditor.optimizedMapData,
             player: this.levelEditor.playerPos,
             door: this.levelEditor.doorPos,
             enemies: this.levelEditor.enemies

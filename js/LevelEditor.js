@@ -8,6 +8,7 @@ class LevelEditor {
         
         // 地图数据 (16x14)
         this.mapData = Array(Config.GRID_HEIGHT).fill(null).map(() => Array(Config.GRID_WIDTH).fill(0));
+        this.optimizedMapData = Array(Config.GRID_HEIGHT).fill(null).map(() => Array(Config.GRID_WIDTH).fill(0));
         
         // 特殊对象位置
         this.playerPos = null;  // {x, y}
@@ -62,6 +63,7 @@ class LevelEditor {
         this._currentBgId = value;
         const bgSelect = document.getElementById('bgSelect');
         bgSelect.value = value
+        OptimizedMap.optimizedMap(this._currentBgId, this.mapData, this.optimizedMapData);
     }
     
     /**
@@ -100,6 +102,7 @@ class LevelEditor {
             // 设置地图数据 (16x14)
             if (data.map && data.map.length === Config.GRID_HEIGHT) {
                 this.mapData = data.map.map(row => [...row]);
+                OptimizedMap.optimizedMap(this.currentBgId, this.mapData, this.optimizedMapData);
             }
             
             // 设置玩家位置
@@ -855,11 +858,7 @@ class LevelEditor {
             this.performErase(x, y);
             //return; // 提前返回，避免重复渲染
         }
-        this.saveStatusEnabled();
-        // 立即渲染更新
-        this.render();
-        // Update the map and monster data displays.
-        this.updateDataDisplays();
+        this.performEnd();
     }
     
     /**
@@ -900,6 +899,13 @@ class LevelEditor {
             return true;
         });
         //this.modified = true;
+        this.performEnd();
+    }
+
+    performEnd(){
+        //优化 Tile 显示
+        OptimizedMap.optimizedMap(this.currentBgId, this.mapData, this.optimizedMapData);
+
         this.saveStatusEnabled();
         // 立即渲染更新
         this.render();
@@ -918,6 +924,7 @@ class LevelEditor {
     clearMap() {
         if (confirm('确定要清空地图吗？')) {
             this.mapData = Array(Config.GRID_HEIGHT).fill(null).map(() => Array(Config.GRID_WIDTH).fill(0));
+            OptimizedMap.optimizedMap(this.currentBgId, this.mapData, this.optimizedMapData);
             this.playerPos = null;
             this.doorPos = null;
             this.enemies = [];
@@ -972,7 +979,7 @@ class LevelEditor {
         // 4. 绘制地图tile
         for (let y = 0; y < Config.GRID_HEIGHT; y++) {
             for (let x = 0; x < Config.GRID_WIDTH; x++) {
-                const tileId = this.mapData[y][x];
+                const tileId = this.optimizedMapData[y][x];
                 const tileName = Config.TILE_PREFIX + `${tileId}`;
                 if (tileId > 0 && this.images.get(tileName)) {
                     this.ctx.drawImage(
