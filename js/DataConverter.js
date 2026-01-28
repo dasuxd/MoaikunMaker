@@ -19,7 +19,7 @@ class DataConverter {
         //const hexBgId = background.toString(16).padStart(2, '0');
         let isWideScreen = ((background & 0x10) === 0x10);
         // 还有一种是 isWideScreen 为 false 但是 第一位却有值的bug screen
-        let isBugScreen = (background & 0xE0) !== 0;
+        let isBuggyScreen  = (background & 0xE0) !== 0;
         const bgId = (background & 0x0F).toString();
 
         // 2. 解析玩家位置（第二个字节）
@@ -35,7 +35,7 @@ class DataConverter {
         const door = (doorX > 0 || doorY > 0) ? { x: doorX, y: doorY } : null;
         
         // 4. 解析地图tile数据（从第5个字节开始，RLE编码）
-        const map = DataConverter.decodeRLEMap(mapData.slice(4), isWideScreen, isBugScreen);
+        const map = DataConverter.decodeRLEMap(mapData.slice(4), isWideScreen, isBuggyScreen );
         
         // 5. 解析怪物数据
         const enemies = DataConverter.decodeMonsterData(monsterData);
@@ -43,7 +43,7 @@ class DataConverter {
         return {
             background: bgId,
             isWideScreen: isWideScreen,
-            isBugScreen: isBugScreen,
+            isBuggyScreen : isBuggyScreen ,
             player,
             door,
             map,
@@ -102,9 +102,9 @@ class DataConverter {
      * @param {Array<number>} rleData - RLE编码的数据
      * @returns {Array<Array<number>>} 16x14的二维数组
      */
-    static decodeRLEMap(rleData, isWideScreen, isBugScreen) {
+    static decodeRLEMap(rleData, isWideScreen, isBuggyScreen ) {
         let gridWidth = Config.GRID_WIDTH;
-        if(!(isWideScreen || isBugScreen)){
+        if(!(isWideScreen || isBuggyScreen )){
             gridWidth = Config.GRID_WIDTH / 2;
         }
         const map = Array(Config.GRID_HEIGHT).fill(null).map(() => Array(gridWidth).fill(0));

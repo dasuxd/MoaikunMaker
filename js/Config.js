@@ -1,10 +1,10 @@
 class Config{
 
-    static GRID_WIDTH = 32;  // 16列
-    static GRID_HEIGHT = 14; // 14行（第一行不放物品）
-    static TILE_SIZE = 32;   // 每个格子32x32像素
+    static GRID_WIDTH = 32;
+    static GRID_HEIGHT = 14;
+    static TILE_SIZE = 32;
     static DEBUG_MODE = false;
-    static LEVE_TYPE_COUNT = 12; // 关卡类型数量
+    static LEVEL_TYPE_COUNT = 12;
     static MAX_ENEMIES = 8;
 
     static ADDRESS_TABLE_START = 0x5841;

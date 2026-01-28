@@ -177,7 +177,7 @@ class ResourceManager{
     loadPalettes(romData){
         //0xD63D   -> 0x564D
         //const levelType = 3;
-        for(let i=0; i < Config.LEVE_TYPE_COUNT; i++){
+        for(let i=0; i < Config.LEVEL_TYPE_COUNT; i++){
             const offerset = i * 2
             const nameTableTypeAddr = 0x564D + offerset;
 
@@ -233,7 +233,7 @@ class ResourceManager{
             });
         };
 
-       for(let levelType = 0; levelType < Config.LEVE_TYPE_COUNT; levelType++){
+       for(let levelType = 0; levelType < Config.LEVEL_TYPE_COUNT; levelType++){
             const levelImgs = new Map();
             levelImgs.set('bg', this.bgImgs[levelType]);
             //加载颜色配置
@@ -308,7 +308,7 @@ class ResourceManager{
         const imgAddrStartAddr = 0xB010;
         
         // 渲染所有关卡类型的背景
-        for(let i = 0; i < Config.LEVE_TYPE_COUNT; i++){
+        for(let i = 0; i < Config.LEVEL_TYPE_COUNT; i++){
             let imgPageAddr = imgAddrStartAddr;
             if(i === 5 || i === 6 || i === 9 || i ===10|| i ===11){
                 imgPageAddr += 0x2000;
@@ -327,7 +327,7 @@ class ResourceManager{
 
     loadBgData(romData){
         const bgDatas = [];
-        for(let levelType=0; levelType < Config.LEVE_TYPE_COUNT; levelType++){
+        for(let levelType=0; levelType < Config.LEVEL_TYPE_COUNT; levelType++){
             
             //1、先将小块拼成4 X4 大块。
             //2、再将大块按 index 拼成最终背景图。

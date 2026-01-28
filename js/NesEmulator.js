@@ -24,7 +24,7 @@ class NesEmulator {
         this.initAudio();
         this.setupKeyboard(); // 初始化键盘控制
 
-        this.loadingImg = null;
+        this.loadingScreenImage = null;
         this.loadingProgress = 0;
     }
     
@@ -181,25 +181,6 @@ class NesEmulator {
         // 绑定事件
         document.addEventListener('keydown', this.onKeyDown);
         document.addEventListener('keyup', this.onKeyUp);
-
-        // 绑定快捷键（例如按下 'P' 键暂停）
-        // window.addEventListener('keydown', (e) => {
-        //     if (e.key === 'p' || e.key === 'P') {
-        //         this.isPaused = !this.isPaused;
-        //         if (!this.isPaused) frame(); // 恢复运行
-        //     }
-        // });
-
-        // 绑定快捷键（例如按下 'F10' 逐帧执行）
-        // window.addEventListener('keydown', (e) => {
-        //     if (e.key === 'F10') {
-        //         if (this.isPaused) {
-        //             this.nes.frame(); // 强制执行一帧
-        //             updateCanvas(); // 强制刷新画面
-        //             console.log("Current PC:", nes.cpu.pc.toString(16)); // 打印当前指令位置
-        //         }
-        //     }
-        // });
     }
     
     loadROM(romData) {
@@ -223,8 +204,8 @@ class NesEmulator {
         const canvasWidth = this.canvas.width;
         const canvasHeight = this.canvas.height;
 
-        if(this.loadingImg){
-            this.ctx.putImageData(this.loadingImg, 0, 0);
+        if(this.loadingScreenImage){
+            this.ctx.putImageData(this.loadingScreenImage, 0, 0);
         }
         
         // 1. 获取当前进度百分比
@@ -380,19 +361,6 @@ class NesEmulator {
             });
         }
 
-        // const canvasContainer = document.querySelector('.canvas-container');
-
-        // if (canvasContainer) {
-        //     canvasContainer.classList.add('test-mode');
-        //     if(window.matchMedia('(pointer: coarse)').matches){
-        //     document.querySelector('#levelCanvas').scrollIntoView({
-        //         behavior: 'smooth',    // 平滑滚动（推荐）  也可写 'auto'（瞬间跳过去）
-        //         block: 'start',        // 垂直方向：顶部对齐
-        //         inline: 'nearest'      // 水平方向：就近（一般用不到特别指定）
-        //     });
-        //     }
-        // }
-
         const editorLayout = document.querySelector('.editor-layout');
         if (editorLayout) {
             editorLayout.classList.add('test-mode');
@@ -409,7 +377,7 @@ class NesEmulator {
 
     async quickStart(){
         this.adjustUIForMobile()
-        this.loadingImg = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
+        this.loadingScreenImage = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
         this.loadingProgress = 0;
         const CHUNK_SIZE = 2;
         for(let i = 0; i <  NesEmulator.LOADING_WAIT_ROM_FRAME; i++){
@@ -482,15 +450,6 @@ class NesEmulator {
         }
         this.loadingProgress = 0;
     }
-
-    // async loadingLoop(){
-    //     if(this.loadingProgress < NesEmulator.LOADING_WAIT_ROM_FRAME + NesEmulator.LOADING_WAIT_START_FRAME){
-    //         this.renderLoadingProgress()
-    //         requestAnimationFrame( () => this.loadingLoop());
-    //     }else{
-    //         this.renderLoadingProgress()
-    //     }
-    // }
     
     loop(currentTime) {
         if (!this.isRunning) return;

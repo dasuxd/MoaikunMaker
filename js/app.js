@@ -1,5 +1,5 @@
 /**
- * 主应用程序逻辑
+ * Main application logic
  */
 class App {
     constructor() {
@@ -13,24 +13,24 @@ class App {
         this.isEditingLevels = false;
         this.levelsListChanged =false;
 
-        this.isShareLevelRan = false;
+        this.hasSharedLevelLoaded = false;
 
         this.testMode = false;
         this.romCache = RomCache.getInstance();
 
-        // 消息框数据
+        // Message box data
         this.messageSet = new Set();
         
-        // 移动端游戏控制器（延迟初始化）
+        // Mobile game controller (lazy initialization)
         this.mobileController = null;
         
-        // iOS特殊优化
+        // iOS specific optimizations
         this.applyIOSFixes();
         
         this.initEventListeners();
         this.initCache();
        
-        //六个按钮
+        // Six main buttons
         this.testLevelBtn = document.getElementById('testLevelBtn');
         this.testBtn = document.getElementById('testBtn');
         this.stopEmulatorBtn = document.getElementById('stopEmulatorBtn');
@@ -44,25 +44,25 @@ class App {
     }
     
     /**
-     * 应用iOS特殊修复
+     * Apply iOS specific fixes
      */
     applyIOSFixes() {
         const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
         if (isIOS) {
-            // 为body添加iOS标记类
+            // Add iOS marker class to body
             document.body.classList.add('ios-device');
             
-            // 强制重新计算viewport
+            // Force recalculate viewport
             setTimeout(() => {
                 window.scrollTo(0, 0);
-                // 触发一次resize事件，确保布局正确
+                // Trigger a resize event to ensure correct layout
                 window.dispatchEvent(new Event('resize'));
             }, 100);
         }
     }
 
     /**
-     * 初始化缓存并尝试自动加载
+     * Initialize cache and try to auto-load
      */
     async initCache() {
         try {
@@ -70,7 +70,7 @@ class App {
             const cachedRom = await this.romCache.loadRom();
             
             if (cachedRom) {
-                // 自动加载缓存的 ROM
+                // Auto-load cached ROM
                 this.loadRomData(cachedRom.data, cachedRom.fileName, true);
                 //this.initParams();
                 //this.selectLevel(this.currentLevel);
@@ -84,30 +84,30 @@ class App {
                
             }
         } catch (error) {
-            console.error('初始化缓存失败:', error);
+            console.error('Failed to initialize cache:', error);
         }
     }
 
     initParams(){
-        // 二进制解码函数：Base64 URL-Safe -> Uint8Array -> Array
+        // Binary decode function: Base64 URL-Safe -> Uint8Array -> Array
         function decodeBase64UrlSafe(str) {
             if (!str) return null;
             
-            // 1. 恢复标准 Base64
+            // 1. Restore standard Base64
             let base64 = str.replace(/-/g, '+').replace(/_/g, '/');
             const padLength = (4 - base64.length % 4) % 4;
             base64 += '='.repeat(padLength);
             
-            // 2. Base64 解码为二进制字符串
+            // 2. Decode Base64 to binary string
             const binaryString = atob(base64);
             
-            // 3. 转为 Uint8Array
+            // 3. Convert to Uint8Array
             const uint8Array = new Uint8Array(binaryString.length);
             for (let i = 0; i < binaryString.length; i++) {
                 uint8Array[i] = binaryString.charCodeAt(i);
             }
             
-            // 4. 转为普通数组
+            // 4. Convert to plain array
             return Array.from(uint8Array);
         }
         
@@ -115,9 +115,9 @@ class App {
         const mapDataParam = urlParams.get("mapData");
         const enemyDataParam = urlParams.get("enemyData");
         
-        // 检查参数是否存在
+        // Check if parameters exist
         if (!mapDataParam || !enemyDataParam) {
-            console.log("URL 中没有关卡数据参数");
+            console.log("No level data parameters in URL");
             return;
         }
         
@@ -125,25 +125,25 @@ class App {
             const mapData = decodeBase64UrlSafe(mapDataParam);
             const enemyData = decodeBase64UrlSafe(enemyDataParam);
             
-            // 验证数据
+            // Validate data
             if (!Array.isArray(mapData) || !Array.isArray(enemyData)) {
-                console.error("解析的数据格式不正确");
+                console.error("Parsed data format is incorrect");
                 return;
             }
             
-            console.log('✅ 解析后的地图数据:', mapData);
-            console.log('✅ 解析后的敌人数据:', enemyData);
+            console.log('✅ Parsed map data:', mapData);
+            console.log('✅ Parsed enemy data:', enemyData);
             
             const data = {
                 mapData: mapData,
                 monsterData: enemyData,
             };
             
-            // 检查 ROM 是否加载
+            // Check if ROM is loaded
             if (this.romEditor.romData == null) {
-                console.log("数据还未就绪，等待 ROM 加载...");
+                console.log("Data not ready, waiting for ROM to load...");
                 
-                // 延迟执行，等待 ROM 加载
+                // Delay execution, wait for ROM to load
                 const checkInterval = setInterval(() => {
                     if (this.romEditor.romData != null) {
                         clearInterval(checkInterval);
@@ -153,17 +153,17 @@ class App {
                 return;
             }
             
-            // ROM 已加载，直接加载关卡
+            // ROM already loaded, load level directly
             this.loadSharedLevel(data);
             
         } catch (error) {
-            console.error('❌ 解析 URL 参数失败:', error);
+            console.error('❌ Failed to parse URL parameters:', error);
             this.showMessage('error', i18n.t('loadShareLevelError'));
         }
     }
     
     /**
-     * 加载分享的关卡
+     * Load shared level
      */
     loadSharedLevel(data) {
         if(this.changeMode()){
@@ -174,11 +174,11 @@ class App {
         // editorSection.classList.add('active');
         
 
-        // 创建模拟器并加载临时 ROM
+        // Create emulator and load temporary ROM
         if (!this.emulator) {
             this.emulator = new NesEmulator('levelCanvas');
         }
-        this.isShareLevelRan = true;
+        this.hasSharedLevelLoaded = true;
         this.levelEditor.testMode = true;
         this.emulator.loadROM(tmpRomData);
         this.emulator.start();
@@ -187,16 +187,16 @@ class App {
     }
     
     /**
-     * 初始化事件监听器
+     * Initialize event listeners
      */
     initEventListeners() {
         document.getElementById('fileInput').addEventListener('change', 
             (e) => this.handleFileSelect(e));
 
-        // 初始化工具栏拖拽功能
+        // Initialize toolbar drag functionality
         this.initToolbarDragging();
         
-        // 关卡列表抽屉切换
+        // Level list drawer toggle
         const sidebarToggle = document.getElementById('sidebarToggle');
         const sidebar = document.getElementById('sidebar');
         if (sidebarToggle && sidebar) {
@@ -206,7 +206,7 @@ class App {
             });
         }
 
-        // 工具栏抽屉切换
+        // Toolbar drawer toggle
         const toolbarToggle = document.getElementById('toolbarToggle');
         const toolbar = document.querySelector('.toolbar');
         if (toolbarToggle && toolbar) {
@@ -216,20 +216,20 @@ class App {
             });
         }
         
-        // 关卡总数输入框
+        // Level count input box
         const levelCountInput = document.getElementById('levelCountInput');
         if (levelCountInput) {
-            // 使用 input 事件实现实时监听
+            // Use input event for real-time monitoring
             levelCountInput.addEventListener('input', (e) => {
                 const count = parseInt(e.target.value);
-                // 只有输入完整有效数字时才更新
+                // Only update when a complete valid number is entered
                 if (!isNaN(count) && count >= 1 && count <= 255) {
                     this.romEditor.setLevelCount(count);
                     this.levelsListChanged = true;
                 }
             });
             
-            // 失去焦点时验证并修正无效值
+            // Validate and correct invalid values on blur
             levelCountInput.addEventListener('blur', (e) => {
                 const count = parseInt(e.target.value);
                 if (isNaN(count) || count < 1 || count > 255) {
@@ -238,7 +238,7 @@ class App {
                 }
             });
             
-            // 防止输入非数字字符
+            // Prevent non-numeric character input
             levelCountInput.addEventListener('keypress', (e) => {
                 if (e.key && !/[0-9]/.test(e.key)) {
                     e.preventDefault();
@@ -246,7 +246,7 @@ class App {
             });
         }
         
-        // 清除缓存按钮
+        // Clear cache button
         const clearCacheBtn = document.getElementById('clearCacheBtn');
         if (clearCacheBtn) {
             clearCacheBtn.addEventListener('click', async () => {
@@ -261,7 +261,7 @@ class App {
                 await this.romCache.clearCache();
                 this.showMessage('success', i18n.t('cacheCleanSuccess'));
                 
-                // 更新按钮状态
+                // Update button state
                 const romSelectBtn = document.getElementById('romSelectBtn');
                 if (romSelectBtn) {
                     romSelectBtn.textContent = i18n.t('selectNesRomFile');
@@ -276,7 +276,7 @@ class App {
     }
 
     /**
-     * 处理文件选择
+     * Handle file selection
      */
     handleFileSelect(event) {
         const file = event.target.files[0];
@@ -288,11 +288,11 @@ class App {
         reader.onload = async (e) => {
             this.loadRomData(e.target.result, file.name, false);
             
-            // 保存到缓存
+            // Save to cache
             try {
                 await this.romCache.saveRom(e.target.result, file.name);
             } catch (error) {
-                console.error('保存到缓存失败:', error);
+                console.error('Failed to save to cache:', error);
             }
         };
         
@@ -300,7 +300,7 @@ class App {
     }
     
     /**
-     * 初始化工具栏拖拽功能
+     * Initialize toolbar dragging functionality
      */
     initToolbarDragging() {
         const toolbar = document.getElementById('toolbar');
@@ -310,28 +310,28 @@ class App {
         let startMouseX, startMouseY;
         let startLeft, startTop;
         
-        // 鼠标事件
+        // Mouse events
         toolbar.addEventListener('mousedown', dragStart);
         document.addEventListener('mousemove', drag);
         document.addEventListener('mouseup', dragEnd);
         
-        // 触摸事件
+        // Touch events
         toolbar.addEventListener('touchstart', dragStart, { passive: true });
         document.addEventListener('touchmove', drag, { passive: false });
         document.addEventListener('touchend', dragEnd);
         
         function dragStart(e) {
-            // 只在拖拽模式下才启用拖拽
+            // Only enable dragging in drag mode
             if (!toolbar.classList.contains('draggable-mode')) {
                 return;
             }
             
-            // 如果点击的是按钮或可交互元素，不启动拖拽
+            // Don't start dragging if clicking on buttons or interactive elements
             if (e.target.closest('button') || e.target.closest('input') || e.target.closest('select')) {
                 return;
             }
             
-            // 获取当前工具栏位置
+            // Get current toolbar position
             const rect = toolbar.getBoundingClientRect();
             startLeft = rect.left;
             startTop = rect.top;
@@ -346,7 +346,7 @@ class App {
             
             isDragging = true;
             toolbar.style.cursor = 'grabbing';
-            // transition 由 CSS 的 .draggable-mode 类控制，不在这里设置
+            // Transition controlled by CSS .draggable-mode class, not set here
         }
         
         function drag(e) {
@@ -363,11 +363,11 @@ class App {
                 currentMouseY = e.clientY;
             }
             
-            // 计算新位置
+            // Calculate new position
             let newLeft = startLeft + (currentMouseX - startMouseX);
             let newTop = startTop + (currentMouseY - startMouseY);
             
-            // 限制拖拽范围，防止工具栏被拖出屏幕
+            // Limit drag range to prevent toolbar from being dragged off screen
             const minX = 10;
             const minY = 10;
             const maxX = window.innerWidth - toolbar.offsetWidth - 10;
@@ -388,19 +388,19 @@ class App {
     }
     
     /**
-     * 加载 ROM 数据（统一处理文件上传和缓存加载）
-     * @param {ArrayBuffer} data - ROM 数据
-     * @param {string} fileName - 文件名
-     * @param {boolean} fromCache - 是否来自缓存
+     * Load ROM data (unified handling for file upload and cache loading)
+     * @param {ArrayBuffer} data - ROM data
+     * @param {string} fileName - File name
+     * @param {boolean} fromCache - Whether from cache
      */
     loadRomData(data, fileName, fromCache = false) {
         this.fileName = fileName;
         this.romEditor.loadROM(data);
         
-        // 隐藏欢迎提示页面
+        // Hide welcome overlay
         this.hideWelcomeOverlay();
         
-        // 加载图片资源
+        // Load image resources
         ResourceManager.getInstance().initResources(this.romEditor.romData, this.romEditor.palettes);
         this.levelEditor.createButtons();
         levelCountInput.value = this.romEditor.getLevelCount();
@@ -409,11 +409,11 @@ class App {
         // const editorSection = document.getElementById('editorSection');
         // editorSection.classList.remove('active');
         if (!fromCache) {
-            //this.showMessage('success', `文件加载成功: ${fileName} (${this.romEditor.romData.length} 字节)`);
+            //this.showMessage('success', `File loaded successfully: ${fileName} (${this.romEditor.romData.length} bytes)`);
             this.showMessage('success', i18n.t("loadFileSuccess",{fileNameStr: fileName, length: this.romEditor.romData.length}));
         }
         
-        // 更新按钮显示文件名
+        // Update button to display filename
         const romSelectBtn = document.getElementById('romSelectBtn');
         if (romSelectBtn) {
             romSelectBtn.textContent = `📁 ${fileName}`;
@@ -427,13 +427,13 @@ class App {
         this.testBtn.disabled = true;
         this.downloadBtn.disabled = true;
 
-        if(!this.isShareLevelRan){
+        if(!this.hasSharedLevelLoaded){
             this.initParams();
         }
     }
     
     /**
-     * 隐藏欢迎提示页面
+     * Hide welcome overlay
      */
     hideWelcomeOverlay() {
         const welcomeOverlay = document.getElementById('welcomeOverlay');
@@ -442,13 +442,13 @@ class App {
         }
     }
 
-    //创建关卡列表
+    // Create level list
     createLevelList(){
         const listElement = document.getElementById('levelList');
-        //清空列表
+        // Clear list
         listElement.innerHTML = '';
         
-        // 销毁旧的 Sortable 实例，避免重复绑定导致移动端无法二次拖拽
+        // Destroy old Sortable instance to avoid duplicate bindings that prevent mobile re-dragging
         if (this.sortable) {
             this.sortable.destroy();
             this.sortable = null;
@@ -456,11 +456,11 @@ class App {
 
         const levels = this.romEditor.getAllLevels();
         
-        // 显示侧边栏切换按钮和主布局
+        // Show sidebar toggle button and main layout
         document.getElementById('mainLayout').style.display = 'flex';
         document.getElementById('sidebarToggle').style.display = 'flex';
         
-        // 工具栏抽屉按钮：只在非拖拽模式下显示
+        // Toolbar drawer button: only show in non-drag mode
         const toolbarToggleBtn = document.getElementById('toolbarToggle');
         const toolbarEl = document.getElementById('toolbar');
         if (toolbarToggleBtn && toolbarEl) {
@@ -469,7 +469,7 @@ class App {
             }
         }
         
-        // 禁用关卡总数输入框（仅在编辑模式下启用）
+        // Disable level count input (only enabled in edit mode)
         const levelCountInput = document.getElementById('levelCountInput');
         if (levelCountInput) {
             //levelCountInput.value = this.romEditor.getLevelCount();
@@ -477,7 +477,7 @@ class App {
         }
 
         if(levelCountInput.value > levels.length){
-            //创建出多余的关卡
+            // Create extra levels
             const levelCountInputValue = parseInt(levelCountInput.value, 10);
             this.romEditor.setLevelCount(levelCountInputValue);
             for(let i = levels.length; i < levelCountInputValue; i++){
@@ -488,7 +488,7 @@ class App {
 
         for (let i = 0; i < levels.length; i++) {
             const level = levels[i];
-            // 跳过已删除的关卡
+            // Skip deleted levels
             if (level.isDeleted) {
                 continue;
             }
@@ -505,25 +505,25 @@ class App {
             dragClass: 'sortable-drag',
             filter: '.no-drag',
             handle: '.drag-handle',
-            // 移动端优化
+            // Mobile optimization
             forceFallback: false,
             fallbackTolerance: 5,
             delay: 100,
             delayOnTouchOnly: true,
             touchStartThreshold: 5,
-            // 防止滚动冲突
+            // Prevent scroll conflict
             preventOnFilter: false,
             onEnd: function(evt) {
-                // 如果位置没有变化，直接返回
+                // If position unchanged, return directly
                 if (evt.oldIndex === evt.newIndex) {
                     return;
                 }
                 
-                // 更新 levels 数组顺序
+                // Update levels array order
                 const [movedLevel] = app.romEditor.levels.splice(evt.oldIndex, 1);
                 app.romEditor.levels.splice(evt.newIndex, 0, movedLevel);
                 
-                // 更新所有关卡的 index 和 dataset.index
+                // Update all levels' index and dataset.index
                 for (let i = 0; i < app.romEditor.levels.length; i++) {
                     app.romEditor.levels[i].index = i;
                     if (app.romEditor.levels[i].htmlItem) {
@@ -531,10 +531,10 @@ class App {
                     }
                 }
                 
-                // 标记顺序已改变
+                // Mark order as changed
                 app.levelsListChanged = true;
                 
-                // 更新当前选中的关卡索引
+                // Update currently selected level index
                 if (app.currentLevel === evt.oldIndex) {
                     app.currentLevel = evt.newIndex;
                 } else if (evt.oldIndex < app.currentLevel && evt.newIndex >= app.currentLevel) {
@@ -555,19 +555,19 @@ class App {
         }
         item.dataset.index =index;
         
-        // 创建拖拽手柄
+        // Create drag handle
         const dragHandle = document.createElement('span');
         dragHandle.className = 'drag-handle';
         dragHandle.textContent = '⋮⋮';
-        dragHandle.style.display = 'none'; // 默认隐藏
+        dragHandle.style.display = 'none'; // Hidden by default
     
         item.appendChild(dragHandle);
 
-        // 创建可点击的内容区域
+        // Create clickable content area
         const content = document.createElement('div');
         content.className = 'level-content';
         
-        // 触摸位置追踪，防止滑动时误触发点击
+        // Track touch position to prevent accidental clicks during scrolling
         let touchStartX = 0;
         let touchStartY = 0;
         let touchStartTime = 0;
@@ -583,12 +583,12 @@ class App {
             const touchEndY = e.changedTouches[0].clientY;
             const touchEndTime = Date.now();
             
-            // 计算滑动距离
+            // Calculate swipe distance
             const deltaX = Math.abs(touchEndX - touchStartX);
             const deltaY = Math.abs(touchEndY - touchStartY);
             const deltaTime = touchEndTime - touchStartTime;
             
-            // 只有滑动距离小于10px且时间小于300ms才认为是点击
+            // Only consider it a click if distance < 10px and time < 300ms
             if (deltaX < 10 && deltaY < 10 && deltaTime < 300) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -596,7 +596,7 @@ class App {
             }
         }, { passive: false });
         
-        // 桌面端保留click事件
+        // Keep click event for desktop
         content.onclick = (e) => {
             if (!('ontouchstart' in window)) {
                 this.selectLevel(index);
@@ -618,7 +618,7 @@ class App {
     }
 
     /**
-     * 选择关卡进行编辑
+     * Select level for editing
      */
     selectLevel(index) {
         if(index === -1){
@@ -629,20 +629,20 @@ class App {
         this.currentLevel = index;
         const level = this.romEditor.getLevel(index);
         
-        // 更新选中状态
+        // Update selection state
         const items = document.querySelectorAll('.level-item');
         items.forEach((item, i) => {
             item.classList.toggle('active', i === index);
         });
 
-        // 显示编辑器
+        // Show editor
         // const editorSection = document.getElementById('editorSection');
         // editorSection.classList.add('active');
         //editorSection.scrollIntoView({ behavior: 'smooth' });
 
-        // 更新编辑器内容
+        // Update editor content
         // document.getElementById('editorTitle').textContent = 
-        //     `编辑关卡 ${level.getLevelNumber()}`;
+        //     `Edit Level ${level.getLevelNumber()}`;
         document.getElementById('romAddress').textContent = 
             level.getRomAddressString();
         document.getElementById('cpuAddress').textContent = 
@@ -657,29 +657,29 @@ class App {
         //this.updateDataSize();
         this.validateMonsterData();
         
-        // 加载数据到可视化编辑器
+        // Load data to visual editor
         this.loadLevelToVisualEditor(level);
 
         this.testLevelBtn.disabled = false;;
         this.testBtn.disabled = false;;
         
-        // 显示/隐藏可视化编辑按钮
+        // Show/hide visual edit button
         //document.getElementById('visualEditBtn').style.display = 'inline-block';
     }
     
     /**
-     * 将关卡数据加载到可视化编辑器
+     * Load level data to visual editor
      */
     loadLevelToVisualEditor(level) {
         try {
-            // 获取关卡数据（Level 类使用 data 和 monsterData 属性）
+            // Get level data (Level class uses data and monsterData properties)
             const mapData = level.data;
             const monsterData = level.monsterData;
             
-            // 转换为可视化编辑器格式
+            // Convert to visual editor format
             const editorData = DataConverter.fromROMtoEditor(mapData, monsterData);
             
-            // 加载到可视化编辑器
+            // Load to visual editor
             if (this.levelEditor) {
                 this.levelEditor.loadFromData(editorData, this.currentLevel);
             }
@@ -688,35 +688,35 @@ class App {
         }
     }
 
-    // 切换信息栏显示状态
+    // Toggle info bar display state
     toggleInfoItems(showOperation) {
         const operationItem = document.getElementById('operationInfoItem');
         const toolItem = document.getElementById('currentToolInfoItem');
         const mouseItem = document.getElementById('mousePositionInfoItem');
         
         if (showOperation) {
-            // 测试模式：显示操作信息，隐藏工具和鼠标信息
+            // Test mode: show operation info, hide tool and mouse info
             operationItem?.classList.add('active');
             toolItem?.classList.remove('active');
             mouseItem?.classList.remove('active');
         } else {
-            // 编辑模式：隐藏操作信息，显示工具和鼠标信息
+            // Edit mode: hide operation info, show tool and mouse info
             operationItem?.classList.remove('active');
             toolItem?.classList.add('active');
             mouseItem?.classList.add('active');
         }
     }
 
-    // 切换模式，如果是测试模式则退出
+    // Change mode, exit if in test mode
     changeMode(){
         this.levelEditor.testMode = !this.testMode
         if(this.testMode){
             this.testMode = false;
             this.emulator.stop();
             this.levelEditor.render();
-            this.toggleInfoItems(false); // 切换到编辑模式显示
+            this.toggleInfoItems(false); // Switch to edit mode display
             
-            // 移除测试模式类，恢复正常大小
+            // Remove test mode class, restore normal size
             // const canvasContainer = document.querySelector('.canvas-container');
             // if (canvasContainer) {
             //     canvasContainer.classList.remove('test-mode');
@@ -732,15 +732,15 @@ class App {
                 editorLayout.classList.remove('test-mode');
             }
             
-            // 移除body的test-mode类
+            // Remove body's test-mode class
             document.body.classList.remove('test-mode');
             
-            // 隐藏移动控制面板
+            // Hide mobile control panel
             if (this.mobileController) {
                 this.mobileController.hide();
             }
             
-            // 恢复按钮状态
+            // Restore button status
             if (this.currentLevel >= 0) {
                 this.testLevelBtn.disabled = false;
                 this.saveBtn.disabled = this.levelEditor.modified ? false : true;
@@ -755,20 +755,20 @@ class App {
             return true;
         }else{
             //this.stopEmulatorBtn.disabled = false;
-            this.toggleInfoItems(true); // 切换到测试模式显示
+            this.toggleInfoItems(true); // Switch to test mode display
         }
         this.testMode = true;
         return false;
     }
     
-    // 结束模拟器
+    // Stop emulator
     stopEmulator() {
         if (!this.testMode) {
             this.showMessage('warning', i18n.t("emulatorNotRunningWarning"));
             return;
         }
         
-        // 移除测试模式类，恢复正常大小
+        // Remove test mode class, restore normal size
         // const canvasContainer = document.querySelector('.canvas-container');
         // if (canvasContainer) {
         //     canvasContainer.classList.remove('test-mode');
@@ -784,10 +784,10 @@ class App {
             editorLayout.classList.remove('test-mode');
         }
         
-        // 移除body的test-mode类
+        // Remove body's test-mode class
         document.body.classList.remove('test-mode');
         
-        // 隐藏移动控制面板
+        // Hide mobile control panel
         if (this.mobileController) {
             this.mobileController.hide();
         }
@@ -796,25 +796,25 @@ class App {
         this.showMessage('info', i18n.t("emulatorStopInfo"));
     }
 
-    //分享当前关卡
+    // Share current level
     shareLevel(){
         if(this.currentLevel === -1){
             this.showMessage('warning', i18n.t("pleaseSelectLevelFirstWarning"));
             return;
         }
         
-        // 二进制编码函数：Array -> Uint8Array -> Base64 URL-Safe
+        // Binary encode function: Array -> Uint8Array -> Base64 URL-Safe
         function encodeDataBinary(dataArray) {
-            // 将数字数组转为 Uint8Array
+            // Convert number array to Uint8Array
             const uint8Array = new Uint8Array(dataArray);
             
-            // 转为二进制字符串
+            // Convert to binary string
             let binaryString = '';
             for (let i = 0; i < uint8Array.length; i++) {
                 binaryString += String.fromCharCode(uint8Array[i]);
             }
             
-            // Base64 编码（URL 安全）
+            // Base64 encode (URL safe)
             return btoa(binaryString)
                 .replace(/\+/g, '-')
                 .replace(/\//g, '_')
@@ -828,19 +828,19 @@ class App {
             }
             const levelRomData = DataConverter.fromLevelEditorToROMData(tmpEditorData, this.levelEditor.isWideScreen);
 
-            // 获取当前页面完整 URL
+            // Get current page full URL
             const url = new URL(window.location.href);
             
-            // 清除可能存在的其他参数，避免冲突
+            // Clear other possible parameters to avoid conflicts
             url.searchParams.delete('level');
 
-            // 设置参数（使用二进制编码，更短更高效）
+            // Set parameters (use binary encoding, shorter and more efficient)
             url.searchParams.set("mapData", encodeDataBinary(levelRomData.mapData));
             url.searchParams.set("enemyData", encodeDataBinary(levelRomData.monsterData));
 
             const shareUrl = url.toString();
 
-            // 复制到剪贴板
+            // Copy to clipboard
             navigator.clipboard.writeText(shareUrl)
                 .then(() => {
                     this.showMessage('success', i18n.t("copyShareLevelLinkSuccess"));
@@ -848,11 +848,11 @@ class App {
                     console.log('URL length:', shareUrl.length);
                 })
                 .catch(err => {
-                    console.error("复制失败:", err);
-                    prompt("复制失败，请手动复制以下链接：", shareUrl);
+                    console.error("Copy failed:", err);
+                    prompt("Copy failed, please copy manually:", shareUrl);
                 });
         } catch (error) {
-           // console.error('生成分享链接失败:', error);
+           // console.error('Failed to generate share link:', error);
             this.showMessage('error', i18n.t("copyShareLevelLinkError",{error: error}));
         }
     }
@@ -867,22 +867,22 @@ class App {
         const tmpLevels = [];
         tmpLevels.push(tmpLevel);
         
-        // 深度拷贝 romEditor.romData (Uint8Array)
+        // Deep copy romEditor.romData (Uint8Array)
         const romData = new Uint8Array(this.romEditor.romData);
-        // 将临时关卡写入拷贝的 ROM 数据
+        // Write temporary level to copied ROM data
         RomEditor.writeToROM(romData, tmpLevels, 1);
         return romData;
     }
 
-    // 测试当前关卡
+    // Test current level
     async testLevel(){
         if(this.changeMode()){
             return;
         }
 
-        //构建临时关卡，
-        // 新建一个 romData，然后把当前关卡当作第一关塞进去。
-        // 修改关卡总数为 1.
+        // Build temp level
+        // Create a new romData, then put current level as first level
+        // Change level count to 1
         const tmpEditorData = this.getLevelEditorData();
         if(!tmpEditorData){
             this.changeMode();
@@ -892,7 +892,7 @@ class App {
         const romData = this.createTmpRomData(levelRomData);
 
         
-        // 创建模拟器并加载临时 ROM
+        // Create emulator and load temp ROM
         if (!this.emulator) {
             this.emulator = new NesEmulator('levelCanvas');
         }
@@ -912,7 +912,7 @@ class App {
         this.showMessage('success', i18n.t("testingCurrentLevelSuccess"));
     }
 
-    // 添加测试 ROM 的方法
+    // Add test ROM method
     testROM() {
         if(this.changeMode()){
             return;
@@ -943,19 +943,19 @@ class App {
     getLevelEditorData(){
         if (this.currentLevel === -1) return;
         
-        // 从可视化编辑器获取数据
+        // Get data from visual editor
         if (!this.levelEditor) {
             this.showMessage('error', i18n.t("editorNotInitError"));
             return;
         }
 
-        //确定没有 15 个 0xF 数据出现
+        // Ensure no 15 consecutive 0xF data
         if(!checkConsecutiveMoai(this.levelEditor.optimizedMapData, this.levelEditor.isWideScreen)){
             this.showMessage('error', i18n.t("consecutiveMoaiError"));
             return;
         }
         
-        // 获取编辑器数据
+        // Get editor data
         let bgId = parseInt(this.levelEditor.currentBgId) +  (this.levelEditor.isWideScreen ? 16 : 0);
         
         const editorData = {
@@ -970,7 +970,7 @@ class App {
     }
 
     /**
-     * 保存当前关卡
+     * Save current level
      */
     saveLevel() {
         const levelEditorData = this.getLevelEditorData();
@@ -979,17 +979,17 @@ class App {
             return;
         }
         try {
-            // 转换为ROM格式
+            // Convert to ROM format
             const levelromData = DataConverter.fromLevelEditorToROMData(levelEditorData, this.levelEditor.isWideScreen);
             
-            console.log('转换后的ROM数据:', {
+            console.log('Converted ROM data:', {
                 mapDataLength: levelromData.mapData.length,
                 monsterDataLength: levelromData.monsterData.length,
                 monsterData: levelromData.monsterData
             });
             
 
-            // 保存到ROM
+            // Save to ROM
             const level = this.romEditor.getLevel(this.currentLevel);
             const result = level.saveMapData(levelromData.mapData);
             if (!result) {
@@ -997,62 +997,62 @@ class App {
                 return;
             }
             
-            // 保存怪物数据
+            // Save monster data
             const monsterResult = level.saveMonsterData(levelromData.monsterData);
             if (!monsterResult.success) {
-                //this.showMessage('error', '怪物数据错误: ' + monsterResult.error);
+                //this.showMessage('error', 'Monster data error: ' + monsterResult.error);
                 this.showMessage('error', i18n.t("monsterDataError",{error:monsterResult.error}));
                 return;
             }
             
             //document.getElementById('downloadBtn').disabled = false;
-            //this.showMessage('success', `关卡 ${this.currentLevel + 1} 保存成功！地图和怪物数据已更新。`);
+            //this.showMessage('success', `Level ${this.currentLevel + 1} saved successfully! Map and monster data updated.`);
             this.showMessage('success', i18n.t("saveMapSuccess", {currentLevel: this.currentLevel + 1}));
             
-            //将关卡信息写入到 ROM 数据中
+            // Write level info to ROM data
 
             this.romEditor.updateRomData()
-            //保存到缓存
+            // Save to cache
             this.romCache.saveRom(this.romEditor.romData, this.fileName).catch((error) => {
-                console.error('保存到缓存失败:', error);
+                console.error('Failed to save to cache:', error);
             });
 
-            // 刷新显示
+            // Refresh display
             this.selectLevel(this.currentLevel);
             this.updateMemoryOverview();
             this.writeRomBtn.disabled = false;
             level.modified = true;
             this.saveBtn.disabled = true;
         } catch (error) {
-            //console.error('保存关卡失败:', error);
-            //this.showMessage('error', '保存失败: ' + error.message);
+            //console.error('Failed to save level:', error);
+            //this.showMessage('error', 'Save failed: ' + error.message);
             this.showMessage('error', i18n.t("saveLevelFailedError",{error: error.message}));
         }
     }
 
     /**
-     * 写入ROM（将所有修改写入ROM数据）
+     * Write to ROM (write all modifications to ROM data)
      */
     writeToROM() {
         try {
             this.romEditor.recalculateAddresses(this.romEditor.levels);
             RomEditor.writeToROM(this.romEditor.romData, this.romEditor.levels, this.romEditor.levelCount);
             
-            //保存到缓存
+            // Save to cache
             this.romCache.saveRom(this.romEditor.romData, this.fileName).catch((error) => {
-                console.error('保存到缓存失败:', error);
+                console.error('Failed to save to cache:', error);
             });
 
             this.romEditor.modified = false;
             this.showMessage('success', i18n.t("write2RomSuccess"));
-            //console.log('ROM数据写入成功');
+            //console.log('ROM data written successfully');
         } catch (error) {
-            //console.error('写入ROM失败:', error);
+            //console.error('Failed to write to ROM:', error);
             this.showMessage('error', i18n.t("write2RomFiledError", {error: error.message}));
         }
     }
     /**
-     * 下载修改后的 ROM
+     * Download modified ROM
      */
     downloadROM() {
         //if (!this.romEditor.isModified()) return;
@@ -1073,7 +1073,7 @@ class App {
     }
 
     /**
-     * 显示消息
+     * Show message
      */
     showMessage(type, text) {
         console.log(`${type.toUpperCase()}: ${text}`);
@@ -1081,7 +1081,7 @@ class App {
             return;
         }
         this.messageSet.add(text);
-        // 获取或创建消息容器
+        // Get or create message container
         let container = document.getElementById('messageContainer');
         if (!container) {
             container = document.createElement('div');
@@ -1090,11 +1090,11 @@ class App {
             document.body.appendChild(container);
         }
         
-        // 创建消息元素
+        // Create message element
         const message = document.createElement('div');
         message.className = `message-toast ${type}`;
         
-        // 添加图标
+        // Add icon
         const icon = document.createElement('div');
         icon.className = 'message-toast-icon';
         const icons = {
@@ -1105,7 +1105,7 @@ class App {
         };
         icon.textContent = icons[type] || '🔔';
         
-        // 添加文本
+        // Add text
         const textElement = document.createElement('div');
         textElement.className = 'message-toast-text';
         textElement.textContent = text;
@@ -1114,26 +1114,26 @@ class App {
         message.appendChild(textElement);
         container.appendChild(message);
         
-        // 根据屏幕宽度决定显示时长：移动端2秒，桌面端5秒
+        // Decide display duration based on screen width: 2s for mobile, 5s for desktop
         const isMobile = window.matchMedia('(pointer: coarse)').matches;
         const displayTime = isMobile ? 2000 : 5000;
         
-        // 显示后自动隐藏
+        // Auto-hide after display
         setTimeout(() => {
             message.classList.add('hiding');
             setTimeout(() => {
                 this.messageSet.delete(text);
                 message.remove();
-                // 如果容器为空，移除容器
+                // Remove container if empty
                 if (container.children.length === 0) {
                     container.remove();
                 }
-            }, 300); // 等待退出动画完成
+            }, 300); // Wait for exit animation to complete
         }, displayTime);
     }
 
     /**
-     * 隐藏消息
+     * Hide message
      */
     hideMessage(type) {
         // const msgElement = document.getElementById(type + 'Msg');
@@ -1141,7 +1141,7 @@ class App {
     }
 
     /**
-     * 更新内存使用概览
+     * Update memory usage overview
      */
     updateMemoryOverview() {
         const levels = this.romEditor.getAllLevels();
@@ -1153,25 +1153,25 @@ class App {
         //const freeSize = maxSize - usedSize;
         const percentage = ((usedSize / maxSize) * 100).toFixed(1);
 
-        // 更新进度条
+        // Update progress bar
         document.getElementById('memoryBarFill').style.width = `${percentage}%`;
         document.getElementById('memoryBarText').textContent = 
             `${usedSize} / ${maxSize} Byte (${percentage}%)`;
 
-        // 生成分段显示
+        // Generate segment display
         this.generateMemorySegments(levels, maxSize);
 
         document.getElementById('memoryOverview').style.display = 'block';
     }
 
     /**
-     * 生成内存分段可视化
+     * Generate memory segment visualization
      */
     generateMemorySegments(levels, maxSize) {
         const container = document.getElementById('memorySegments');
         container.innerHTML = '';
 
-        // 使用不同的颜色
+        // Use different colors
         const colors = [
             '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8',
             '#F7DC6F', '#BB8FCE', '#85C1E2', '#F8B88B', '#AAB7B8'
@@ -1190,7 +1190,7 @@ class App {
 
             const tooltip = document.createElement('div');
             tooltip.className = 'memory-segment-tooltip';
-            tooltip.textContent = `关卡${level.getLevelNumber()}: ${level.getTotalSize()} Byte`;
+            tooltip.textContent = `Level ${level.getLevelNumber()}: ${level.getTotalSize()} Byte`;
             segment.appendChild(tooltip);
 
             container.appendChild(segment);
@@ -1198,10 +1198,10 @@ class App {
     }
     
     /**
-     * 更新占位符
+     * Update placeholder
      */
     updatePlaceholder() {
-        // 移除所有占位符
+        // Remove all placeholders
         document.querySelectorAll('.drop-placeholder').forEach(el => {
             el.classList.remove('drop-placeholder');
         });
@@ -1215,7 +1215,7 @@ class App {
     }
 
     /**
-     * 验证怪物数据格式
+     * Validate monster data format
      */
     validateMonsterData() {
         const monsterInput = document.getElementById('monsterData').value.trim();
@@ -1226,7 +1226,7 @@ class App {
 
         const hexBytes = monsterInput.split(/\s+/).filter(s => s.length > 0);
         
-        // 验证十六进制格式
+        // Validate hex format
         for (let hex of hexBytes) {
             if (!/^[0-9A-Fa-f]{1,2}$/.test(hex)) {
                 return;
@@ -1236,56 +1236,56 @@ class App {
         const bytes = hexBytes.map(h => parseInt(h, 16));
         const firstByte = bytes[0];
         
-        // 简单验证
+        // Simple validation
         if (firstByte === 0x01) {
             if (bytes.length !== 1) {
-                // 警告但不阻止
+                // Warn but don't block
             }
         } else if (firstByte !== bytes.length) {
-            // 警告但不阻止
+            // Warn but don't block
         }
     }
 
     vibrate(ms = 200){
-        // 先檢查是否存在這個方法
+        // First check if this method exists
         // I hate webKit
         if (!("vibrate" in navigator)) {
-            console.log("此裝置/瀏覽器不支援震動");
+            console.log("This device/browser does not support vibration");
             return;
         }
 
         try {
             navigator.vibrate(ms);
         } catch (err) {
-            console.log("震動被阻擋", err);
+            console.log("Vibration blocked", err);
         }
     }
 }
 
-// 全局应用实例
+// Global app instance
 let app;
 
-// 页面加载完成后初始化应用
+// Initialize app after page load
 document.addEventListener('DOMContentLoaded', () => {
     app = new App();
 });
 
-// 全局函数
+// Global function
 function testROM() {
     app.testROM();
 }
 
-// 全局函数
+// Global function
 async function testLevel() {
     await app.testLevel();
 }
 
-// 全局函数
+// Global function
 function stopEmulator() {
     app.stopEmulator();
 }
 
-// 全局函数供 HTML 调用
+// Global function for HTML call
 function saveLevel() {
     app.saveLevel();
 }
@@ -1307,26 +1307,26 @@ async function clearCache(){
 }
 
 /**
- * 开始编辑关卡顺序
+ * Start editing level order
  */
 function startEditLevels() {
     app.isEditingLevels = true;
     
-    // 备份当前顺序（浅拷贝数组，Level 对象保持引用）
+    // Backup current order (shallow copy array, Level objects keep reference)
     app.originalLevelsOrder = app.romEditor.levels.slice();
     app.levelsListChanged = false;
     
-    // 切换按钮显示
+    // Toggle button display
     document.getElementById('editLevelsBtn').style.display = 'none';
     document.getElementById('editLevelsActionButtons').style.display = 'flex';
     
-    // 启用关卡总数输入框
+    // Enable level count input
     const levelCountInput = document.getElementById('levelCountInput');
     if (levelCountInput) {
         levelCountInput.disabled = false;
     }
 
-    //修改 item 为拖拽样式
+    // Change item to drag style
     for(let i=0; i< app.romEditor.levels.length; i++){
         const level = app.romEditor.getLevel(i);
         const item = level.htmlItem;
@@ -1340,7 +1340,7 @@ function startEditLevels() {
 
 
 function hideDragHandle(){
-    // 隐藏 dragHandle
+    // Hide dragHandle
     for(let i=0; i< app.romEditor.levels.length; i++){
         const level = app.romEditor.getLevel(i);
         const item = level.htmlItem;
@@ -1352,27 +1352,27 @@ function hideDragHandle(){
 }
 
 /**
- * 取消编辑关卡顺序
+ * Cancel editing level order
  */
 function cancelEditLevels() {
     app.isEditingLevels = false;
     
-    // 切换按钮显示
+    // Toggle button display
     document.getElementById('editLevelsBtn').style.display = 'block';
     document.getElementById('editLevelsActionButtons').style.display = 'none';
     
-    // 禁用关卡总数输入框
+    // Disable level count input
     const levelCountInput = document.getElementById('levelCountInput');
     if (levelCountInput) {
         levelCountInput.value = app.romEditor.getLevelCount();
         levelCountInput.disabled = true;
     }
     
-    // 如果用户做了修改，恢复原始顺序
+    // If user made changes, restore original order
     if (app.levelsListChanged && app.originalLevelsOrder) {
         app.romEditor.levels = app.originalLevelsOrder.slice();
         
-        // 重新设置所有关卡的 index，确保关卡编号正确
+        // Reset all level indices to ensure correct level numbers
         for (let i = 0; i < app.romEditor.levels.length; i++) {
             app.romEditor.levels[i].index = i;
         }
@@ -1380,17 +1380,17 @@ function cancelEditLevels() {
         app.originalLevelsOrder = null;
         app.levelsListChanged = false;
         
-        // 重新创建列表以反映恢复的顺序
+        // Recreate list to reflect restored order
         app.createLevelList();
         
-        // 恢复当前选中关卡（如果有）
+        // Restore current selected level (if any)
         if (app.currentLevel >= 0 && app.currentLevel < app.romEditor.levels.length) {
             app.selectLevel(app.currentLevel);
         }
         
         app.showMessage('warning', i18n.t("changeLevelOrderCancelWarning"));
     } else {
-        // 没有修改，只需隐藏拖拽手柄
+        // No changes, just hide drag handles
         hideDragHandle();
         app.originalLevelsOrder = null;
     }
@@ -1420,30 +1420,30 @@ function checkConsecutiveMoai(mapData, isWideScreen) {
 }
 
 /**
- * 保存关卡顺序
+ * Save level order
  */
 function saveLevels() {
     app.isEditingLevels = false;
     
-    // 切换按钮显示
+    // Toggle button display
     document.getElementById('editLevelsBtn').style.display = 'block';
     document.getElementById('editLevelsActionButtons').style.display = 'none';
     hideDragHandle();
     
-    // 禁用关卡总数输入框
+    // Disable level count input
     const levelCountInput = document.getElementById('levelCountInput');
 
     if (levelCountInput) {
         levelCountInput.disabled = true;
     }
     
-    // 如果没有修改，直接返回
+    // If no changes, return directly
     if (!app.levelsListChanged) {
         app.originalLevelsOrder = null;
         return;
     }
     
-    // 获取当前关卡总数，标记超出部分的关卡为已删除
+    // Get current level count, mark excess levels as deleted
     const levelCount = app.romEditor.getLevelCount();
     for (let i = 0; i < app.romEditor.levels.length; i++) {
         if (i >= levelCount) {
@@ -1453,27 +1453,27 @@ function saveLevels() {
         }
     }
     
-    // 重新计算所有关卡的 ROM 地址（昂贵操作，只在保存时执行）
+    // Recalculate all level ROM addresses (expensive operation, only on save)
     app.romEditor.updateLevelAddresses();
     
-    // 标记 ROM 已修改，需要写入
+    // Mark ROM as modified, needs writing
     app.romEditor.modified = true;
     if (app.writeRomBtn) {
         app.writeRomBtn.disabled = false;
     }
     
-    // 清理备份和标志
+    // Clear backup and flags
     app.originalLevelsOrder = null;
     app.levelsListChanged = false;
     
-    // 重新创建列表以更新所有 htmlItem 引用和关卡编号显示
+    // Recreate list to update all htmlItem references and level number display
     app.createLevelList();
     
-    // 恢复当前选中关卡（如果在有效范围内）
+    // Restore current selected level (if in valid range)
     if (app.currentLevel >= 0 && app.currentLevel < levelCount) {
         app.selectLevel(app.currentLevel);
     } else if (app.currentLevel >= levelCount && levelCount > 0) {
-        // 如果当前关卡被删除，选中最后一个有效关卡
+        // If current level was deleted, select last valid level
         app.selectLevel(levelCount - 1);
     }else{
         app.selectLevel(0);
@@ -1482,13 +1482,13 @@ function saveLevels() {
     app.showMessage('success', i18n.t("changeLevelOrderSuccess"));
 }
 /**
- * 切换语言
- * @param {string} lang - 语言代码 ('zh-CN' 或 'en-US')
+ * Switch language
+ * @param {string} lang - Language code ('zh-CN' or 'en-US')
  */
 function switchLanguage(lang) {
     i18n.setLanguage(lang);
     
-    // 更新语言按钮的激活状态
+    // Update language button active state
     document.querySelectorAll('.lang-btn').forEach(btn => {
         btn.classList.remove('active');
     });
@@ -1500,7 +1500,7 @@ function switchLanguage(lang) {
 }
 
 /**
- * 切换工具栏模式（拖拽/抽屉）
+ * Toggle toolbar mode (drag/drawer)
  */
 function toggleToolbarMode() {
     const toolbar = document.getElementById('toolbar');
@@ -1512,61 +1512,61 @@ function toggleToolbarMode() {
     const isDraggableMode = toolbar.classList.contains('draggable-mode');
     
     if (isDraggableMode) {
-        // 从拖拽模式 → 抽屉模式
+        // From drag mode → drawer mode
         toolbar.classList.remove('draggable-mode');
         toolbar.classList.remove('open');
         
-        // 清除拖拽产生的内联样式，让 CSS 接管
+        // Clear inline styles from dragging, let CSS take over
         toolbar.style.left = '';
         toolbar.style.top = '';
         toolbar.style.cursor = '';
         
-        // 更新切换按钮
+        // Update toggle button
         toggleBtn.textContent = '🔓';
-        toggleBtn.title = '切换到拖拽模式';
+        toggleBtn.title = 'Switch to drag mode';
         
-        // 显示抽屉按钮，并重置其状态
+        // Show drawer button and reset its state
         if (toolbarToggle) {
             toolbarToggle.style.display = 'flex';
             toolbarToggle.classList.remove('toolbar-open');
         }
     } else {
-        // 从抽屉模式 → 拖拽模式
+        // From drawer mode → drag mode
         toolbar.classList.add('draggable-mode');
         toolbar.classList.add('open');
         
-        // 设置初始位置（右上角）
+        // Set initial position (top right)
         toolbar.style.left = (window.innerWidth - toolbar.offsetWidth - 20) + 'px';
         toolbar.style.top = '100px';
         
-        // 更新切换按钮
+        // Update toggle button
         toggleBtn.textContent = '📌';
-        toggleBtn.title = '切换到抽屉模式';
+        toggleBtn.title = 'Switch to drawer mode';
         
-        // 隐藏抽屉按钮
+        // Hide drawer button
         if (toolbarToggle) {
             toolbarToggle.style.display = 'none';
         }
     }
 }
 
-// 页面加载时初始化语言系统
+// Initialize language system on page load
 document.addEventListener('DOMContentLoaded', () => {
-    // 初始化 i18n
+    // Initialize i18n
     const savedLang = i18n.init();
     
-    // 设置初始激活按钮
+    // Set initial active button
     const activeBtn = document.querySelector(`.lang-btn[onclick*="${savedLang}"]`);
     if (activeBtn) {
         activeBtn.classList.add('active');
     }
     
-    // PC端默认设置为拖拽模式
+    // PC default to drag mode
     initToolbarModeForPC();
 });
 
 /**
- * PC端初始化工具栏为拖拽模式
+ * Initialize toolbar to drag mode for PC
  */
 function initToolbarModeForPC() {
     const toolbar = document.getElementById('toolbar');
@@ -1575,7 +1575,7 @@ function initToolbarModeForPC() {
     
     if (!toolbar) return;
     
-    // 手机模式：确保是抽屉模式，清除所有可能的残留状态
+    // Mobile mode: ensure drawer mode, clear all possible residual states
     if (window.innerWidth <= 768) {
         toolbar.classList.remove('draggable-mode');
         toolbar.classList.remove('open');
@@ -1585,7 +1585,7 @@ function initToolbarModeForPC() {
         
         if (toggleBtn) {
             toggleBtn.textContent = '🔓';
-            toggleBtn.title = '切换到拖拽模式';
+            toggleBtn.title = 'Switch to drag mode';
         }
         
         if (toolbarToggle) {
@@ -1594,11 +1594,11 @@ function initToolbarModeForPC() {
         return;
     }
     
-    // PC模式：设置为拖拽模式
+    // PC mode: set to drag mode
     toolbar.classList.add('draggable-mode');
     toolbar.classList.add('open');
     
-    // 设置初始位置，延迟执行确保工具栏已渲染
+    // Set initial position, delay to ensure toolbar is rendered
     setTimeout(() => {
         toolbar.style.left = (window.innerWidth - toolbar.offsetWidth - 20) + 'px';
         toolbar.style.top = '100px';
@@ -1606,17 +1606,17 @@ function initToolbarModeForPC() {
     
     if (toggleBtn) {
         toggleBtn.textContent = '📌';
-        toggleBtn.title = '切换到抽屉模式';
+        toggleBtn.title = 'Switch to drawer mode';
     }
     
-    // 隐藏抽屉按钮
+    // Hide drawer button
     if (toolbarToggle) {
         toolbarToggle.style.display = 'none';
     }
 }
 
 /**
- * 切换移动端菜单
+ * Toggle mobile menu
  */
 function toggleMobileMenu() {
     const menu = document.getElementById('mobileDropdownMenu');
@@ -1626,14 +1626,14 @@ function toggleMobileMenu() {
 }
 
 /**
- * 点击页面其他地方关闭菜单
+ * Click elsewhere on page to close menu
  */
 document.addEventListener('click', (e) => {
     const menu = document.getElementById('mobileDropdownMenu');
     const menuBtn = document.getElementById('mobileMenuBtn');
     
     if (menu && menuBtn) {
-        // 如果点击的不是菜单按钮也不是菜单内容，则关闭菜单
+        // If click is not on menu button or menu content, close menu
         if (!menuBtn.contains(e.target) && !menu.contains(e.target)) {
             menu.classList.remove('active');
         }
@@ -1641,10 +1641,10 @@ document.addEventListener('click', (e) => {
 });
 
 /**
- * 防止iOS滑动返回和橡皮筋效果
+ * Prevent iOS swipe back and rubber band effect
  */
 if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
-    // 防止iOS边缘滑动返回
+    // Prevent iOS edge swipe back
     let startX = 0;
     let startY = 0;
     let targetElement = null;
@@ -1661,24 +1661,24 @@ if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
         const deltaX = currentX - startX;
         const deltaY = Math.abs(currentY - startY);
         
-        // 检查是否在关卡列表或sidebar内
+        // Check if in level list or sidebar
         const isInLevelList = targetElement && (
             targetElement.closest('.level-list') || 
             targetElement.closest('.sidebar') ||
             targetElement.closest('.level-item')
         );
         
-        // 如果在关卡列表内，不阻止任何滑动
+        // If in level list, don't block any swipe
         if (isInLevelList) {
             return;
         }
         
-        // 如果是从左边缘向右滑动（iOS返回手势），且垂直移动不多，则阻止
+        // If swiping right from left edge (iOS back gesture), and not much vertical movement, block it
         if (startX < 30 && deltaX > 10 && deltaY < 50) {
             e.preventDefault();
         }
         
-        // 阻止顶部和底部的橡皮筋效果
+        // Block top and bottom rubber band effect
         const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
         const scrollHeight = document.documentElement.scrollHeight;
         const clientHeight = document.documentElement.clientHeight;
