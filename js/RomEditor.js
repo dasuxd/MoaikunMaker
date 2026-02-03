@@ -60,9 +60,27 @@ class RomEditor {
         for(let i = codeAddr; i< codeAddr + fixedCode.length; i++){
             this.romData[i] = fixedCode[i - codeAddr];
         }
-        // If parameters exist, need to load parameter level, then run NES
+
+        // Some levels have special background animations. 
+        // If the animations follow the level, it would be too troublesome. 
+        // Temporarily disable them.
+        const disableAnimAddr = 0x59E3;
+        const disableAnimEndAddr = 0x5A3D;
+        for(let index = disableAnimAddr; index < disableAnimEndAddr; index++){
+            this.romData[index] = 0x00;
+        }
         
+        //label
+        const labelCode = [0xE3, 0xE2, 0x17, 0x0B, 0x0E, 0x0F, 0xE3, 0x21, 0x13, 0x1E, 0x12, 0xE2, 0xE3, 0xE2, 0xE3, 0xE2, 0xE3, 0xD2, 0xD3, 0xD2, 0xD3, 0xD2, 0xD3, 0xD2, 0xD3, 0xD2, 0xD3, 0xD2, 0xD3, 0xD2, 0xD3, 0xD2, 0xD3, 0xD2, 0x17, 0x19, 0xB1, 0x0B, 0x13, 0x15, 0x1F, 0x18, 0xD2, 0x17, 0x0B, 0x15, 0x0F, 0x1C];
+        const labelAddr = 0x05F9;
+        for(let i = labelAddr; i< labelAddr + labelCode.length; i++){
+            this.romData[i] = labelCode[i - labelAddr];
+        }
+
         this.modified = false;
+
+
+
     }
 
     /**
