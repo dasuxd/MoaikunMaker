@@ -89,7 +89,7 @@ const translations_zhCN = {
     'romNotFoundWarning':'没有找到游戏 ROM，分享关卡将在加载 ROM 文件后自动运行。',
     'loadShareLevelError': '加载分享关卡失败',
     'loadSharedLevelSuccess':'🎮 已加载分享的关卡！',
-    'invalidLevelCountMessageError':'关卡总数必须在1-255之间',
+    'invalidLevelCountMessageError':'关卡总数必须在1-92之间（超过92关会导致地址溢出）',
     'levelCountUpdateSuccess':'关卡总数已更新为 {levelCount}',
     'levelCountUpdateFailedError':'关卡总数更新失败：{error}',
     'cacheCleanSuccess':'缓存已清除',
@@ -120,7 +120,7 @@ const translations_zhCN = {
     'forbiddenPlaceEnemyWarning': '敌人数量已达上限，无法放置更多敌人' ,
     'emptyEnemyDataError': '怪物数据不能为空' ,
     'invalidHexValue': '无效的十六进制值: {hexValue}' ,
-    "setLevelCountError":'关卡总数必须在1-255之间',
+    "setLevelCountError":'关卡总数必须在1-92之间（超过92关会导致地址溢出）',
     "invalidLevelIndexError":'无效的关卡索引',   
     'clearRomCacheConfirm': '确定要清除缓存的 ROM 吗？',
     'forbiddenPlaceConsecutiveMoaiWarning': '由于系统限制，无法连续放置 14 个以上的摩艾 NPC，否则压缩后的数据意味着地图结束符号。',
@@ -129,4 +129,5 @@ const translations_zhCN = {
     'prohibitedDoorAreaWarning': '由于系统限制，该位置将导致玩家无法通关。',
     'consecutiveMoaiError': "由于系统限制，无法防止连续14个摩艾 NPC，否则压缩后的数据意味着地图结束符号。",
     'buggyEnemy9PlaceInfo': "放置在第二屏的喷火像会在游戏中有bug，建议只放在第一屏。",
+    'levelDataSizeExceedError': '关卡数据大小超出限制！当前大小: {currentSize} 字节，最大允许: {maxSize} 字节。请减少关卡数量或简化关卡内容后重试。',
 };

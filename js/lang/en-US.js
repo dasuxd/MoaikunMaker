@@ -89,7 +89,7 @@ const translations_enUS = {
     'romNotFoundWarning': 'Game ROM not found. The shared level will auto-run after you load a ROM file.',
     'loadShareLevelError': 'Failed to load shared level',
     'loadSharedLevelSuccess': '🎮 Shared level loaded successfully!',
-    'invalidLevelCountMessageError': 'Total number of levels must be between 1 and 255',
+    'invalidLevelCountMessageError': 'Total number of levels must be between 1 and 92 (exceeding 92 will cause address overflow)',
     'levelCountUpdateSuccess': 'Total level count updated to {levelCount}',
     'levelCountUpdateFailedError': 'Failed to update level count: {error}',
     'cacheCleanSuccess': 'Cache cleared successfully',
@@ -120,7 +120,7 @@ const translations_enUS = {
     'forbiddenPlaceEnemyWarning': 'Enemy limit reached, cannot place more enemies',
     'emptyEnemyDataError': 'Monster data cannot be empty',
     'invalidHexValue': 'Invalid hex value: {hexValue}',
-    "setLevelCountError": 'Total levels must be between 1 and 255',
+    "setLevelCountError": 'Total levels must be between 1 and 92 (exceeding 92 will cause address overflow)',
     "invalidLevelIndexError": 'Invalid level index',
     'clearRomCacheConfirm': 'Are you sure you want to clear the cached ROM?',
     'forbiddenPlaceConsecutiveMoaiWarning': 'Due to system limitations, you cannot place more than 14 consecutive Moai NPCs, otherwise the compressed data indicates the end of the map.',
@@ -129,4 +129,5 @@ const translations_enUS = {
     'prohibitedDoorAreaWarning': 'Due to system limitations, this position will prevent the player from completing the level.',
     'consecutiveMoaiError': "Due to system limitations, it is not possible to prevent 14 consecutive Moai NPCs, otherwise the compressed data indicates the end of the map.",
     'buggyEnemy9PlaceInfo': "Placing the fire-breathing statue in the second screen may cause bugs in the game. It is recommended to place it only in the first screen.",
+    'levelDataSizeExceedError': 'Level data size exceeds limit! Current size: {currentSize} bytes, maximum allowed: {maxSize} bytes. Please reduce the number of levels or simplify level content and try again.',
 };

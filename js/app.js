@@ -223,17 +223,20 @@ class App {
             levelCountInput.addEventListener('input', (e) => {
                 const count = parseInt(e.target.value);
                 // Only update when a complete valid number is entered
-                if (!isNaN(count) && count >= 1 && count <= 255) {
+                if (!isNaN(count) && count >= 1 && count <= 92) {
                     this.romEditor.setLevelCount(count);
                     this.levelsListChanged = true;
+                }else if (isNaN(count) || count < 1 || count > 92) {
+                    this.showMessage('error', i18n.t('invalidLevelCountMessageError'));
+                    e.target.value = this.romEditor.getLevelCount();
                 }
             });
             
             // Validate and correct invalid values on blur
             levelCountInput.addEventListener('blur', (e) => {
                 const count = parseInt(e.target.value);
-                if (isNaN(count) || count < 1 || count > 255) {
-                    this.showMessage('error', i18n.t('invalidLevelCountMessage'));
+                if (isNaN(count) || count < 1 || count > 92) {
+                    this.showMessage('error', i18n.t('invalidLevelCountMessageError'));
                     e.target.value = this.romEditor.getLevelCount();
                 }
             });
@@ -870,7 +873,11 @@ class App {
         // Deep copy romEditor.romData (Uint8Array)
         const romData = new Uint8Array(this.romEditor.romData);
         // Write temporary level to copied ROM data
-        RomEditor.writeToROM(romData, tmpLevels, 1);
+        const result = RomEditor.writeToROM(romData, tmpLevels, 1);
+        if (!result.success) {
+            console.error('Failed to create temp ROM:', result.error);
+            return null;
+        }
         return romData;
     }
 
@@ -890,6 +897,13 @@ class App {
         }
         const levelRomData = DataConverter.fromLevelEditorToROMData(tmpEditorData, this.levelEditor.isWideScreen);
         const romData = this.createTmpRomData(levelRomData);
+        
+        // Check if romData creation failed (e.g., size validation error)
+        if (!romData) {
+            this.showMessage('error', i18n.t("levelDataSizeExceedError", {currentSize: '-', maxSize: '4100'}));
+            this.changeMode();
+            return;
+        }
 
         
         // Create emulator and load temp ROM
@@ -1006,12 +1020,19 @@ class App {
             }
             
             //document.getElementById('downloadBtn').disabled = false;
+            
+            // Write level info to ROM data
+            const updateResult = this.romEditor.updateRomData();
+            
+            // Check if update was successful (size validation)
+            if (!updateResult.success) {
+                this.showMessage('error', updateResult.error);
+                return;
+            }
+            
             //this.showMessage('success', `Level ${this.currentLevel + 1} saved successfully! Map and monster data updated.`);
             this.showMessage('success', i18n.t("saveMapSuccess", {currentLevel: this.currentLevel + 1}));
             
-            // Write level info to ROM data
-
-            this.romEditor.updateRomData()
             // Save to cache
             this.romCache.saveRom(this.romEditor.romData, this.fileName).catch((error) => {
                 console.error('Failed to save to cache:', error);
@@ -1036,7 +1057,13 @@ class App {
     writeToROM() {
         try {
             this.romEditor.recalculateAddresses(this.romEditor.levels);
-            RomEditor.writeToROM(this.romEditor.romData, this.romEditor.levels, this.romEditor.levelCount);
+            const result = RomEditor.writeToROM(this.romEditor.romData, this.romEditor.levels, this.romEditor.levelCount);
+            
+            // Check if write was successful
+            if (!result.success) {
+                this.showMessage('error', result.error);
+                return;
+            }
             
             // Save to cache
             this.romCache.saveRom(this.romEditor.romData, this.fileName).catch((error) => {
@@ -1423,6 +1450,12 @@ function checkConsecutiveMoai(mapData, isWideScreen) {
  * Save level order
  */
 function saveLevels() {
+    const levelCount = app.romEditor.getLevelCount();
+    if (levelCount > 92){
+        app.showMessage('error', i18n.t("levelCountExceedError",{maxCount: 92}));
+        return;
+    } 
+
     app.isEditingLevels = false;
     
     // Toggle button display
@@ -1444,7 +1477,7 @@ function saveLevels() {
     }
     
     // Get current level count, mark excess levels as deleted
-    const levelCount = app.romEditor.getLevelCount();
+    
     for (let i = 0; i < app.romEditor.levels.length; i++) {
         if (i >= levelCount) {
             app.romEditor.levels[i].isDeleted = true;

@@ -9,7 +9,7 @@ class Config{
 
     static ADDRESS_TABLE_START = 0x5841;
     static ADDRESS_TABLE_END = 0x59B0;
-    static DATA_START_MAX = 0x7F93;
+    static DATA_START_MAX = 0x7F8F;
     static ADDRESS_OFFSET = -0x8000 + 0x10;
     static MONSTER_ADDRESS_OFFSET = 0x33D9;
     static LEVEL_COUNT_ADDRESS = 0x0BD3;

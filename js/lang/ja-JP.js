@@ -89,7 +89,7 @@ const translations_jaJP = {
     'romNotFoundWarning': 'ゲームROMが見つかりません。ROMファイルを読み込むと共有ステージが自動的に実行されます。',
     'loadShareLevelError': '共有ステージの読み込みに失敗しました',
     'loadSharedLevelSuccess': '🎮 共有ステージが正常に読み込まれました！',
-    'invalidLevelCountMessageError': 'ステージ総数は1から255の間でなければなりません',
+    'invalidLevelCountMessageError': 'ステージ総数は1から92の間でなければなりません（92を超えるとアドレスオーバーフローが発生します）',
     'levelCountUpdateSuccess': 'ステージ総数を{levelCount}に更新しました',
     'levelCountUpdateFailedError': 'ステージ総数の更新に失敗しました: {error}',
     'cacheCleanSuccess': 'キャッシュが正常にクリアされました',
@@ -120,7 +120,7 @@ const translations_jaJP = {
     'forbiddenPlaceEnemyWarning': '敵の上限に達しました。これ以上敵を配置できません',
     'emptyEnemyDataError': 'モンスターデータを空にすることはできません',
     'invalidHexValue': '無効な16進数値: {hexValue}',
-    "setLevelCountError": 'ステージ総数は1から255の間でなければなりません',
+    "setLevelCountError": 'ステージ総数は1から92の間でなければなりません（92を超えるとアドレスオーバーフローが発生します）',
     "invalidLevelIndexError": '無効なステージインデックス',
     'clearRomCacheConfirm': 'キャッシュされたROMをクリアしてもよろしいですか？',
     'forbiddenPlaceConsecutiveMoaiWarning': 'システムの制限により、14個以上の連続したモアイNPCを配置することはできません。そうしないと、圧縮されたデータがマップの終わりを示すことになります。',
@@ -129,4 +129,5 @@ const translations_jaJP = {
     'prohibitedDoorAreaWarning': 'システムの制限により、この位置ではプレイヤーがステージをクリアできなくなります。',
     'consecutiveMoaiError': "システムの制限により、14個の連続したモアイNPCを防ぐことはできません。そうしないと、圧縮されたデータがマップの終わりを示すことになります。",
     'buggyEnemy9PlaceInfo': "第2画面に配置された火を吹く像はゲーム内でバグが発生する可能性があります。第1画面にのみ配置することをお勧めします。",
+    'levelDataSizeExceedError': 'ステージデータのサイズが制限を超えています！現在のサイズ: {currentSize}バイト、最大許容: {maxSize}バイト。ステージ数を減らすか、ステージ内容を簡略化してから再試行してください。',
 };

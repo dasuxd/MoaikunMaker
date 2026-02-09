@@ -319,7 +319,7 @@ class RomEditor {
 
     updateRomData() {
         this.recalculateAddresses(this.levels);
-        RomEditor.writeToROM(this.romData, this.levels, this.levelCount);
+        return RomEditor.writeToROM(this.romData, this.levels, this.levelCount);
     }
 
     /**
@@ -327,10 +327,19 @@ class RomEditor {
      * @private
      */
     static writeToROM(romData, levels, levelCount) {
-        // 0. Write level count
+        // 0. Check level data size before writing
+        const sizeCheckResult = RomEditor.checkLevelDataSize(levels, levelCount);
+        if (!sizeCheckResult.valid) {
+            return {
+                success: false,
+                error: sizeCheckResult.error
+            };
+        }
+        
+        // 1. Write level count
         romData[Config.LEVEL_COUNT_ADDRESS] = levelCount + 1;
         
-        // 1. Update level address table (little endian)
+        // 2. Update level address table (little endian)
         for (let i = 0; i < levelCount; i++) {
             const offset = Config.ADDRESS_TABLE_START + i * 2;
             const cpuAddr = levels[i].cpuAddress;
@@ -415,7 +424,44 @@ class RomEditor {
         //this.modified = false;
         document.getElementById('writeRomBtn').disabled = true;
         document.getElementById('downloadBtn').disabled = false;
-        return romData;
+        return {
+            success: true,
+            romData: romData
+        };
+    }
+
+    /**
+     * Check if level data size exceeds the maximum allowed space (4100 bytes)
+     * @param {Array} levels - Array of level objects
+     * @param {number} levelCount - Number of levels
+     * @returns {Object} Object containing valid status and error message if invalid
+     */
+    static checkLevelDataSize(levels, levelCount) {
+        const MAX_LEVEL_DATA_SIZE = 4100; // Maximum bytes available for custom level data
+        
+        // Calculate total size of all level data
+        let totalSize = 0;
+        for (let i = 0; i < levelCount; i++) {
+            totalSize += levels[i].getTotalSize(); // includes FF separator
+        }
+        
+        if (totalSize > MAX_LEVEL_DATA_SIZE) {
+            return {
+                valid: false,
+                totalSize: totalSize,
+                maxSize: MAX_LEVEL_DATA_SIZE,
+                error: i18n.t('levelDataSizeExceedError', {
+                    currentSize: totalSize,
+                    maxSize: MAX_LEVEL_DATA_SIZE
+                })
+            };
+        }
+        
+        return {
+            valid: true,
+            totalSize: totalSize,
+            maxSize: MAX_LEVEL_DATA_SIZE
+        };
     }
 
     /**
@@ -482,7 +528,7 @@ class RomEditor {
      * @param {number} count - Level count
      */
     setLevelCount(count) {
-        if (count < 1 || count > 255) {
+        if (count < 1 || count > 92) {
             return { success: false, error: i18n.t('setLevelCountError') };
         }
         
