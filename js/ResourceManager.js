@@ -177,12 +177,12 @@ class ResourceManager{
     loadPalettes(romData){
         //0xD63D   -> 0x564D
         //const levelType = 3;
-        for(let i=0; i < Config.LEVEL_TYPE_COUNT; i++){
-            const offerset = i * 2
-            const nameTableTypeAddr = 0x564D + offerset;
+        for(let i = 0; i < Config.LEVEL_TYPE_COUNT; i++){
+            const offset = i * 2;
+            const nameTableTypeAddr = app.romEditor.getRomAddrByOriginalRomAddr(Config.PALETTES_ADDRESS_ORIGINAL + offset);
 
             let dataAddr = romData[nameTableTypeAddr + 1] * 0x100 + romData[nameTableTypeAddr];
-            dataAddr = dataAddr - 0x8000 + 0x0010;
+            dataAddr = app.romEditor.getRomAddressFromOriginalCpuAddress(dataAddr);
             
             const newPalette = [];
             for(let j = 0; j < 0x20; j++){
@@ -238,7 +238,7 @@ class ResourceManager{
             levelImgs.set('bg', this.bgImgs[levelType]);
             //加载颜色配置
             const offset = levelType * 4;
-            const colorConfig = 0x3FF4 + offset;
+            const colorConfig = app.romEditor.getRomAddrByOriginalRomAddr(0x3FF4 + offset);
             const colorIndex = [];
             //取出16个元素对应的色盘
             for(let i = 0; i < 4; i++){
@@ -388,9 +388,10 @@ class ResourceManager{
     }
 
     loadBgAttributeData(romData, bgCombineData, levelType){
-        const bgAttributeAddrAddr = 0x4CE2 + levelType * 2;
+        const bgAttributeAddrAddr = app.romEditor.getRomAddrByOriginalRomAddr(0x4CE2 + levelType * 2);
         let bgAttributeAddr = romData[bgAttributeAddrAddr + 1] * 0x100 + romData[bgAttributeAddrAddr];
-        bgAttributeAddr = bgAttributeAddr - 0x8000 + 0x0010;
+        //bgAttributeAddr = bgAttributeAddr - 0x8000 + 0x0010;
+        bgAttributeAddr = app.romEditor.getRomAddressFromOriginalCpuAddress(bgAttributeAddr);
 
         //一个字节对应一块大块 所以应该是 8 * 7 = 56 个字节
         //const bgAttributeData = [0xF];
@@ -442,9 +443,11 @@ class ResourceManager{
 
     loadCombineData(romData, levelType){
         //0xCAD2 0xCAF2(0x4B02) 0809 + Y关卡类型偏移地址 负责将大块拼成背景
-        const bgAddrAddr = 0x4AE2 + levelType * 2;
+        //const bgAddrAddr = 0x4AE2 + levelType * 2;
+        const bgAddrAddr = app.romEditor.getRomAddrByOriginalRomAddr(0x4AE2 + levelType * 2);
         let bgAddr = romData[bgAddrAddr + 1] * 0x100 + romData[bgAddrAddr];
-        bgAddr = bgAddr - 0x8000 + 0x0010;
+        //bgAddr = bgAddr - 0x8000 + 0x0010;
+        bgAddr = app.romEditor.getRomAddressFromOriginalCpuAddress(bgAddr);
 
         let valueWidth = 4;
         if(levelType === 0x07 || levelType === 0x08 || levelType === 0x0D){
@@ -582,9 +585,10 @@ class ResourceManager{
     }
 
     loadTileIndex(romData, levelType){
-        const tileIndexAddrAddr = 0x4CC2 + levelType * 2;
+        const tileIndexAddrAddr = app.romEditor.getRomAddrByOriginalRomAddr(0x4CC2 + levelType * 2);
         let tileIndexAddr = romData[tileIndexAddrAddr + 1] * 0x100 + romData[tileIndexAddrAddr];
-        tileIndexAddr = tileIndexAddr - 0x8000 + 0x0010;
+        //tileIndexAddr = tileIndexAddr - 0x8000 + 0x0010;
+        tileIndexAddr = app.romEditor.getRomAddressFromOriginalCpuAddress(tileIndexAddr);
         //不管原本多少个都拼16个。
         const tileCombines = [];
         for(let tileIndex = 0; tileIndex < 16; tileIndex++){

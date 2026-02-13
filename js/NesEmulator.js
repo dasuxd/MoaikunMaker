@@ -194,7 +194,19 @@ class NesEmulator {
         }
         
         // 将字节数组转换为字符串
-        const romString = String.fromCharCode.apply(null, uint8Array);
+        let romString = '';
+        try {
+            // 优化：分块构建字符串，避免 apply 参数过多
+            
+            const chunkSize = 8192; // 8KB 分块
+            for (let i = 0; i < uint8Array.length; i += chunkSize) {
+                const chunk = uint8Array.subarray(i, i + chunkSize);
+                romString += String.fromCharCode.apply(null, chunk);
+            }
+        } catch (error) {
+            console.error('ROM 转换失败:', error);
+            alert('ROM 加载失败：文件过大或格式错误。');
+        }
         
         // JSNES 需要字符串格式
         this.nes.loadROM(romString);

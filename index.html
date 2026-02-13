@@ -123,7 +123,7 @@
                     <label for="levelCountInput"
                         style="font-size: 14px; color: #333; font-weight: 500; white-space: nowrap;"
                         data-i18n="totalLevels">🎮 关卡总数:</label>
-                    <input type="number" id="levelCountInput" min="1" max="92"
+                    <input type="number" id="levelCountInput" min="1" max="56"
                         style="flex: 1; padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; text-align: center; width: 80px;"
                         disabled />
                     <!-- <span style="font-size: 12px; color: #666;">(地址: 0x0BD3)</span> -->
@@ -155,8 +155,8 @@
             
             <!-- 备份关卡列表 -->
             <div id="backupSection" class="backup-section" style="display: none;">
-                <h3 class="backup-section-title" data-i18n="unsavedBackups">⚠️ 未保存的关卡备份</h3>
-                <p class="backup-section-hint" data-i18n="backupHint">以下关卡在切换时未保存，点击可恢复到对应关卡。</p>
+                <h3 class="backup-section-title" data-i18n="unsavedBackups">⚠️ 未保存的编辑备份</h3>
+                <p class="backup-section-hint" data-i18n="backupHint">切换关卡时，以下关卡有未保存的修改已自动备份。点击恢复可将备份数据还原到对应关卡。</p>
                 <div id="backupLevelList" class="backup-level-list"></div>
             </div>
         </div>
@@ -202,6 +202,16 @@
                                         <input type="checkbox" id="wideScreenCheckbox"
                                             style="width: 16px; height: 16px; cursor: pointer;">
                                         <span data-i18n="wideScene">📺 宽场景</span>
+                                    </label>
+                                </div>
+
+                                <div style="margin-top: 8px;">
+                                    <label
+                                        style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; color: #666;">
+                                        <input type="checkbox" id="romExpansionCheckbox"
+                                            style="width: 16px; height: 16px; cursor: pointer;" disabled>
+                                        <span data-i18n="romExpansion">🔧 ROM 拓展</span>
+                                        <span class="help-icon" data-i18n-title="romExpansionTooltip" title="">❓</span>
                                     </label>
                                 </div>
                             </div>
@@ -264,17 +274,19 @@
                     ROM</button>
                 <button class="btn-stop" id="stopEmulatorBtn" onclick="stopEmulator()" disabled
                     data-i18n="stopEmulator">⏹️ 结束模拟</button>
-                <button class="btn-download" id="shareBtn" onclick="shareLevel()" data-i18n="shareLevel">🔗
-                    分享关卡</button>
+
             </div>
 
             <div class="button-group">
                 <button class="btn-save" id="saveBtn" onclick="saveLevel()" disabled data-i18n="saveLevel">💾
                     保存关卡</button>
-                <button class="btn-write" id="writeRomBtn" onclick="writeToROM()" disabled data-i18n="writeToRom">📝 写入
-                    ROM</button>
+
+                <!-- <button class="btn-write" id="writeRomBtn" onclick="writeToROM()" disabled data-i18n="writeToRom">📝 写入
+                    ROM</button> -->
                 <button class="btn-download" id="downloadBtn" onclick="downloadROM()" disabled
                     data-i18n="downloadRom">⬇️ 下载 ROM</button>
+                <button class="btn-download" id="shareBtn" onclick="shareLevel()" data-i18n="shareLevel">🔗
+                    分享关卡</button>
             </div>
             <div class="memory-overview" id="memoryOverview">
                 <h3 data-i18n="memoryUsage">💾 内存使用情况</h3>
@@ -430,6 +442,7 @@
     <script src="js/NesEmulator.js"></script>
     <script src="js/MobileGameController.js"></script>
     <script src="js/Config.js"></script>
+    <script src="js/RomFix.js"></script>
     <script src="js/OptimizedMap.js"></script>
     <script src="js/Enemy.js"></script>
     <script src="js/ResourceManager.js"></script>

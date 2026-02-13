@@ -92,8 +92,9 @@ class RomCache {
      * 保存关卡数据到缓存（独立于 ROM 保存）
      * @param {Array} levelsData - 序列化的关卡数据数组
      * @param {number} levelCount - 关卡总数
+     * @param {number} romType - ROM 类型（0=原始，1=扩展）
      */
-    async saveLevelData(levelsData, levelCount) {
+    async saveLevelData(levelsData, levelCount, romType) {
         if (!this.db) {
             await this.init();
         }
@@ -105,6 +106,7 @@ class RomCache {
             const data = {
                 levels: levelsData,
                 levelCount: levelCount,
+                romType: romType,
                 timestamp: Date.now()
             };
             

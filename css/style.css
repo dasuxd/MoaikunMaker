@@ -4,6 +4,28 @@
     box-sizing: border-box;
 }
 
+/* Help icon style */
+.help-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #e0e0e0;
+    color: #666;
+    font-size: 11px;
+    cursor: help;
+    margin-left: 4px;
+    transition: all 0s ease;
+}
+
+.help-icon:hover {
+    background: #2196F3;
+    color: white;
+    transform: scale(1.1);
+}
+
 html {
     /* iOS优化：防止双击缩放 */
     -webkit-text-size-adjust: 100%;

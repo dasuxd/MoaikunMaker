@@ -13,6 +13,12 @@ class RomEditor {
         
         // Current total level count
         this.levelCount = 56;
+
+
+        // ROM type for editing/export (user's chosen mode, persisted in cache)
+        this.romType = Config.ROM_TYPE_ORIGINAL;
+        // ROM's actual binary type (detected from header, never modified after parse)
+        this.originalRomType = Config.ROM_TYPE_ORIGINAL;
     }
 
     /**
@@ -22,66 +28,8 @@ class RomEditor {
     loadROM(arrayBuffer) {
         this.romData = new Uint8Array(arrayBuffer);
         this.parseROM();
-
-        // Fix boss image
-        // Test feature: write demon layer data to other scenes, and backup original scene data for restoration
-        // Maybe someday I'll figure out where those backup images should be used
-        // 0x6A60 ~ 0x6E00
-        // 0xEA70 ~ 0xEE10
-        let index = 0xEA70;
-        let indexEnd = 0xEE10;
-        const backupAddr = 0x8C50;
-
-        // If 0x8C50 is all zeros, means no backup has been made
-        let needBackup = true;
-        for(let i = backupAddr; i < backupAddr + (indexEnd - index); i++){
-            if(this.romData[i] !== 0x00){
-                needBackup = false;
-                break;
-            }
-        }
-
-        if(needBackup){
-            const page1Addr = 0xAA70;
-            const page2Addr = 0xCA70;
-            for(;index < indexEnd; index++){
-                let offset = index - 0xEA70;
-                // Backup address
-                this.romData[backupAddr + offset] = this.romData[page1Addr + offset];
-                // Write new data
-                this.romData[page1Addr + offset] = this.romData[index];
-                this.romData[page2Addr + offset] = this.romData[index];
-            }
-        }
-
-        // Fix bug where player dies when reaching max height, using some code space I believe is unused
-        const fixedCode = [0x18, 0xA5, 0xC4, 0x65, 0xC8, 0x85, 0xC4, 0xAD, 0x1E, 0x04, 0x65, 0xC7, 0x24, 0xC7, 0x10, 0x06, 0xC9, 0xD5, 0x90, 0x02, 0xA9, 0x00, 0x8D, 0x1E, 0x04, 0x60];
-        const codeAddr = 0x19A5;
-        for(let i = codeAddr; i< codeAddr + fixedCode.length; i++){
-            this.romData[i] = fixedCode[i - codeAddr];
-        }
-
-        // Some levels have special background animations. 
-        // If the animations follow the level, it would be too troublesome. 
-        // Temporarily disable them.
-        const disableAnimAddr = 0x59E3;
-        const disableAnimEndAddr = 0x5A3D;
-        for(let index = disableAnimAddr; index < disableAnimEndAddr; index++){
-            this.romData[index] = 0x00;
-        }
-        
-        //label
-        //const labelCode = [0xE3, 0xE2, 0x17, 0x0B, 0x0E, 0x0F, 0xE3, 0x21, 0x13, 0x1E, 0x12, 0xE2, 0xE3, 0xE2, 0xE3, 0xE2, 0xE3, 0xD2, 0xD3, 0xD2, 0xD3, 0xD2, 0xD3, 0xD2, 0xD3, 0xD2, 0xD3, 0xD2, 0xD3, 0xD2, 0xD3, 0xD2, 0xD3, 0xD2, 0x17, 0x19, 0xB1, 0x0B, 0x13, 0x15, 0x1F, 0x18, 0xD2, 0x17, 0x0B, 0x15, 0x0F, 0x1C];
-        const labelCode = [0xE3, 0xE2, 0x17, 0x0B, 0x0E, 0x0F, 0xE3, 0x21, 0x13, 0x1E, 0x12, 0xE2, 0xE3, 0xE2, 0xE3, 0xE2, 0xE3, 0xD2, 0xD3, 0xD2, 0xD3, 0xD2, 0xD3, 0xD2, 0xD3, 0xD2, 0xD3, 0xD2, 0xD3, 0xD2, 0xD3, 0xD2, 0xD3, 0xD2, 0x17, 0x19, 0x0B, 0x13, 0x15, 0x1F, 0x18, 0xD2, 0x17, 0x0B, 0x15, 0x0F, 0x1C];
-        const labelAddr = 0x05D9;
-        for(let i = labelAddr; i< labelAddr + labelCode.length; i++){
-            this.romData[i] = labelCode[i - labelAddr];
-        }
-
+        //Romfix.fixOriginalRom(this.romData);
         this.modified = false;
-
-
-
     }
 
     /**
@@ -90,46 +38,43 @@ class RomEditor {
     parseROM() {
         if (!this.romData) return;
 
+        this.romType = this.romData[Config.ROM_TYPE_ADDRESS] === 0x21 ? Config.ROM_TYPE_EXPANDED : Config.ROM_TYPE_ORIGINAL;
+        // originalRomType reflects the actual ROM binary layout, used for resource/graphics loading
+        this.originalRomType = this.romType;
+
         this.levels = [];
         
         // 0. Read total level count
         this.levelCount = this.romData[Config.LEVEL_COUNT_ADDRESS] - 1;
 
         // 1. Read address table (little endian)
-        const addresses = this.readAddressTable();
+        //const addresses = this.readLevelAddressTable();
+        const levelDataAddresses = this.readLevelAddressTable();
         
-        // 2. Read monster data address
-        const monsterBaseAddress = RomEditor.readMonsterAddress(this.romData);
+        // 2. Read enemy data address
 
         // 3. Read each level's data
-        let currentMonsterAddr = monsterBaseAddress; // Current monster data read position
+        let currentEnemyAddr = this.getEnemyDataStart();
         
         for (let i = 0; i < this.levelCount; i++) {
-            const startAddr = addresses[i].romAddress;
-            const endAddr = (i < this.levelCount - 1) 
-                ? addresses[i + 1].romAddress 
-                : Config.DATA_START_MAX;
-
-            // Find FF separator
-            const dataEnd = this.findSeparator(startAddr, endAddr);
-            const data = Array.from(this.romData.slice(startAddr, dataEnd));
+            const startAddr = levelDataAddresses[i].romAddress;
+            const levelData = this.readLevelData(startAddr);
             
-            // Read monster data, and update next read position
-            const monsterResult = this.readMonsterData(currentMonsterAddr);
-            const monsterData = monsterResult.data;
-            const monsterRomAddress = currentMonsterAddr;
-            const monsterCpuAddress = monsterRomAddress - Config.ADDRESS_OFFSET;
-            currentMonsterAddr = monsterResult.nextAddress; // Update to next level's monster data address
+            // Read enemy data, and update next read position
+            const enemyData = this.getEnemyDataByAddr(currentEnemyAddr);
+            const enemyCpuAddress = this.getCpuAddressByRomAddress(currentEnemyAddr, Config.LEVEL_TABLE_ENEMY_BANK_INDEX);
 
             const level = new Level(
                 i,
-                addresses[i].cpuAddress,
-                addresses[i].romAddress,
-                data,
-                monsterData,
-                monsterCpuAddress,
-                monsterRomAddress
+                levelDataAddresses[i].cpuAddress,
+                levelDataAddresses[i].romAddress,
+                levelData,
+                enemyData,
+                enemyCpuAddress,
+                currentEnemyAddr
             );
+
+            currentEnemyAddr = currentEnemyAddr + enemyData.length; // Update to next level's monster data address
 
             this.levels.push(level);
         }
@@ -139,15 +84,19 @@ class RomEditor {
      * Read address table
      * @private
      */
-    readAddressTable() {
+    readLevelAddressTable() {
         const addresses = [];
         
         for (let i = 0; i < this.levelCount; i++) {
-            const offset = Config.ADDRESS_TABLE_START + i * 2;
+            const offset = this.getLevelAddressTable() + i * 2;
             const lowByte = this.romData[offset];
             const highByte = this.romData[offset + 1];
             const cpuAddress = (highByte << 8) | lowByte;
-            const romAddress = cpuAddress + Config.ADDRESS_OFFSET;
+            let bankIndex = 1;
+            if(this.romType === Config.ROM_TYPE_EXPANDED){
+                bankIndex = Config.LEVEL_DATA_BANK_INDEX;
+            }
+            const romAddress = this.getRomAddressByCpuAddress(cpuAddress, bankIndex);
             
             addresses.push({ cpuAddress, romAddress });
         }
@@ -155,82 +104,96 @@ class RomEditor {
         return addresses;
     }
 
-    updateLevelAddresses(){
-        // Find original start address
-        const offset = Config.ADDRESS_TABLE_START + 2;
-        const lowByte = this.romData[offset];
-        const highByte = this.romData[offset + 1];
-        const firstLevelCpuAddress = (highByte << 8) | lowByte;
-        const romAddress = firstLevelCpuAddress + Config.ADDRESS_OFFSET;
-        for (let i=0; i<this.levels.length; i++){
-            if (i===0){
-                this.levels[i].updateAddress(
-                    firstLevelCpuAddress,
-                    romAddress
-                );
+    // updateLevelAddresses(){
+    //     // Find original start address
+    //     const offset = Config.ADDRESS_TABLE_START + 2;
+    //     const lowByte = this.romData[offset];
+    //     const highByte = this.romData[offset + 1];
+    //     const firstLevelCpuAddress = (highByte << 8) | lowByte;
+    //     const romAddress = firstLevelCpuAddress + Config.ADDRESS_OFFSET;
+    //     for (let i=0; i<this.levels.length; i++){
+    //         if (i===0){
+    //             this.levels[i].updateAddress(
+    //                 firstLevelCpuAddress,
+    //                 romAddress
+    //             );
+    //         }else{
+    //             const prevLevel = this.levels[i-1];
+    //             this.levels[i].updateAddress(
+    //                 prevLevel.cpuAddress + prevLevel.getTotalSize(),
+    //                 prevLevel.romAddress + prevLevel.getTotalSize()
+    //             );
+    //         }
+    //     }
+    // }
+
+    // /**
+    //  * Read monster data address
+    //  * @private
+    //  */
+    // static readMonsterAddress(romData) {
+    //     const lowByte = romData[Config.MONSTER_ADDRESS_OFFSET];
+    //     const highByte = romData[Config.MONSTER_ADDRESS_OFFSET + 1];
+    //     const cpuAddress = (highByte << 8) | lowByte;
+    //     const romAddress = cpuAddress + Config.ADDRESS_OFFSET;
+    //     return romAddress;
+    // }
+
+    // /**
+    //  * Read single level's monster data
+    //  * @param {number} startAddr - Current level monster data start address
+    //  * @returns {Object} Object containing data and next address
+    //  * @private
+    //  */
+    // readMonsterData(startAddr) {
+    //     // Read first byte (monster count * 2 + 1)
+    //     const firstByte = this.romData[startAddr];
+        
+    //     if (firstByte === 0x01 || firstByte === 0x00) {
+    //         // No monsters, data is only 1 byte
+    //         return {
+    //             data: [firstByte],
+    //             nextAddress: startAddr + 1
+    //         };
+    //     }
+        
+    //     // Calculate data length (first byte is data length)
+    //     const dataLength = firstByte;
+    //     const monsterData = Array.from(this.romData.slice(startAddr, startAddr + dataLength));
+        
+    //     return {
+    //         data: monsterData,
+    //         nextAddress: startAddr + dataLength
+    //     };
+    // }
+
+    // /**
+    //  * Find FF separator position
+    //  * Note: First 4 bytes cannot be end marker, search from 5th byte
+    //  * @private
+    //  */
+    // findSeparator(startAddr, endAddr) {
+    //     // Skip first 4 bytes, start searching for FF separator from 5th byte (index startAddr+4)
+    //     for (let j = startAddr + 4; j < endAddr; j++) {
+    //         if (this.romData[j] === 0xFF) {
+    //             return j;
+    //         }
+    //     }
+    //     return endAddr;
+    // }
+
+    readLevelData(dataStartAddr){
+        // Find end address
+        let data = [];
+        for(let i = 0; i < Config.LEVEL_DATA_MAX_SIZE; i++){
+            const byte = this.romData[dataStartAddr + i];
+            if(byte === 0xFF){
+                break;
             }else{
-                const prevLevel = this.levels[i-1];
-                this.levels[i].updateAddress(
-                    prevLevel.cpuAddress + prevLevel.getTotalSize(),
-                    prevLevel.romAddress + prevLevel.getTotalSize()
-                );
+                data.push(byte);
             }
         }
-    }
-
-    /**
-     * Read monster data address
-     * @private
-     */
-    static readMonsterAddress(romData) {
-        const lowByte = romData[Config.MONSTER_ADDRESS_OFFSET];
-        const highByte = romData[Config.MONSTER_ADDRESS_OFFSET + 1];
-        const cpuAddress = (highByte << 8) | lowByte;
-        const romAddress = cpuAddress + Config.ADDRESS_OFFSET;
-        return romAddress;
-    }
-
-    /**
-     * Read single level's monster data
-     * @param {number} startAddr - Current level monster data start address
-     * @returns {Object} Object containing data and next address
-     * @private
-     */
-    readMonsterData(startAddr) {
-        // Read first byte (monster count * 2 + 1)
-        const firstByte = this.romData[startAddr];
-        
-        if (firstByte === 0x01 || firstByte === 0x00) {
-            // No monsters, data is only 1 byte
-            return {
-                data: [firstByte],
-                nextAddress: startAddr + 1
-            };
-        }
-        
-        // Calculate data length (first byte is data length)
-        const dataLength = firstByte;
-        const monsterData = Array.from(this.romData.slice(startAddr, startAddr + dataLength));
-        
-        return {
-            data: monsterData,
-            nextAddress: startAddr + dataLength
-        };
-    }
-
-    /**
-     * Find FF separator position
-     * Note: First 4 bytes cannot be end marker, search from 5th byte
-     * @private
-     */
-    findSeparator(startAddr, endAddr) {
-        // Skip first 4 bytes, start searching for FF separator from 5th byte (index startAddr+4)
-        for (let j = startAddr + 4; j < endAddr; j++) {
-            if (this.romData[j] === 0xFF) {
-                return j;
-            }
-        }
-        return endAddr;
+        return data;
     }
 
     /**
@@ -283,196 +246,55 @@ class RomEditor {
         };
     }
 
-    /**
-     * Recalculate all level addresses
-     * @private
-     */
-    recalculateAddresses(levels) {
-        //const firstLevelStart = this.levels[0].romAddress;
-        const addresses = this.readAddressTable();
-        const firstLevelStart = addresses[0].romAddress;
-        let currentPos = firstLevelStart;
+    // /**
+    //  * Recalculate all level addresses
+    //  * @private
+    //  */
+    // recalculateAddresses(levels) {
+    //     let currentPos = this.getLevelDataStart()
 
-        for (let i = 0; i < levels.length; i++) {
-            const level = levels[i];
-            const endPos = currentPos + level.getTotalSize();
+    //     for (let i = 0; i < levels.length; i++) {
+    //         const level = levels[i];
+    //         const endPos = currentPos + level.getTotalSize();
 
-            // Check boundary
-            if (endPos > Config.DATA_START_MAX) {
-                return {
-                    success: false,
-                    //error: `Level data total size exceeds boundary! Level ${i + 1} end address is 0x${endPos.toString(16).toUpperCase()}, exceeds max address 0x7F93. Cannot save!`
-                    error: i18n.t('levelDataExceedBoundaryError', {level: i + 1, endAddr: '0x' + endPos.toString(16).toUpperCase(), maxAddr: '0x7F93' })
-                };
-            }
+    //         // Check boundary
+    //         if (endPos > this.getLevelUsageMaxSize()) {
+    //             return {
+    //                 success: false,
+    //                 //error: `Level data total size exceeds boundary! Level ${i + 1} end address is 0x${endPos.toString(16).toUpperCase()}, exceeds max address 0x7F93. Cannot save!`
+    //                 error: i18n.t('levelDataExceedBoundaryError', {level: i + 1, endAddr: '0x' + endPos.toString(16).toUpperCase(), maxAddr: '0x7F93' })
+    //             };
+    //         }
 
-            // Update address
-            const newRomAddress = currentPos;
-            const newCpuAddress = newRomAddress - Config.ADDRESS_OFFSET;
-            level.updateAddress(newCpuAddress, newRomAddress);
+    //         // Update address
+    //         const newRomAddress = currentPos;
+    //         const newCpuAddress = newRomAddress - Config.ADDRESS_OFFSET;
+    //         level.updateAddress(newCpuAddress, newRomAddress);
 
-            currentPos = endPos;
+    //         currentPos = endPos;
+    //     }
+
+    //     return { success: true };
+    // }
+
+    updateLevelInfo(){
+        let currentPos = this.getLevelDataStart();
+        let monsterDataPos = this.getEnemyDataStart();
+        for(let i = 0; i < this.levels.length; i++){
+            const level = this.levels[i];
+            level.romAddress = currentPos;
+            level.cpuAddress = this.getCpuAddressByRomAddress(currentPos);
+            currentPos += level.getTotalSize();
+
+            level.monsterRomAddress = monsterDataPos;
+            level.monsterCpuAddress = this.getCpuAddressByRomAddress(monsterDataPos);
+            monsterDataPos += level.monsterData.length;
         }
+
+        //保存到 RomCache
+        //RomCache.saveCache(this.levels, this.levelCount);
 
         return { success: true };
-    }
-
-    updateRomData() {
-        this.recalculateAddresses(this.levels);
-        return RomEditor.writeToROM(this.romData, this.levels, this.levelCount);
-    }
-
-    /**
-     * Write data to ROM
-     * @private
-     */
-    static writeToROM(romData, levels, levelCount) {
-        // 0. Check level data size before writing
-        const sizeCheckResult = RomEditor.checkLevelDataSize(levels, levelCount);
-        if (!sizeCheckResult.valid) {
-            return {
-                success: false,
-                error: sizeCheckResult.error
-            };
-        }
-
-        // 0.1 Check total enemy count (max 78 due to ROM structure)
-        const enemyCheckResult = RomEditor.checkTotalEnemyCount(levels, levelCount);
-        if (!enemyCheckResult.valid) {
-            return {
-                success: false,
-                error: enemyCheckResult.error
-            };
-        }
-
-        //
-        
-        // 1. Write level count
-        romData[Config.LEVEL_COUNT_ADDRESS] = levelCount + 1;
-        
-        // 2. Update level address table (little endian)
-        for (let i = 0; i < levelCount; i++) {
-            const offset = Config.ADDRESS_TABLE_START + i * 2;
-            const cpuAddr = levels[i].cpuAddress;
-            romData[offset] = cpuAddr & 0xFF;           // Low byte
-            romData[offset + 1] = (cpuAddr >> 8) & 0xFF; // High byte
-        }
-
-        // 3. Write all level data (compact arrangement)
-        const firstLevelStart = levels[0].romAddress;
-        let writePos = firstLevelStart;
-        
-        for (let i = 0; i < levelCount; i++) {
-            const data = levels[i].data;
-            
-            // Write data
-            for (let j = 0; j < data.length; j++) {
-                romData[writePos++] = data[j];
-            }
-            
-            // Write separator FF
-            romData[writePos++] = 0xFF;
-        }
-
-        // 3. Clear remaining level area
-        for (let i = writePos; i < Config.DATA_START_MAX; i++) {
-            romData[i] = 0x00;
-        }
-
-        // 4. Get monster data base address
-        const monsterBaseAddress = RomEditor.readMonsterAddress(romData);
-        
-        // 5. Write all monster data (in reordered sequence)
-        let monsterWritePos = monsterBaseAddress;
-        let levelIndex = 0;
-        let level1MonsterData = [];
-        for (levelIndex = 0; levelIndex < levelCount; levelIndex++) {
-            const level = levels[levelIndex];
-            const monsterData = level.monsterData;
-            
-            // Update monster data address
-            const monsterRomAddress = monsterWritePos;
-            const monsterCpuAddress = monsterRomAddress - Config.ADDRESS_OFFSET;
-            level.monsterCpuAddress = monsterCpuAddress;
-            level.monsterRomAddress = monsterRomAddress;
-            
-            // Write monster data
-            for (let j = 0; j < monsterData.length; j++) {
-                romData[monsterWritePos++] = monsterData[j];
-                if(levelIndex === 0){
-                    level1MonsterData.push(monsterData[j]);
-                }
-            }
-            level.modified = false;
-        }
-
-        // If levelCount < 8, need to modify level 7 and 8 addresses
-        // Following non-existent levels all copy first level's monster content
-        if(levelIndex < 8){
-            for(;levelIndex < 9; levelIndex++){
-                for (let j = 0; j < level1MonsterData.length; j++) {
-                    romData[monsterWritePos++] = level1MonsterData[j];
-                }
-            }
-        }
-
-        // If level count < 7 or 8, change level 7/8 addresses to first level, otherwise demo mode will freeze
-        // Monster addresses also need to point to first level, otherwise unexpected behavior
-        if (levelCount < 8){
-            const offset8 = Config.ADDRESS_TABLE_START + 7 * 2;
-            const cpuAddr = levels[0].cpuAddress;
-            romData[offset8] = cpuAddr & 0xFF;
-            romData[offset8 + 1] = (cpuAddr >> 8) & 0xFF;
-        }
-
-        if(levelCount < 7){
-            const offset7 = Config.ADDRESS_TABLE_START + 6 * 2;
-            const cpuAddr = levels[0].cpuAddress;
-            romData[offset7] = cpuAddr & 0xFF;
-            romData[offset7 + 1] = (cpuAddr >> 8) & 0xFF;
-        }
-
-        //this.modified = false;
-        document.getElementById('writeRomBtn').disabled = true;
-        document.getElementById('downloadBtn').disabled = false;
-        return {
-            success: true,
-            romData: romData
-        };
-    }
-
-    /**
-     * Check if level data size exceeds the maximum allowed space (4100 bytes)
-     * @param {Array} levels - Array of level objects
-     * @param {number} levelCount - Number of levels
-     * @returns {Object} Object containing valid status and error message if invalid
-     */
-    static checkLevelDataSize(levels, levelCount) {
-        const MAX_LEVEL_DATA_SIZE = 4100; // Maximum bytes available for custom level data
-        
-        // Calculate total size of all level data
-        let totalSize = 0;
-        for (let i = 0; i < levelCount; i++) {
-            totalSize += levels[i].getTotalSize(); // includes FF separator
-        }
-        
-        if (totalSize > MAX_LEVEL_DATA_SIZE) {
-            return {
-                valid: false,
-                totalSize: totalSize,
-                maxSize: MAX_LEVEL_DATA_SIZE,
-                error: i18n.t('levelDataSizeExceedError', {
-                    currentSize: totalSize,
-                    maxSize: MAX_LEVEL_DATA_SIZE
-                })
-            };
-        }
-        
-        return {
-            valid: true,
-            totalSize: totalSize,
-            maxSize: MAX_LEVEL_DATA_SIZE
-        };
     }
 
     /**
@@ -514,11 +336,140 @@ class RomEditor {
         };
     }
 
+    recalDataAddresses(levels = this.levels){
+        let currentLevelDataPos = this.getLevelDataStart()
+        let currentEnemyDataPos = this.getEnemyDataStart();
+        for (let i=0; i < levels.length; i++){
+            const level = levels[i];
+            level.romAddress = currentLevelDataPos;
+            level.cpuAddress = this.getCpuAddressByRomAddress(currentLevelDataPos);
+            currentLevelDataPos += level.getTotalSize() + 1; // +1 for FF separator
+
+            level.monsterRomAddress = currentEnemyDataPos;
+            level.monsterCpuAddress = this.getCpuAddressByRomAddress(currentEnemyDataPos);
+            currentEnemyDataPos += level.monsterData.length;
+        }
+
+    }
+
+    checkRomData(){
+        const maxSize = this.getLevelUsageMaxSize();
+        // Calculate total size of all level data
+        let totalSize = 0;
+        let enemySize = 0;
+        for (let i = 0; i < this.levelCount; i++) {
+            totalSize += this.levels[i].getTotalSize(); // includes FF separator
+            enemySize += this.levels[i].monsterData.length;
+        }
+
+        if(totalSize > maxSize){
+            return {success: false, error: i18n.t('levelDataSizeExceedError', {
+                currentSize: totalSize,
+                maxSize: maxSize
+            })};
+        }
+
+        const maxLevelAddressSize = this.getLevelAddressTableEnd() - this.getLevelAddressTable();
+        if(this.levelCount * 2 > maxLevelAddressSize){
+            return {success: false, error: i18n.t('levelAddressTableSizeExceedError', {
+                currentSize: this.levelCount * 2,
+                maxSize: maxLevelAddressSize
+            })};
+        }
+
+        const maxEnemyDataSize = this.getEnemyUsageMaxSize();
+        if(enemySize > maxEnemyDataSize){
+            return {success: false, error: i18n.t('enemyDataSizeExceedError', {
+                currentSize: enemySize,
+                maxSize: maxEnemyDataSize
+            })};
+        }
+
+        return {success: true};
+    }
+
+    //
+
     /**
      * Get ROM data for download
      */
-    getROMData() {
-        return this.romData;
+    getROMData(levels = this.levels, levelCount = this.levelCount) {
+        // check data
+        // let result = this.checkRomData()
+        // if(result.success === false){
+        //     return result;
+        // }
+
+        this.recalDataAddresses(levels);
+       
+        //
+        let expandedRomSize = 0;
+        if(this.romType === Config.ROM_TYPE_EXPANDED){
+            expandedRomSize = 0x4000 * 4; // expanded rom size
+        }
+        let newRomData = new Uint8Array(this.romData.length + expandedRomSize);
+
+        //1、 copy bank 1
+        newRomData.set(this.romData.subarray(0, 0x4010), 0);
+
+        //获取原 rom type
+        const romType = this.romData[Config.ROM_TYPE_ADDRESS];
+        const pgrBank2 = new Uint8Array(0x4000);
+        //2、 copy bank 2
+        if(romType === 0x21){
+            pgrBank2.set(this.romData.subarray(Config.PGR_PART_2_BANK_INDEX * 0x4000 + 0x10, ), 0) 
+        }else{
+            pgrBank2.set(this.romData.subarray(0x4010, 0x8010), 0) 
+        }
+
+        if(this.romType === Config.ROM_TYPE_EXPANDED){
+            newRomData.set(pgrBank2, Config.PGR_PART_2_BANK_INDEX * 0x4000 + 0x10);
+        }else{
+            newRomData.set(pgrBank2, 0x4010);
+        }
+
+        //3、 CHR
+        newRomData.set(this.romData.subarray(0x8010, 0x10010), 0x8010);
+        
+        //4、 handle levels
+        // level data
+        newRomData.fill(0x00, this.getLevelDataStart(), this.getLevelDataStart() + this.getLevelUsageMaxSize());
+        // level table
+        newRomData.fill(0x00, this.getLevelAddressTable(), this.getLevelAddressTableEnd());
+        // enemy data
+        newRomData.fill(0x00, this.getEnemyDataStart(), this.getEnemyDataStart() + this.getEnemyUsageMaxSize());
+
+        if(this.romType === Config.ROM_TYPE_EXPANDED){
+            let offset = (Config.PGR_PART_2_BANK_INDEX - 1) * 0x4000;
+            newRomData.fill(0x00, Config.LEVEL_ADDRESS_TABLE_ORIGINAL + offset, Config.LEVEL_ADDRESS_TABLE_END_ORIGINAL + offset);
+            newRomData.fill(0x00, Config.LEVEL_DATA_ORIGINAL + offset, Config.LEVEL_DATA_END_ORIGINAL + offset);
+            newRomData.fill(0x00, Config.ENEMY_DATA_ORIGINAL, Config.ENEMY_DATA_END_ORIGINAL);
+            newRomData.fill(0x90, Config.LEVEL_TIMER_EXPANDED, Config.LEVEL_TIMER_EXPANDED + 0x100); //256 levels
+        }
+
+        newRomData[Config.LEVEL_COUNT_ADDRESS] = levelCount + 1;
+
+        for(let i = 0; i < levelCount; i++){
+            const levelAddr = levels[i].cpuAddress;
+            newRomData.set([levelAddr & 0xFF, (levelAddr >> 8) & 0xFF], this.getLevelAddressTable() + i * 2);
+            newRomData.set(levels[i].data, levels[i].romAddress);
+            newRomData[levels[i].romAddress + levels[i].data.length] = 0xFF;
+            newRomData.set(levels[i].monsterData, levels[i].monsterRomAddress);
+
+            if(this.romType === Config.ROM_TYPE_EXPANDED){
+                newRomData[Config.ENEMY_ADDRESS_TABLE_EXPANDED + i * 2] = levels[i].monsterCpuAddress & 0xFF
+                newRomData[Config.ENEMY_ADDRESS_TABLE_EXPANDED + i * 2 + 1] = (levels[i].monsterCpuAddress >> 8) & 0xFF
+            }
+        }
+
+        if(this.romType === Config.ROM_TYPE_EXPANDED){
+           Romfix.expandRomCode(newRomData);
+           
+        }
+
+        // fix other data
+        Romfix.fixOriginalRom(newRomData, this.romType === Config.ROM_TYPE_EXPANDED);
+        return newRomData;
     }
 
     /**
@@ -526,44 +477,6 @@ class RomEditor {
      */
     isModified() {
         return this.modified;
-    }
-
-    /**
-     * Reorder levels
-     * @param {number} fromIndex - Source index
-     * @param {number} toIndex - Target index
-     */
-    reorderLevels(fromIndex, toIndex) {
-        if (fromIndex < 0 || fromIndex >= this.levelCount || 
-            toIndex < 0 || toIndex >= this.levelCount) {
-            return { success: false, error: i18n.t('invalidLevelIndexError') };
-        }
-
-        // Move level
-        const [movedLevel] = this.levels.splice(fromIndex, 1);
-        this.levels.splice(toIndex, 0, movedLevel);
-
-        // Update all level indices
-        for (let i = 0; i < this.levelCount; i++) {
-            this.levels[i].index = i;
-        }
-
-        // Recalculate addresses and write to ROM
-        const result = this.recalculateAddresses(this.levels);
-        if (!result.success) {
-            // If failed, restore original order
-            const [restoredLevel] = this.levels.splice(toIndex, 1);
-            this.levels.splice(fromIndex, 0, restoredLevel);
-            for (let i = 0; i < this.levelCount; i++) {
-                this.levels[i].index = i;
-            }
-            return result;
-        }
-
-        //this.writeToROM();
-        this.modified = true;
-
-        return { success: true };
     }
     
     /**
@@ -578,8 +491,8 @@ class RomEditor {
      * @param {number} count - Level count
      */
     setLevelCount(count) {
-        if (count < 1 || count > 92) {
-            return { success: false, error: i18n.t('setLevelCountError') };
+        if (count < 1 || count > this.getMaxCountOfLevels()) {
+            return { success: false, error: i18n.t('invalidLevelCountMessageError', { maxLevelCount: this.getMaxCountOfLevels() }) };
         }
         
         this.levelCount = count; // Actual stored value is 1 more than displayed value
@@ -640,10 +553,170 @@ class RomEditor {
             this.levels.push(level);
         }
         
-        // Recalculate addresses and write to ROM
-        this.updateLevelAddresses();
-        this.updateRomData();
+        this.recalDataAddresses()
         
         return true;
     }
+
+    getLevelAddressTable(){
+        if(this.romType === Config.ROM_TYPE_ORIGINAL){
+            return Config.LEVEL_ADDRESS_TABLE_ORIGINAL
+        }else if(this.romType === Config.ROM_TYPE_EXPANDED){
+            return Config.LEVEL_ADDRESS_TABLE_EXPANDED;
+        }
+    }
+
+    getLevelAddressTableEnd(){
+        if(this.romType === Config.ROM_TYPE_ORIGINAL){
+            return Config.LEVEL_ADDRESS_TABLE_END_ORIGINAL
+        }else if(this.romType === Config.ROM_TYPE_EXPANDED){
+            return Config.LEVEL_ADDRESS_TABLE_END_EXPANDED;
+        }
+    }
+
+    getLevelDataStart(){
+        if(this.romType === Config.ROM_TYPE_ORIGINAL){
+            return Config.LEVEL_DATA_ORIGINAL
+        }else if(this.romType === Config.ROM_TYPE_EXPANDED){
+            return Config.LEVEL_DATA_EXPANDED;
+        }
+    }
+
+    getLevelDataEnd(){
+        if(this.romType === Config.ROM_TYPE_ORIGINAL){
+            return Config.LEVEL_DATA_END_ORIGINAL
+        }else if(this.romType === Config.ROM_TYPE_EXPANDED){
+            return Config.LEVEL_DATA_END_EXPANDED;
+        }
+    }
+
+    getMaxCountOfLevels(){
+        let maxCount = 0;
+        if(this.romType === Config.ROM_TYPE_ORIGINAL){
+            maxCount = (Config.LEVEL_ADDRESS_TABLE_END_ORIGINAL - Config.LEVEL_ADDRESS_TABLE_ORIGINAL) / 2;
+        }else if(this.romType === Config.ROM_TYPE_EXPANDED){
+            maxCount = (Config.LEVEL_ADDRESS_TABLE_END_EXPANDED - Config.LEVEL_ADDRESS_TABLE_EXPANDED) / 2;
+        }
+
+        if(maxCount > 0x7F){
+            maxCount = 0x7F;
+        }
+        return maxCount
+    }
+
+    getLevelUsageMaxSize(){
+        if(this.romType === Config.ROM_TYPE_ORIGINAL){
+            return Config.LEVEL_DATA_END_ORIGINAL - Config.LEVEL_DATA_ORIGINAL;
+        }else if(this.romType === Config.ROM_TYPE_EXPANDED){
+            return Config.LEVEL_DATA_END_EXPANDED - Config.LEVEL_DATA_EXPANDED;
+        }
+    }
+
+    getEnemyDataStart(){
+        if(this.romType === Config.ROM_TYPE_ORIGINAL){
+            return Config.ENEMY_DATA_ORIGINAL;
+        }else if(this.romType === Config.ROM_TYPE_EXPANDED){
+            return Config.ENEMY_DATA_EXPANDED;
+        }
+    }
+
+    getEnemyCountMax(){
+        const maxSize = this.getEnemyUsageMaxSize();
+        return (maxSize - this.levelCount) / 2
+    }
+
+    getEnemyDataByAddr(startAddr = null){
+        const enemyData = [];
+
+        if(startAddr !== null){
+            const firstByte = this.romData[startAddr];
+            enemyData.push(firstByte)
+            for(let i = 1; i < firstByte; i++){
+                const byte = this.romData[startAddr + i];
+                enemyData.push(byte);
+            }
+        } else {
+            enemyData.push(0x01)
+        }
+
+        return enemyData;
+    }
+
+    // Reserved for future implementation
+    getEnemyDataByLevelIndex(levelIndex){
+        return [0x01];
+    }
+
+    getEnemyUsageMaxSize(){
+        if(this.romType === Config.ROM_TYPE_ORIGINAL){
+            return Config.ENEMY_DATA_END_ORIGINAL - Config.ENEMY_DATA_ORIGINAL;
+        }else if(this.romType === Config.ROM_TYPE_EXPANDED){
+            return Config.ENEMY_DATA_END_EXPANDED - Config.ENEMY_DATA_EXPANDED;
+        }   
+    }
+
+    // only for pgr rom
+    getBankIndexByCpuAddress(cpuAddress){
+        const tmpAddr = cpuAddress - 0x8000;
+        if(tmpAddr < 0x4000){
+            return Config.PGR_PART_1_BANK_INDEX;
+        }else{
+            if(this.romType === Config.ROM_TYPE_ORIGINAL){
+                return 1;
+            }else if(this.romType === Config.ROM_TYPE_EXPANDED){
+                return Config.PGR_PART_2_BANK_INDEX;
+            }
+        }
+    }
+
+    getRomAddressByCpuAddress(cpuAddress, bankIndex = null){
+        if(bankIndex === null){
+            bankIndex = this.getBankIndexByCpuAddress(cpuAddress);
+        }
+        //return (cpuAddress - 0x8000) % 0x4000 + bankIndex * 0x4000 + 0x10;
+        return (cpuAddress % 0x4000) + bankIndex * 0x4000 + 0x10;
+    }
+
+    // only for pgr rom
+    getCpuAddressByRomAddress(romAddress){
+        romAddress = romAddress - 0x10;
+        let pgrPartIndex = 1;
+        if(this.romType === Config.ROM_TYPE_EXPANDED){
+            pgrPartIndex = Config.PGR_PART_2_BANK_INDEX;
+        }
+
+        if(romAddress >= pgrPartIndex * 0x4000){
+            return (romAddress % 0x8000) + 0x8000;
+        }
+        return ((romAddress) % 0x4000) + 0x8000;
+    }
+
+    getRomAddrByOriginalRomAddr(originalRomAddr){
+        if(originalRomAddr < 0x4010 || this.originalRomType === Config.ROM_TYPE_ORIGINAL){
+            return originalRomAddr;
+        }
+
+        return originalRomAddr + (Config.PGR_PART_2_BANK_INDEX - 1) * 0x4000;
+    }
+
+    /**
+     * Convert CPU address to ROM file offset using the original ROM's actual type.
+     * Used when reading data pointers from the original ROM (e.g., for resource/graphics loading).
+     * Unlike getRomAddressByCpuAddress which uses the editing romType,
+     * this always uses originalRomType to ensure correct address translation
+     * regardless of the user's export preference.
+     */
+    getRomAddressFromOriginalCpuAddress(cpuAddress){
+        const tmpAddr = cpuAddress - 0x8000;
+        let bankIndex;
+        if(tmpAddr < 0x4000){
+            bankIndex = Config.PGR_PART_1_BANK_INDEX;
+        } else {
+            bankIndex = this.originalRomType === Config.ROM_TYPE_EXPANDED
+                ? Config.PGR_PART_2_BANK_INDEX : 1;
+        }
+        return (cpuAddress % 0x4000) + bankIndex * 0x4000 + 0x10;
+    }
+
+
 }

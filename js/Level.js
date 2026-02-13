@@ -12,20 +12,20 @@ class Level {
      * @param {number} monsterCpuAddress - 怪物数据CPU地址
      * @param {number} monsterRomAddress - 怪物数据ROM地址
      */
-    constructor(index, cpuAddress = 0, romAddress = 0, data = [0x00, 0x88, 0x08, 0x08], monsterData = [0x01], monsterCpuAddress = 0, monsterRomAddress = 0) {
+    constructor(index, cpuAddress = 0, romAddress = 0, data = [0x00, 0x88, 0x08, 0x08], enemyData = [0x01], enemyCpuAddress = 0, currentEnemyAddr = 0) {
         this.index = index;
         this.originalIndex = index; // 记录原始索引
         this.cpuAddress = cpuAddress;
         this.romAddress = romAddress;
         this.data = data;
-        this.monsterData = monsterData;
+        this.monsterData = enemyData;
         // 关卡/怪物地址在“编辑逻辑”中并不重要，只需要在最终写回 ROM/CPU 时再计算或使用。
         // 这里仍然接受并保存 monsterCpuAddress/monsterRomAddress，是为了：
         // 1. 与现有代码和数据结构保持兼容；
         // 2. 在写回时（如需要）可以使用原有或预先计算好的地址信息。
         // 因此编辑过程中可以忽略这些字段，但 Level 实例本身仍会记录它们。
-        this.monsterCpuAddress = monsterCpuAddress;
-        this.monsterRomAddress = monsterRomAddress;
+        this.monsterCpuAddress = enemyCpuAddress;
+        this.monsterRomAddress = currentEnemyAddr;
         this.dragged = false; // 标记是否被拖拽过
 
         //是否修改过

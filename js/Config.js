@@ -5,7 +5,7 @@ class Config{
     static TILE_SIZE = 32;
     static DEBUG_MODE = false;
     static LEVEL_TYPE_COUNT = 12;
-    static MAX_ENEMIES = 8;
+    
 
     static ADDRESS_TABLE_START = 0x5841;
     static ADDRESS_TABLE_END = 0x59B0;
@@ -13,6 +13,48 @@ class Config{
     static ADDRESS_OFFSET = -0x8000 + 0x10;
     static MONSTER_ADDRESS_OFFSET = 0x33D9;
     static LEVEL_COUNT_ADDRESS = 0x0BD3;
+
+    //-------------------------------------------------new config
+    static MAX_LEVEL_COUNT_ORIGINAL = 56;
+    static MAX_LEVEL_COUNT_EXPANDED = 256;
+    static ROM_TYPE_ADDRESS = 0x06;
+    static LEVEL_DATA_MAX_SIZE = 13 * 15 * 2 + 4; // 13 tiles per row, 15 rows, 2 bytes per tile, plus 4 bytes header
+    static MAX_ENEMIES_PER_LEVEL = 8;
+
+    static PGR_PART_1_BANK_INDEX = 0;
+    static LEVEL_TABLE_ENEMY_BANK_INDEX = 1;
+    static CHR_PART_1_BANK_INDEX = 2;
+    static CHR_PART_2_BANK_INDEX = 3;
+    static LEVEL_DATA_BANK_INDEX = 4;
+    static PGR_PART_2_BANK_INDEX = 7;
+
+
+    static ROM_TYPE_ORIGINAL = 0;
+    static ROM_TYPE_EXPANDED = 1;
+
+    static LEVEL_ADDRESS_TABLE_ORIGINAL =  0x5841;
+    static LEVEL_ADDRESS_TABLE_END_ORIGINAL =  0x58B1;
+    static LEVEL_DATA_ORIGINAL = 0x6F8F;
+    static LEVEL_DATA_END_ORIGINAL = 0x7F8F;
+    static ENEMY_DATA_ORIGINAL = 0x33DB;
+    static ENEMY_DATA_END_ORIGINAL = 0x34AF;
+    static PALETTES_ADDRESS_ORIGINAL = 0x564D;
+
+    //static CPU_ADDRESS_OFFSET_ORIGINAL =  0x8000 - 0x10; 
+    //0xFF关
+    static LEVEL_ADDRESS_TABLE_EXPANDED =  0x4010;
+    static LEVEL_ADDRESS_TABLE_END_EXPANDED =  0x4210;
+    static LEVEL_TIMER_EXPANDED =  0x4210;
+    static LEVEL_DATA_EXPANDED = 0x10010;
+    static LEVEL_DATA_END_EXPANDED = 0x14010;
+    
+    static ENEMY_ADDRESS_TABLE_EXPANDED = 0x4310;
+    static ENEMY_DATA_EXPANDED = 0x4510;
+    static ENEMY_DATA_END_EXPANDED = 0x5610;
+    
+    
+
+
     
     static NES_PALETTE = [
         [0x66, 0x66, 0x66], [0x00, 0x2A, 0x88], [0x14, 0x12, 0xA7], [0x3B, 0x00, 0xA4],

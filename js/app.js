@@ -35,7 +35,7 @@ class App {
         this.testBtn = document.getElementById('testBtn');
         this.stopEmulatorBtn = document.getElementById('stopEmulatorBtn');
         this.saveBtn = document.getElementById('saveBtn');
-        this.writeRomBtn = document.getElementById('writeRomBtn');
+        //this.writeRomBtn = document.getElementById('writeRomBtn');
         this.downloadBtn = document.getElementById('downloadBtn');
 
         this.sortable = null;
@@ -47,6 +47,9 @@ class App {
         
         // Original ROM data (for re-patching on cache load)
         this.originalRomData = null;
+
+        // Game expansion
+        this.expansionrom = false;
     }
     
     /**
@@ -82,6 +85,11 @@ class App {
                 // Load saved level data and apply on top of patched ROM
                 const cachedLevelData = await this.romCache.loadLevelData();
                 if (cachedLevelData && cachedLevelData.levels) {
+                    // Restore romType from cache
+                    if (cachedLevelData.romType !== undefined) {
+                        this.romEditor.romType = cachedLevelData.romType;
+                    }
+                    
                     const imported = this.romEditor.importLevelsData(
                         cachedLevelData.levels, 
                         cachedLevelData.levelCount
@@ -89,6 +97,19 @@ class App {
                     if (imported) {
                         // Recreate level list with imported data
                         levelCountInput.value = this.romEditor.getLevelCount();
+                        
+                        // Sync ROM expansion checkbox with cached romType
+                        const romExpansionCheckbox = document.getElementById('romExpansionCheckbox');
+                        const isExpanded = this.romEditor.romType === Config.ROM_TYPE_EXPANDED;
+                        // Check if ROM file itself is already mapper2
+                        const isRomAlreadyMapper2 = this.romEditor.romData && this.romEditor.romData[0x06] === 0x21;
+                        
+                        if (romExpansionCheckbox) {
+                            romExpansionCheckbox.checked = isExpanded;
+                            // Disable checkbox if ROM file is already mapper2
+                            romExpansionCheckbox.disabled = isRomAlreadyMapper2;
+                        }
+                        
                         this.createLevelList();
                         this.updateMemoryOverview();
                         console.log('关卡数据已从缓存恢复');
@@ -251,11 +272,11 @@ class App {
             levelCountInput.addEventListener('input', (e) => {
                 const count = parseInt(e.target.value);
                 // Only update when a complete valid number is entered
-                if (!isNaN(count) && count >= 1 && count <= 92) {
+                if (!isNaN(count) && count >= 1 && count <= app.romEditor.getMaxCountOfLevels()) {
                     this.romEditor.setLevelCount(count);
                     this.levelsListChanged = true;
-                }else if (isNaN(count) || count < 1 || count > 92) {
-                    this.showMessage('error', i18n.t('invalidLevelCountMessageError'));
+                }else if (isNaN(count) || count < 1 || count > app.romEditor.getMaxCountOfLevels()) {
+                    this.showMessage('error', i18n.t('invalidLevelCountMessageError', { maxLevelCount: app.romEditor.getMaxCountOfLevels() }));
                     e.target.value = this.romEditor.getLevelCount();
                 }
             });
@@ -263,8 +284,8 @@ class App {
             // Validate and correct invalid values on blur
             levelCountInput.addEventListener('blur', (e) => {
                 const count = parseInt(e.target.value);
-                if (isNaN(count) || count < 1 || count > 92) {
-                    this.showMessage('error', i18n.t('invalidLevelCountMessageError'));
+                if (isNaN(count) || count < 1 || count > app.romEditor.getMaxCountOfLevels()) {
+                    this.showMessage('error', i18n.t('invalidLevelCountMessageError', { maxLevelCount: app.romEditor.getMaxCountOfLevels() }));
                     e.target.value = this.romEditor.getLevelCount();
                 }
             });
@@ -277,6 +298,14 @@ class App {
             });
         }
         
+        // ROM expansion checkbox
+        const romExpansionCheckbox = document.getElementById('romExpansionCheckbox');
+        if (romExpansionCheckbox) {
+            romExpansionCheckbox.addEventListener('change', (e) => {
+                this.toggleRomExpansion(e.target.checked);
+            });
+        }
+
         // Clear cache button
         const clearCacheBtn = document.getElementById('clearCacheBtn');
         if (clearCacheBtn) {
@@ -284,6 +313,32 @@ class App {
                 await this.clearCache();
             });
         }
+    }
+
+    /**
+     * Toggle ROM expansion mode
+     * @param {boolean} expanded - Whether to enable expansion mode
+     */
+    toggleRomExpansion(expanded) {
+        if (!this.romEditor.romData) return;
+
+        const newRomType = expanded ? Config.ROM_TYPE_EXPANDED : Config.ROM_TYPE_ORIGINAL;
+        this.romEditor.romType = newRomType;
+
+        // Update level count input max
+        const levelCountInput = document.getElementById('levelCountInput');
+        const maxLevels = this.romEditor.getMaxCountOfLevels();
+        if (levelCountInput) {
+            levelCountInput.max = maxLevels;
+        }
+
+        // Update memory overview and enemy count
+        this.updateMemoryOverview();
+
+        // Save romType to cache
+        this.saveLevelDataToCache();
+
+        this.showMessage('info', i18n.t(expanded ? 'romExpansionEnabled' : 'romExpansionDisabled'));
     }
 
     async clearCache() {
@@ -437,6 +492,26 @@ class App {
         ResourceManager.getInstance().initResources(this.romEditor.romData, this.romEditor.palettes);
         this.levelEditor.createButtons();
         levelCountInput.value = this.romEditor.getLevelCount();
+
+        // Sync ROM expansion checkbox and level count input max
+        const romExpansionCheckbox = document.getElementById('romExpansionCheckbox');
+        const isExpanded = this.romEditor.romType === Config.ROM_TYPE_EXPANDED;
+        // Check if ROM file itself is already mapper2 (cannot be converted back)
+        const isRomAlreadyMapper2 = this.romEditor.romData && this.romEditor.romData[0x06] === 0x21;
+        
+        if (romExpansionCheckbox) {
+            romExpansionCheckbox.checked = isExpanded;
+            // Disable checkbox if ROM file is already mapper2
+            romExpansionCheckbox.disabled = isRomAlreadyMapper2;
+            
+            // Show message if ROM is already mapper2
+            if (isRomAlreadyMapper2 && !fromCache) {
+                this.showMessage('info', i18n.t('romAlreadyExpanded'));
+            }
+        }
+        const maxLevels = this.romEditor.getMaxCountOfLevels();
+        levelCountInput.max = maxLevels;
+
         this.createLevelList();
         this.updateMemoryOverview();
         // const editorSection = document.getElementById('editorSection');
@@ -456,9 +531,9 @@ class App {
 
         this.testLevelBtn.disabled = true;
         this.saveBtn.disabled = true;
-        this.writeRomBtn.disabled = true;
+        //this.writeRomBtn.disabled = true;
         this.testBtn.disabled = true;
-        this.downloadBtn.disabled = true;
+        this.downloadBtn.disabled = false;
 
         if(!this.hasSharedLevelLoaded){
             this.initParams();
@@ -681,14 +756,10 @@ class App {
         // Update editor content
         // document.getElementById('editorTitle').textContent = 
         //     `Edit Level ${level.getLevelNumber()}`;
-        document.getElementById('romAddress').textContent = 
-            level.getRomAddressString();
-        document.getElementById('cpuAddress').textContent = 
-            level.getCpuAddressString();
-        document.getElementById('monsterRomAddress').textContent = 
-            level.getMonsterRomAddressString();
-        document.getElementById('monsterCpuAddress').textContent = 
-            level.getMonsterCpuAddressString();
+        document.getElementById('romAddress').textContent = level.getRomAddressString();
+        document.getElementById('cpuAddress').textContent = level.getCpuAddressString();
+        document.getElementById('monsterRomAddress').textContent =  level.getMonsterRomAddressString();
+        document.getElementById('monsterCpuAddress').textContent = level.getMonsterCpuAddressString();
         document.getElementById('hexData').value = level.getHexString();
         document.getElementById('monsterData').value = level.getMonsterHexString();
 
@@ -782,11 +853,11 @@ class App {
             if (this.currentLevel >= 0) {
                 this.testLevelBtn.disabled = false;
                 this.saveBtn.disabled = this.levelEditor.modified ? false : true;
-                this.writeRomBtn.disabled = this.romEditor.modified ? false : true;
+                //this.writeRomBtn.disabled = this.romEditor.modified ? false : true;
                 this.testBtn.disabled = false;
             }else{
                 this.saveBtn.disabled = true;
-                this.writeRomBtn.disabled =  true;
+                //this.writeRomBtn.disabled =  true;
                 this.downloadBtn.disabled = false;
             }
             this.stopEmulatorBtn.disabled = true;
@@ -899,20 +970,26 @@ class App {
         const tmpLevel = new Level(0, 0, 0);
         tmpLevel.saveMapData(levelRomData.mapData);
         tmpLevel.saveMonsterData(levelRomData.monsterData);
-        const addresses = this.romEditor.readAddressTable();
-        tmpLevel.cpuAddress = addresses[0].cpuAddress;
-        tmpLevel.romAddress = addresses[0].romAddress;
+        const levelDataAddr = this.romEditor.getLevelDataStart();
+        tmpLevel.cpuAddress = this.romEditor.getCpuAddressByRomAddress(levelDataAddr);
+        tmpLevel.romAddress = levelDataAddr;
+
+        const monsterAddr = this.romEditor.getEnemyDataStart();
+        tmpLevel.monsterCpuAddress = this.romEditor.getCpuAddressByRomAddress(monsterAddr);
+        tmpLevel.monsterRomAddress = monsterAddr;
+
         const tmpLevels = [];
         tmpLevels.push(tmpLevel);
         
         // Deep copy romEditor.romData (Uint8Array)
-        const romData = new Uint8Array(this.romEditor.romData);
+        //const romData = new Uint8Array(this.romEditor.romData);
         // Write temporary level to copied ROM data
-        const result = RomEditor.writeToROM(romData, tmpLevels, 1);
-        if (!result.success) {
-            console.error('Failed to create temp ROM:', result.error);
-            return null;
-        }
+        //const result = RomEditor.writeToROM(romData, tmpLevels, 1);
+        const romData = this.romEditor.getROMData(tmpLevels, 1);
+        // if (!result.success) {
+        //     console.error('Failed to create temp ROM:', result.error);
+        //     return null;
+        // }
         return romData;
     }
 
@@ -952,9 +1029,9 @@ class App {
 
         this.testLevelBtn.disabled = true;
         this.saveBtn.disabled =  true;
-        this.writeRomBtn.disabled = true;
+        //this.writeRomBtn.disabled = true;
         this.testBtn.disabled = true;
-        this.downloadBtn.disabled = true;
+        //this.downloadBtn.disabled = true;
         //this.stopEmulatorBtn.disabled = false;
 
 
@@ -966,7 +1043,8 @@ class App {
         if(this.changeMode()){
             return;
         }
-        if (!this.romEditor.romData) {
+        let romData = this.romEditor.getROMData();
+        if (!romData) {
             this.showMessage('error', i18n.t("romNotLoadedError"));
             return;
         }
@@ -975,14 +1053,14 @@ class App {
             this.emulator = new NesEmulator('levelCanvas');
         }
         
-        this.emulator.loadROM(this.romEditor.romData);
+        this.emulator.loadROM(romData);
         this.emulator.start();
 
         this.testLevelBtn.disabled = true;
         this.saveBtn.disabled = true;
-        this.writeRomBtn.disabled = true;
+        //this.writeRomBtn.disabled = true;
         this.testBtn.disabled = true;
-        this.downloadBtn.disabled = true;
+        //this.downloadBtn.disabled = true;
         //this.stopEmulatorBtn.disabled = false;
 
         this.showMessage('success', i18n.t("emulatorStartSuccess"));
@@ -1031,11 +1109,11 @@ class App {
             // Convert to ROM format
             const levelromData = DataConverter.fromLevelEditorToROMData(levelEditorData, this.levelEditor.isWideScreen);
             
-            console.log('Converted ROM data:', {
-                mapDataLength: levelromData.mapData.length,
-                monsterDataLength: levelromData.monsterData.length,
-                monsterData: levelromData.monsterData
-            });
+            // console.log('Converted ROM data:', {
+            //     mapDataLength: levelromData.mapData.length,
+            //     monsterDataLength: levelromData.monsterData.length,
+            //     monsterData: levelromData.monsterData
+            // });
             
 
             // Save to ROM
@@ -1057,7 +1135,7 @@ class App {
             //document.getElementById('downloadBtn').disabled = false;
             
             // Write level info to ROM data
-            const updateResult = this.romEditor.updateRomData();
+            const updateResult = this.romEditor.updateLevelInfo();
             
             // Check if update was successful (size validation)
             if (!updateResult.success) {
@@ -1074,7 +1152,8 @@ class App {
             // Refresh display
             this.selectLevel(this.currentLevel);
             this.updateMemoryOverview();
-            this.writeRomBtn.disabled = false;
+            //this.writeRomBtn.disabled = false;
+            this.downloadBtn.disabled = false;
             level.modified = true;
             // Mark level as unmodified after save
             this.levelEditor.modified = false;
@@ -1089,32 +1168,36 @@ class App {
     /**
      * Write to ROM (write all modifications to ROM data)
      */
-    writeToROM() {
-        try {
-            this.romEditor.recalculateAddresses(this.romEditor.levels);
-            const result = RomEditor.writeToROM(this.romEditor.romData, this.romEditor.levels, this.romEditor.levelCount);
+    // writeToROM() {
+    //     try {
+    //         this.romEditor.recalculateAddresses(this.romEditor.levels);
+    //         const result = RomEditor.writeToROM(this.romEditor.romData, this.romEditor.levels, this.romEditor.levelCount);
+    //         this.romEditor.romData = result.romData;
+    //         // Check if write was successful
+    //         if (!result.success) {
+    //             this.showMessage('error', result.error);
+    //             return;
+    //         }
             
-            // Check if write was successful
-            if (!result.success) {
-                this.showMessage('error', result.error);
-                return;
-            }
-            
-            // Save level data to cache (not the full ROM)
-            this.saveLevelDataToCache();
+    //         // Save level data to cache (not the full ROM)
+    //         this.saveLevelDataToCache();
 
-            this.romEditor.modified = false;
-            this.showMessage('success', i18n.t("write2RomSuccess"));
-        } catch (error) {
-            this.showMessage('error', i18n.t("write2RomFiledError", {error: error.message}));
-        }
-    }
+    //         this.romEditor.modified = false;
+    //         this.showMessage('success', i18n.t("write2RomSuccess"));
+    //     } catch (error) {
+    //         this.showMessage('error', i18n.t("write2RomFiledError", {error: error.message}));
+    //     }
+    // }
     /**
      * Download modified ROM
      */
     downloadROM() {
         //if (!this.romEditor.isModified()) return;
-
+        let result = this.romEditor.checkRomData()
+        if(result.success === false){
+            this.showMessage('error', i18n.t(result.error));;
+            return;
+        }
         const blob = new Blob([this.romEditor.getROMData()], { 
             type: 'application/octet-stream' 
         });
@@ -1205,8 +1288,7 @@ class App {
         const levels = this.romEditor.getAllLevels();
         if (levels.length === 0) return;
 
-        const firstLevelStart = levels[0].romAddress;
-        const maxSize = Config.DATA_START_MAX - firstLevelStart;
+        const maxSize = this.romEditor.getLevelUsageMaxSize();
         const usedSize = this.romEditor.calculateTotalSize();
         //const freeSize = maxSize - usedSize;
         const percentage = ((usedSize / maxSize) * 100).toFixed(1);
@@ -1229,7 +1311,9 @@ class App {
      * Update enemy count overview
      */
     updateEnemyCountOverview(levels) {
-        const MAX_ENEMIES = 78;
+
+        const maxEnemies = this.romEditor.getEnemyCountMax();
+
         let totalEnemies = 0;
         
         // Calculate total enemy count from all levels
@@ -1246,19 +1330,19 @@ class App {
         }
         
         // Update enemy count display
-        const percentage = Math.min((totalEnemies / MAX_ENEMIES) * 100, 100).toFixed(1);
+        const percentage = Math.min((totalEnemies / maxEnemies) * 100).toFixed(1);
         const barFill = document.getElementById('enemyCountBarFill');
         const barText = document.getElementById('enemyCountBarText');
         const warning = document.getElementById('enemyCountWarning');
         
         if (barFill && barText) {
             barFill.style.width = `${percentage}%`;
-            barText.textContent = `${totalEnemies} / ${MAX_ENEMIES}`;
+            barText.textContent = `${totalEnemies} / ${maxEnemies}`;
             
             // Change color based on count
-            if (totalEnemies > MAX_ENEMIES) {
+            if (totalEnemies > maxEnemies) {
                 barFill.style.backgroundColor = '#dc3545'; // Red
-            } else if (totalEnemies > MAX_ENEMIES * 0.9) {
+            } else if (totalEnemies > maxEnemies * 0.9) {
                 barFill.style.backgroundColor = '#ffc107'; // Yellow
             } else {
                 barFill.style.backgroundColor = '#4CAF50'; // Green
@@ -1267,7 +1351,7 @@ class App {
         
         // Show/hide warning
         if (warning) {
-            if (totalEnemies > MAX_ENEMIES) {
+            if (totalEnemies > maxEnemies) {
                 warning.style.display = 'block';
             } else {
                 warning.style.display = 'none';
@@ -1379,7 +1463,8 @@ class App {
         try {
             const levelsData = this.romEditor.exportLevelsData();
             const levelCount = this.romEditor.getLevelCount();
-            this.romCache.saveLevelData(levelsData, levelCount).catch((error) => {
+            const romType = this.romEditor.romType;
+            this.romCache.saveLevelData(levelsData, levelCount, romType).catch((error) => {
                 console.error('Failed to save level data to cache:', error);
             });
         } catch (error) {
@@ -1388,10 +1473,14 @@ class App {
     }
     
     /**
-     * Backup current unsaved level before switching
+     * Backup current unsaved level before switching.
+     * Only backs up if the level editor has been modified (dirty).
      */
     backupCurrentLevel() {
         try {
+            // Only backup if editor is actually dirty
+            if (!this.levelEditor || !this.levelEditor.modified) return;
+
             const editorData = this.getLevelEditorData();
             if (!editorData) return;
             
@@ -1406,7 +1495,7 @@ class App {
                 timestamp: Date.now()
             };
             
-            // Check if there's already a backup for this level, replace it
+            // Replace existing backup for the same level, or add new
             const existingIndex = this.backupLevels.findIndex(b => b.levelIndex === this.currentLevel);
             if (existingIndex >= 0) {
                 this.backupLevels[existingIndex] = backup;
@@ -1429,7 +1518,9 @@ class App {
     }
     
     /**
-     * Restore a backup level (apply to the level list, old data goes to backup)
+     * Restore a backup level — applies backup data to the target level,
+     * then removes the backup entry (no confusing swap).
+     * Navigates to the restored level so the user can see the result.
      * @param {number} backupIndex - Index in the backup list
      */
     restoreBackupLevel(backupIndex) {
@@ -1442,24 +1533,19 @@ class App {
             return;
         }
         
-        // Save current level data to backup (swap)
-        const currentBackup = {
-            levelIndex: backup.levelIndex,
-            levelNumber: backup.levelNumber,
-            data: [...targetLevel.data],
-            monsterData: [...targetLevel.monsterData],
-            timestamp: Date.now()
-        };
+        // Confirm before restoring
+        if (!confirm(i18n.t('backupRestoreConfirm', {level: backup.levelNumber}))) {
+            return;
+        }
         
         // Apply backup data to the level
         targetLevel.saveMapData(backup.data);
         targetLevel.saveMonsterData(backup.monsterData);
         
-        // Replace the backup entry with the old level data
-        this.backupLevels[backupIndex] = currentBackup;
+        // Remove the backup entry (it has been applied)
+        this.backupLevels.splice(backupIndex, 1);
         
         // Save everything
-        this.romEditor.updateRomData();
         this.saveLevelDataToCache();
         this.romCache.saveBackupLevels(this.backupLevels).catch((error) => {
             console.error('Failed to save backup levels:', error);
@@ -1470,9 +1556,8 @@ class App {
         this.createLevelList();
         this.updateMemoryOverview();
         
-        //if (this.currentLevel === backup.levelIndex) {
-            this.selectLevel(backup.levelIndex);
-        //}
+        // Navigate to the restored level so user can see the result
+        this.selectLevel(backup.levelIndex);
         
         this.showMessage('success', i18n.t('backupRestoredSuccess', {level: backup.levelNumber}));
     }
@@ -1523,6 +1608,9 @@ class App {
                     <span class="backup-level-num">${i18n.t('levelLabel', {level: backup.levelNumber})}</span>
                     <span class="backup-level-time">${timeStr}</span>
                 </div>
+                <button class="backup-restore-btn" onclick="event.stopPropagation(); app.restoreBackupLevel(${i})" title="${i18n.t('restoreBackup')}">
+                    ↩️
+                </button>
                 <button class="backup-delete-btn" onclick="event.stopPropagation(); app.deleteBackupLevel(${i})" title="${i18n.t('deleteBackup')}">🗑️</button>
             `;
             
@@ -1567,9 +1655,9 @@ function downloadROM() {
     app.downloadROM();
 }
 
-function writeToROM() {
-    app.writeToROM();
-}
+// function writeToROM() {
+//     app.writeToROM();
+// }
 
 async function clearCache(){
     await app.clearCache();
@@ -1599,6 +1687,8 @@ function startEditLevels() {
     for(let i=0; i< app.romEditor.levels.length; i++){
         const level = app.romEditor.getLevel(i);
         const item = level.htmlItem;
+        if (!item) continue; // Skip if htmlItem is not set
+        
         const dragHandle = item.querySelector('.drag-handle');
         if (dragHandle) {
             dragHandle.style.display = 'flex';
@@ -1613,6 +1703,8 @@ function hideDragHandle(){
     for(let i=0; i< app.romEditor.levels.length; i++){
         const level = app.romEditor.getLevel(i);
         const item = level.htmlItem;
+        if (!item) continue; // Skip if htmlItem is not set
+        
         const dragHandle = item.querySelector('.drag-handle');
         if (dragHandle) {
             dragHandle.style.display = 'none';
@@ -1693,8 +1785,8 @@ function checkConsecutiveMoai(mapData, isWideScreen) {
  */
 function saveLevels() {
     const levelCount = app.romEditor.getLevelCount();
-    if (levelCount > 92){
-        app.showMessage('error', i18n.t("levelCountExceedError",{maxCount: 92}));
+    if (levelCount > app.romEditor.getMaxCountOfLevels()) {
+        app.showMessage('error', i18n.t("levelCountExceedError",{maxCount: app.romEditor.getMaxCountOfLevels()}));
         return;
     } 
 
@@ -1729,8 +1821,7 @@ function saveLevels() {
     }
     
     // Recalculate all level ROM addresses (expensive operation, only on save)
-    app.romEditor.updateLevelAddresses();
-    
+    app.romEditor.recalDataAddresses(app.romEditor.levels);
     // Mark ROM as modified, needs writing
     app.romEditor.modified = true;
     if (app.writeRomBtn) {

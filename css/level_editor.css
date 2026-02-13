@@ -986,3 +986,29 @@ body.ios-device .editor-layout {
 .backup-delete-btn:active {
     transform: scale(0.95);
 }
+
+.backup-restore-btn {
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: #4caf50;
+    color: white;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    margin-right: 4px;
+}
+
+.backup-restore-btn:hover {
+    background: #388e3c;
+    transform: scale(1.1);
+}
+
+.backup-restore-btn:active {
+    transform: scale(0.95);
+}

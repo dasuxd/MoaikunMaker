@@ -812,7 +812,7 @@ class LevelEditor {
             }
             this.mapData[y][x] = this.currentTileId;
         } else if (this.currentTool === 'enemy' && this.currentEnemyId) {
-            if(this.enemies.length >= Config.MAX_ENEMIES){
+            if(this.enemies.length >= Config.MAX_ENEMIES_PER_LEVEL){
                 app.showMessage('warning', i18n.t("forbiddenPlaceEnemyWarning"));
                 return;
             }
