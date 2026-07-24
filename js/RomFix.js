@@ -4,6 +4,7 @@ class Romfix{
         Romfix.backupUnusedImages(romData);
         Romfix.fixPlayerDeathBug(romData);
         Romfix.removeSpecialLevelAnimations(romData, isExpanded);
+        Romfix.fixWideScreenRockPushBug(romData, isExpanded);
         Romfix.addMoaikunMakerLabel(romData);
     }
     // Backup unused images.
@@ -55,6 +56,70 @@ class Romfix{
         for(let index = disableAnimAddr; index < disableAnimEndAddr; index++){
             romData[index] = 0x00;
         }
+    }
+
+    /**
+     * Fix round-rock pushes that cross a horizontal map boundary.
+     *
+     * The original rock-specific code normalizes X with 0x0F in one place and
+     * skips normalization entirely in two others. That is correct for the
+     * released 16-column maps, but breaks the dormant 32-column mode:
+     *
+     * - pushing left from column 0 checks column 15 instead of column 31;
+     * - after a valid edge push, the background rock is not removed from its
+     *   source column, so the moving rock sprite collides with the player;
+     * - the same stale-source problem happens when pushing right from column 31.
+     *
+     * The special-level animation area is cleared immediately before this
+     * method runs, so its first 13 bytes are reused for a small helper that
+     * selects 0x0F or 0x1F from the level's wide-screen flag ($3D bit 0).
+     */
+    static fixWideScreenRockPushBug(romData, isExpanded = false){
+        const normalizeRockXCpuAddr = 0xD9D3;
+        let normalizeRockXRomAddr = 0x59E3;
+        if(isExpanded){
+            normalizeRockXRomAddr += 0x4000 * 6;
+        }
+
+        const normalizeRockXCode = [
+            0x48,                   // PHA
+            0xA5, 0x3D,             // LDA $3D
+            0x4A,                   // LSR A (carry = wide-screen flag)
+            0x68,                   // PLA
+            0x90, 0x03,             // BCC useSingleScreenMask
+            0x29, 0x1F,             // AND #$1F
+            0x60,                   // RTS
+            0x29, 0x0F,             // useSingleScreenMask: AND #$0F
+            0x60,                   // RTS
+        ];
+        Romfix.fixCodeInsert(romData, normalizeRockXRomAddr, normalizeRockXCode);
+
+        const normalizeRockXLowByte = normalizeRockXCpuAddr & 0xFF;
+        const normalizeRockXHighByte = (normalizeRockXCpuAddr >> 8) & 0xFF;
+
+        // CPU $9E6C: normalize the destination checked by a left-edge push.
+        const leftDestinationCheckCode = [
+            0xC6, 0x00,             // DEC $00
+            0xC6, 0x00,             // DEC $00
+            0xA5, 0x00,             // LDA $00
+            0xC9, 0xF0,             // CMP #$F0
+            0x90, 0x03,             // BCC storeDestinationX
+            0x20, normalizeRockXLowByte, normalizeRockXHighByte,
+            0x85, 0x00,             // storeDestinationX: STA $00
+            0xEA,                   // NOP (keep following code aligned)
+        ];
+        Romfix.fixCodeInsert(romData, 0x1E7C, leftDestinationCheckCode);
+
+        // Normalize the source tile after the map lookup has wrapped $00.
+        // CPU $9E82 handles left pushes; CPU $9EB1 handles right pushes.
+        const normalizeRockSourceCode = [
+            0xA5, 0x00,             // LDA $00
+            0x20, normalizeRockXLowByte, normalizeRockXHighByte,
+            0x85, 0x00,             // STA $00
+            0xEA, 0xEA, 0xEA,       // NOP padding
+        ];
+        Romfix.fixCodeInsert(romData, 0x1E92, normalizeRockSourceCode);
+        Romfix.fixCodeInsert(romData, 0x1EC1, normalizeRockSourceCode);
     }
 
     // moaikun maker label
