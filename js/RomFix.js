@@ -3,7 +3,7 @@ class Romfix{
     static fixOriginalRom(romData, isExpanded = false){
         Romfix.backupUnusedImages(romData);
         Romfix.fixPlayerDeathBug(romData);
-        Romfix.removeSpecialLevelAnimations(romData, isExpanded);
+        Romfix.fixSpecialLevelAnimations(romData, isExpanded);
         Romfix.fixWideScreenRockPushBug(romData, isExpanded);
         Romfix.addMoaikunMakerLabel(romData);
     }
@@ -44,18 +44,80 @@ class Romfix{
         }
     }
 
-    // Remove special level animations to prevent following levels
-    static removeSpecialLevelAnimations(romData, isExpanded = false){
-        let disableAnimAddr = 0x59E3;
-        let disableAnimEndAddr = 0x5A3D;
+    /**
+     * Make the castle-background animation follow scene type 8 instead of the
+     * original hard-coded level numbers 49-52.
+     *
+     * Each original three-byte record contains a level/type byte and a PPU
+     * address. The four level-specific groups repeat the same background
+     * positions, with two positions omitted where level 52's foreground covers
+     * them. The replacement table stores scene/type, PPU-low and map position.
+     * Before registering an animation, a helper checks the live map through
+     * $8DFF and skips positions covered by foreground tiles. PPU-high is always
+     * $20 for these eight background positions.
+     */
+    static fixSpecialLevelAnimations(romData, isExpanded = false){
+        const animationTableCpuAddr = 0xD9D3;
+        const animationMapFilterCpuAddr = 0xDA15;
+        let animationTableRomAddr = 0x59E3;
+        let fixedBankShift = 0;
         if(isExpanded){
-            // In expanded rom, the address is shifted by 0x4000
-            disableAnimAddr += 0x4000 * 6;
-            disableAnimEndAddr += 0x4000 * 6;
+            fixedBankShift = 0x4000 * 6;
+            animationTableRomAddr += fixedBankShift;
         }
-        for(let index = disableAnimAddr; index < disableAnimEndAddr; index++){
-            romData[index] = 0x00;
-        }
+
+        // Record: scene/type, PPU address low byte, packed map position (X:Y).
+        // Bit 7 of scene/type selects animation type 2; low 7 bits are scene 8.
+        const scene8AnimationTable = [
+            0x08, 0x65, 0x21,
+            0x08, 0x69, 0x41,
+            0x08, 0x2F, 0x70,
+            0x08, 0x31, 0x80,
+            0x08, 0x77, 0xB1,
+            0x08, 0x7B, 0xD1,
+            0x88, 0xCC, 0x63,
+            0x88, 0xD2, 0x93,
+            0xFF,
+        ];
+        Romfix.fixCodeInsert(romData, animationTableRomAddr, scene8AnimationTable);
+
+        const animationMapFilterCode = [
+            0xB9, 0xD2, 0xD9,       // LDA animationMapPosition,Y
+            0x48,                   // PHA
+            0x29, 0x0F,             // AND #$0F
+            0x85, 0x01,             // STA mapY
+            0x68,                   // PLA
+            0x4A, 0x4A, 0x4A, 0x4A,// LSR A * 4
+            0x85, 0x00,             // STA mapX
+            0x20, 0xFF, 0x8D,       // JSR getMapTile
+            0xAA,                   // TAX (set Z from the returned tile)
+            0xD0, 0x03,             // BNE blocked
+            0x4C, 0xC5, 0xD9,       // JMP findFreeAnimationSlot
+            0x60,                   // blocked: RTS
+        ];
+        const animationMapFilterRomAddr =
+            animationTableRomAddr + (animationMapFilterCpuAddr - animationTableCpuAddr);
+        Romfix.fixCodeInsert(romData, animationMapFilterRomAddr, animationMapFilterCode);
+
+        // CPU $D99F: compare table records with scene type $3E, not level $3C.
+        romData[0x59B0 + fixedBankShift] = 0x3E;
+
+        // CPU $D9A3: filter covered map positions before allocating a slot.
+        Romfix.fixCodeInsert(romData, 0x59B3 + fixedBankShift, [
+            0x20,
+            animationMapFilterCpuAddr & 0xFF,
+            (animationMapFilterCpuAddr >> 8) & 0xFF,
+        ]);
+        // A blocked record or a full slot list continues scanning the table.
+        Romfix.fixCodeInsert(romData, 0x59B6 + fixedBankShift, [0xD0, 0xEB]);
+
+        // CPU $D9BB: the third record byte now stores map position, so restore
+        // the constant PPU nametable high byte directly.
+        Romfix.fixCodeInsert(romData, 0x59CB + fixedBankShift, [
+            0xA9, 0x20,
+            0x9D, 0xAE, 0x05,
+            0xEA,
+        ]);
     }
 
     /**
@@ -70,13 +132,17 @@ class Romfix{
      *   source column, so the moving rock sprite collides with the player;
      * - the same stale-source problem happens when pushing right from column 31.
      *
-     * The special-level animation area is cleared immediately before this
-     * method runs, so its first 13 bytes are reused for a small helper that
-     * selects 0x0F or 0x1F from the level's wide-screen flag ($3D bit 0).
-     */
+     * fixSpecialLevelAnimations() compacts four repeated level-specific
+     * animation groups into one scene-based table ending at CPU $D9EB. The
+     * freed bytes immediately after that terminator hold two small helpers:
+     *
+     * - select 0x0F or 0x1F from the wide-screen flag ($3D bit 0);
+     * - hide a moving rock that has left the 256-pixel viewport in wide mode,
+     *   instead of drawing its wrapped low byte at the opposite screen edge.
+    */
     static fixWideScreenRockPushBug(romData, isExpanded = false){
-        const normalizeRockXCpuAddr = 0xD9D3;
-        let normalizeRockXRomAddr = 0x59E3;
+        const normalizeRockXCpuAddr = 0xD9EC;
+        let normalizeRockXRomAddr = 0x59FC;
         if(isExpanded){
             normalizeRockXRomAddr += 0x4000 * 6;
         }
@@ -86,16 +152,51 @@ class Romfix{
             0xA5, 0x3D,             // LDA $3D
             0x4A,                   // LSR A (carry = wide-screen flag)
             0x68,                   // PLA
-            0x90, 0x03,             // BCC useSingleScreenMask
             0x29, 0x1F,             // AND #$1F
-            0x60,                   // RTS
-            0x29, 0x0F,             // useSingleScreenMask: AND #$0F
+            0xB0, 0x02,             // BCS done
+            0x29, 0x0F,             // AND #$0F
             0x60,                   // RTS
         ];
         Romfix.fixCodeInsert(romData, normalizeRockXRomAddr, normalizeRockXCode);
 
+        const updateRockSpriteCpuAddr = normalizeRockXCpuAddr + normalizeRockXCode.length;
+        const updateRockSpriteRomAddr = normalizeRockXRomAddr + normalizeRockXCode.length;
+        const updateRockSpriteCode = [
+            0x38,                   // SEC
+            0xA5, 0xDE,             // LDA movingRockXLow
+            0xE5, 0xFD,             // SBC cameraX
+            0x8D, 0x4E, 0x04,       // STA movingRockScreenX
+            0xA5, 0xDD,             // LDA movingRockXHigh
+            0xE9, 0x00,             // SBC #$00
+            0x48,                   // PHA
+            0xA5, 0x3D,             // LDA $3D
+            0x4A,                   // LSR A (carry = wide-screen flag)
+            0x90, 0x09,             // BCC singleScreen
+            0x68,                   // PLA
+            0xF0, 0x07,             // BEQ done (inside the viewport)
+            0xA9, 0x00,             // LDA #$00
+            0x8D, 0x12, 0x04,       // STA movingRockSprite (hide it)
+            0x60,                   // RTS
+            0x68,                   // singleScreen: PLA
+            0x60,                   // done: RTS
+        ];
+        Romfix.fixCodeInsert(romData, updateRockSpriteRomAddr, updateRockSpriteCode);
+
         const normalizeRockXLowByte = normalizeRockXCpuAddr & 0xFF;
         const normalizeRockXHighByte = (normalizeRockXCpuAddr >> 8) & 0xFF;
+        const updateRockSpriteLowByte = updateRockSpriteCpuAddr & 0xFF;
+        const updateRockSpriteHighByte = (updateRockSpriteCpuAddr >> 8) & 0xFF;
+
+        // CPU $9E37: replace the low-byte-only sprite coordinate calculation.
+        const updateRockSpriteCallerCode = [
+            0xA5, 0xC0,             // LDA $C0
+            0xC9, 0x03,             // CMP #$03
+            0xD0, 0x03,             // BNE done
+            0x20, updateRockSpriteLowByte, updateRockSpriteHighByte,
+            0x60,                   // done: RTS
+            0xEA, 0xEA, 0xEA, 0xEA, 0xEA,
+        ];
+        Romfix.fixCodeInsert(romData, 0x1E47, updateRockSpriteCallerCode);
 
         // CPU $9E6C: normalize the destination checked by a left-edge push.
         const leftDestinationCheckCode = [
