@@ -45,9 +45,8 @@ class Romfix{
     }
 
     /**
-     * Make the castle-background animation follow scene type 8 instead of the
-     * original hard-coded level numbers 49-52, and animate both nametables in
-     * a wide level.
+     * Make the castle-background animation follow scene type 8, animate both
+     * nametables in a wide level, and keep dynamic foreground tiles in front.
      *
      * The game has eight animation slots stored as five parallel eight-byte
      * arrays. Expanding those arrays would overwrite adjacent RAM, so one slot
@@ -56,66 +55,47 @@ class Romfix{
      * - bit 0: draw the animation at $20xx (screen 1);
      * - bit 1: draw the animation at $24xx (screen 2).
      *
-     * Both pages share the slot's timer and frame. This gives a wide map the
-     * same visual result as sixteen physical slots without using more RAM.
-     *
-     * Each replacement table record stores scene/type, PPU-low and a packed
-     * map position. The helper at $FFC0 checks the foreground independently at
-     * X and X + 16 and builds the page mask. The continuation at $DA15 checks
-     * screen 2 in wide mode and allocates a slot only when at least one page is
-     * unobstructed.
+     * Scene 8 always registers all eight logical slots: single-screen levels
+     * use mask $01 and wide levels use mask $03. Before drawing either page,
+     * the runtime helper converts the 8x8 PPU position to its containing 16x16
+     * map cell and calls $8DFF. A nonzero live-map tile suppresses only that
+     * page's current draw; the timer and frame continue, so animation resumes
+     * in sync after a rock or another interactive tile moves away.
      */
     static fixSpecialLevelAnimations(romData, isExpanded = false){
         const animationUpdateCpuAddr = 0xD8E7;
-        const animationTableCpuAddr = 0xD9D3;
+        const animationInitCpuAddr = 0xD980;
+        const runtimeMapFilterCpuAddr = 0xD9B8;
+        const animationPpuLowTableCpuAddr = 0xD9DA;
+        const animationMapPositionTableCpuAddr = 0xD9E2;
         const animationMapFilterTailCpuAddr = 0xDA15;
         const animationMapFilterCpuAddr = 0xFFC0;
         const fixedBankShift = isExpanded ? 0x4000 * 6 : 0;
         const fixedBankRomAddr = (cpuAddr) =>
             0x4010 + (cpuAddr - 0xC000) + fixedBankShift;
 
-        // Record: scene/type, PPU address low byte, packed map position (X:Y).
-        // Bit 7 of scene/type selects animation type 2; low 7 bits are scene 8.
-        const scene8AnimationTable = [
-            0x08, 0x65, 0x21,
-            0x08, 0x69, 0x41,
-            0x08, 0x2F, 0x70,
-            0x08, 0x31, 0x80,
-            0x08, 0x77, 0xB1,
-            0x08, 0x7B, 0xD1,
-            0x88, 0xCC, 0x63,
-            0x88, 0xD2, 0x93,
-            0xFF,
-        ];
-        Romfix.fixCodeInsert(
-            romData,
-            fixedBankRomAddr(animationTableCpuAddr),
-            scene8AnimationTable
-        );
-
         /**
          * CPU $D8E7-$D97F: update one logical animation slot.
          *
-         * The original type-1 and type-2 handlers repeated the same timer and
-         * frame update. The compact handler below advances the slot once, then
-         * draws the current frame for each set bit in the page mask. PHA keeps
-         * the screen-2 bit safe while the screen-1 drawing helpers use zero-page
-         * scratch memory.
+         * Advance the slot once, then process each set bit in its page mask.
+         * $D91F checks the live map before dispatching to the type-1 flag or
+         * type-2 fire renderer. A blocked page returns without creating a PPU
+         * command; the other page remains independent.
          */
         const pairedAnimationUpdateCode = [
-            0xFE, 0xBE, 0x05, 0xBD, 0xBE, 0x05, 0xC9, 0x0A, 0xB0, 0x01, 0x60, 0xA9,
-            0x00, 0x9D, 0xBE, 0x05, 0xFE, 0xB6, 0x05, 0xBD, 0xB6, 0x05, 0xC9, 0x03,
-            0x90, 0x05, 0xA9, 0x00, 0x9D, 0xB6, 0x05, 0xA9, 0x20, 0x85, 0x0F, 0xBD,
-            0xAE, 0x05, 0x4A, 0x48, 0x90, 0x03, 0x20, 0x20, 0xD9, 0x68, 0x4A, 0x90,
-            0x07, 0xA9, 0x24, 0x85, 0x0F, 0x20, 0x20, 0xD9, 0x60, 0xBD, 0x9E, 0x05,
-            0x4A, 0x90, 0x03, 0x4C, 0x2C, 0xD9, 0x4C, 0x64, 0xD9, 0xBD, 0xB6, 0x05,
-            0xA8, 0xB9, 0x8E, 0xC0, 0x48, 0xA4, 0x1E, 0xA9, 0x06, 0x99, 0x00, 0x03,
-            0xA5, 0x0F, 0x99, 0x01, 0x03, 0xBD, 0xA6, 0x05, 0x99, 0x02, 0x03, 0x85,
-            0x0E, 0xA9, 0x01, 0x99, 0x03, 0x03, 0x68, 0x99, 0x04, 0x03, 0xA9, 0xFF,
-            0x99, 0x05, 0x03, 0x18, 0x98, 0x69, 0x06, 0x85, 0x1E, 0xA9, 0x03, 0x85,
-            0x90, 0x20, 0xF5, 0x92, 0x60, 0xBD, 0xB6, 0x05, 0xA8, 0xB9, 0x8B, 0xC0,
-            0x20, 0x62, 0x91, 0x20, 0xC0, 0x91, 0xBD, 0xA6, 0x05, 0x85, 0x0E, 0x86,
-            0x3F, 0x20, 0x3D, 0x90, 0xA6, 0x3F, 0x60, 0xEA, 0xEA,
+            0xFE, 0xBE, 0x05, 0xBD, 0xBE, 0x05, 0xC9, 0x0A, 0x90, 0x2D, 0xA9, 0x00,
+            0x9D, 0xBE, 0x05, 0xFE, 0xB6, 0x05, 0xBD, 0xB6, 0x05, 0xC9, 0x03, 0x90,
+            0x05, 0xA9, 0x00, 0x9D, 0xB6, 0x05, 0xA9, 0x20, 0x85, 0x0F, 0xBD, 0xAE,
+            0x05, 0x4A, 0x48, 0x90, 0x03, 0x20, 0x1F, 0xD9, 0x68, 0x4A, 0x90, 0x07,
+            0xA9, 0x24, 0x85, 0x0F, 0x20, 0x1F, 0xD9, 0x60, 0x20, 0xB8, 0xD9, 0xF0,
+            0x01, 0x60, 0xBD, 0x9E, 0x05, 0x4A, 0xB0, 0x1A, 0xBD, 0xB6, 0x05, 0xA8,
+            0xB9, 0x8B, 0xC0, 0x20, 0x62, 0x91, 0x20, 0xC0, 0x91, 0xBD, 0xA6, 0x05,
+            0x85, 0x0E, 0x86, 0x3F, 0x20, 0x3D, 0x90, 0xA6, 0x3F, 0x60, 0xBD, 0xB6,
+            0x05, 0xA8, 0xB9, 0x8E, 0xC0, 0x48, 0xA4, 0x1E, 0xA9, 0x06, 0x99, 0x00,
+            0x03, 0xA5, 0x0F, 0x99, 0x01, 0x03, 0xBD, 0xA6, 0x05, 0x99, 0x02, 0x03,
+            0x85, 0x0E, 0xA9, 0x01, 0x99, 0x03, 0x03, 0x68, 0x99, 0x04, 0x03, 0xA9,
+            0xFF, 0x99, 0x05, 0x03, 0x18, 0x98, 0x69, 0x06, 0x85, 0x1E, 0xA9, 0x03,
+            0x85, 0x90, 0x4C, 0xF5, 0x92, 0xEA, 0xEA, 0xEA, 0xEA,
         ];
         Romfix.fixCodeInsert(
             romData,
@@ -124,19 +104,76 @@ class Romfix{
         );
 
         /**
-         * CPU $FFC0-$FFEF: decode the packed map coordinate, test screen 1,
-         * and route single/wide levels to the appropriate tail entry.
+         * CPU $D980-$D9B7: initialize the eight fixed scene-8 positions.
          *
-         * $8DFF restores X just before returning, which changes the zero flag.
-         * TAX is therefore required after each call to set Z from the returned
-         * tile value. Zero-page $04 holds the page mask because $8DFF uses
-         * $00-$03 as scratch but leaves $04 untouched.
+         * Slots 0-1 are type-2 fire animations; slots 2-7 are type-1 flag
+         * animations. Every slot is registered regardless of initial map
+         * occupancy; the runtime check alone controls per-page visibility.
+         */
+        const animationInitCode = [
+            0xA2, 0x07, 0xA9, 0x00, 0x9D, 0x9E, 0x05, 0x9D, 0xB6, 0x05, 0x8A, 0x9D,
+            0xBE, 0x05, 0xCA, 0x10, 0xF1, 0xA5, 0x3E, 0xC9, 0x08, 0xD0, 0x20, 0xA2,
+            0x07, 0xA9, 0x01, 0xE0, 0x02, 0xB0, 0x02, 0xA9, 0x02, 0x9D, 0x9E, 0x05,
+            0xBD, 0xDA, 0xD9, 0x9D, 0xA6, 0x05, 0xA5, 0x3D, 0x29, 0x01, 0x0A, 0x09,
+            0x01, 0x9D, 0xAE, 0x05, 0xCA, 0x10, 0xE2, 0x60,
+        ];
+        Romfix.fixCodeInsert(
+            romData,
+            fixedBankRomAddr(animationInitCpuAddr),
+            animationInitCode
+        );
+
+        /**
+         * CPU $D9B8-$D9D9: runtime foreground test.
+         *
+         * PPU low bits 0-4 contain the 8x8 X coordinate and bits 5-7 contain
+         * its row. Dividing both by two produces the containing 16x16 map cell.
+         * $0F is $20 or $24; its bit 2 becomes a +16 map-X offset for screen 2.
+         */
+        const runtimeAnimationMapFilterCode = [
+            0xBD, 0xA6, 0x05, 0x48, 0x29, 0x1F, 0x4A, 0x85, 0x00, 0x68, 0x4A, 0x4A,
+            0x4A, 0x4A, 0x4A, 0x4A, 0x85, 0x01, 0xA5, 0x0F, 0x29, 0x04, 0x0A, 0x0A,
+            0x05, 0x00, 0x85, 0x00, 0x20, 0xFF, 0x8D, 0xC9, 0x00, 0x60,
+        ];
+        Romfix.fixCodeInsert(
+            romData,
+            fixedBankRomAddr(runtimeMapFilterCpuAddr),
+            runtimeAnimationMapFilterCode
+        );
+
+        // Index 0-1: fire; index 2-7: flag.
+        const animationPpuLowTable = [
+            0xD2, 0xCC, 0x7B, 0x77, 0x31, 0x2F, 0x69, 0x65,
+        ];
+        Romfix.fixCodeInsert(
+            romData,
+            fixedBankRomAddr(animationPpuLowTableCpuAddr),
+            animationPpuLowTable
+        );
+
+        // Packed map position: high nibble X, low nibble Y.
+        const animationMapPositionTable = [
+            0x93, 0x63, 0xD1, 0xB1, 0x80, 0x70, 0x41, 0x21,
+            0xEA, 0xEA,
+        ];
+        Romfix.fixCodeInsert(
+            romData,
+            fixedBankRomAddr(animationMapPositionTableCpuAddr),
+            animationMapPositionTable
+        );
+
+        /**
+         * CPU $FFC0-$FFEF and $DA15-$DA2D: retired initialization filter.
+         *
+         * The fixed initializer above no longer calls these bytes. They are
+         * still overwritten so exporting over any earlier patch version has a
+         * deterministic result and cannot leave unrelated stale machine code.
          */
         const animationMapFilterCode = [
-            0xB9, 0xD2, 0xD9, 0x48, 0x29, 0x0F, 0x85, 0x01, 0x68, 0x4A, 0x4A, 0x4A,
-            0x4A, 0x85, 0x00, 0xA9, 0x00, 0x85, 0x04, 0x20, 0xFF, 0x8D, 0xAA, 0xD0,
-            0x02, 0xE6, 0x04, 0xA5, 0x3D, 0x4A, 0x90, 0x09, 0xA5, 0x00, 0x09, 0x10,
-            0x85, 0x00, 0x4C, 0x15, 0xDA, 0x4C, 0x1F, 0xDA, 0xEA, 0xEA, 0xEA, 0xEA,
+            0xBD, 0xE2, 0xD9, 0x48, 0x29, 0x0F, 0x85, 0x01, 0x68, 0x4A, 0x4A, 0x4A,
+            0x4A, 0x85, 0x00, 0xA9, 0x00, 0x85, 0x04, 0x20, 0xFF, 0x8D, 0xC9, 0x00,
+            0xD0, 0x02, 0xE6, 0x04, 0xA5, 0x3D, 0x4A, 0x90, 0x09, 0xA5, 0x00, 0x09,
+            0x10, 0x85, 0x00, 0x4C, 0x15, 0xDA, 0x4C, 0x20, 0xDA, 0xEA, 0xEA, 0xEA,
         ];
         Romfix.fixCodeInsert(
             romData,
@@ -144,14 +181,9 @@ class Romfix{
             animationMapFilterCode
         );
 
-        /**
-         * CPU $DA15-$DA2D: test screen 2, finish the page mask and allocate a
-         * slot. Carry is returned directly from $D9C5; a blocked record clears
-         * carry so the scanner continues with the next table entry.
-         */
         const animationMapFilterTailCode = [
-            0x20, 0xFF, 0x8D, 0xAA, 0xD0, 0x04, 0xE6, 0x04, 0xE6, 0x04, 0xA5, 0x04,
-            0xF0, 0x04, 0x20, 0xC5, 0xD9, 0x60, 0x18, 0x60, 0xEA, 0xEA, 0xEA, 0xEA,
+            0x20, 0xFF, 0x8D, 0xC9, 0x00, 0xD0, 0x04, 0xE6, 0x04, 0xE6, 0x04, 0xA5,
+            0x04, 0xF0, 0x02, 0x38, 0x60, 0x18, 0x60, 0xEA, 0xEA, 0xEA, 0xEA, 0xEA,
             0xEA,
         ];
         Romfix.fixCodeInsert(
@@ -159,25 +191,6 @@ class Romfix{
             fixedBankRomAddr(animationMapFilterTailCpuAddr),
             animationMapFilterTailCode
         );
-
-        // CPU $D99F: compare table records with scene type $3E, not level $3C.
-        romData[0x59B0 + fixedBankShift] = 0x3E;
-
-        // CPU $D9A3: build the page mask before allocating a slot.
-        Romfix.fixCodeInsert(romData, 0x59B3 + fixedBankShift, [
-            0x20,
-            animationMapFilterCpuAddr & 0xFF,
-            (animationMapFilterCpuAddr >> 8) & 0xFF,
-        ]);
-        // A blocked record or a full slot list returns carry clear.
-        Romfix.fixCodeInsert(romData, 0x59B6 + fixedBankShift, [0x90, 0xEB]);
-
-        // CPU $D9BB: store the page mask instead of a literal PPU high byte.
-        Romfix.fixCodeInsert(romData, 0x59CB + fixedBankShift, [
-            0xA5, 0x04,
-            0x9D, 0xAE, 0x05,
-            0xEA,
-        ]);
     }
 
     /**
@@ -192,9 +205,10 @@ class Romfix{
      *   source column, so the moving rock sprite collides with the player;
      * - the same stale-source problem happens when pushing right from column 31.
      *
-     * fixSpecialLevelAnimations() compacts four repeated level-specific
-     * animation groups into one scene-based table ending at CPU $D9EB. The
-     * freed bytes immediately after that terminator hold two small helpers:
+     * fixSpecialLevelAnimations() replaces the original animation scanner and
+     * reserves CPU $D8E7-$D9EB for its handler, initializer, live-map check,
+     * and lookup tables. The bytes immediately after that region hold two
+     * small rock helpers:
      *
      * - select 0x0F or 0x1F from the wide-screen flag ($3D bit 0);
      * - hide a moving rock that has left the 256-pixel viewport in wide mode,
