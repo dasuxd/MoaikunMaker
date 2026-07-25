@@ -553,14 +553,15 @@ class App {
     // Create level list
     createLevelList(){
         const listElement = document.getElementById('levelList');
-        // Clear list
-        listElement.innerHTML = '';
         
         // Destroy old Sortable instance to avoid duplicate bindings that prevent mobile re-dragging
         if (this.sortable) {
             this.sortable.destroy();
             this.sortable = null;
         }
+
+        // Clear list only after Sortable has released its DOM event bindings
+        listElement.innerHTML = '';
 
         const levels = this.romEditor.getAllLevels();
         
@@ -606,6 +607,8 @@ class App {
         }
 
         this.sortable = new Sortable(listElement, {
+            // The list is a three-column grid laid out in row-major order
+            direction: 'horizontal',
             swapThreshold: 1,
             animation: 150,
             ghostClass: 'sortable-ghost',
@@ -613,8 +616,9 @@ class App {
             dragClass: 'sortable-drag',
             filter: '.no-drag',
             handle: '.drag-handle',
-            // Mobile optimization
-            forceFallback: false,
+            // Use one drag implementation for desktop, touch devices and scrollable sidebars
+            forceFallback: true,
+            fallbackOnBody: true,
             fallbackTolerance: 5,
             delay: 100,
             delayOnTouchOnly: true,
@@ -1709,6 +1713,7 @@ function hideDragHandle(){
         if (dragHandle) {
             dragHandle.style.display = 'none';
         }
+        item.classList.add('no-drag');
     }
 }
 

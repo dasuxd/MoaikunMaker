@@ -4,6 +4,7 @@ class Romfix{
         Romfix.backupUnusedImages(romData);
         Romfix.fixPlayerDeathBug(romData);
         Romfix.fixSpecialLevelAnimations(romData, isExpanded);
+        Romfix.fixWideScreenEnemy9Background(romData, isExpanded);
         Romfix.fixWideScreenRockPushBug(romData, isExpanded);
         Romfix.addMoaikunMakerLabel(romData);
     }
@@ -168,6 +169,7 @@ class Romfix{
          * The fixed initializer above no longer calls these bytes. They are
          * still overwritten so exporting over any earlier patch version has a
          * deterministic result and cannot leave unrelated stale machine code.
+         * fixWideScreenEnemy9Background() subsequently reuses $FFC0-$FFCF.
          */
         const animationMapFilterCode = [
             0xBD, 0xE2, 0xD9, 0x48, 0x29, 0x0F, 0x85, 0x01, 0x68, 0x4A, 0x4A, 0x4A,
@@ -190,6 +192,53 @@ class Romfix{
             romData,
             fixedBankRomAddr(animationMapFilterTailCpuAddr),
             animationMapFilterTailCode
+        );
+    }
+
+    /**
+     * Keep enemy 9's blocking cells and background face on its actual screen.
+     *
+     * Enemy data stores the second-screen flag separately at $050E,X while
+     * $0516,X contains only the local 8-bit pixel X. The original initializer
+     * at $BD10 divides the local X by 16 and sends it to both the map writer
+     * and background renderer, so a second-screen face is built on screen 1.
+     *
+     * The helper folds the screen flag into bit 4 while converting pixels to
+     * the 0-31 world-map X coordinate:
+     *
+     *     worldX = (localPixelX >> 4) | (screenIndex << 4)
+     *
+     * $FFC0-$FFCF belongs to a retired animation-initialization filter and is
+     * overwritten here after fixSpecialLevelAnimations().
+     */
+    static fixWideScreenEnemy9Background(romData, isExpanded = false){
+        const enemy9WorldXHookRomAddr = 0x3D20; // CPU $BD10 in bank 0
+        const enemy9WorldXHelperCpuAddr = 0xFFC0;
+        const fixedBankShift = isExpanded ? 0x4000 * 6 : 0;
+        const enemy9WorldXHelperRomAddr =
+            0x4010 + (enemy9WorldXHelperCpuAddr - 0xC000) + fixedBankShift;
+
+        // Replace the original 11-byte local-X conversion with JSR + padding.
+        Romfix.fixCodeInsert(romData, enemy9WorldXHookRomAddr, [
+            0x20, 0xC0, 0xFF,       // JSR $FFC0
+            0xEA, 0xEA, 0xEA, 0xEA,
+            0xEA, 0xEA, 0xEA, 0xEA,
+        ]);
+
+        const enemy9WorldXCode = [
+            0xBD, 0x0E, 0x05,       // LDA $050E,X (screen index)
+            0x4A,                   // LSR A (screen index -> carry)
+            0xBD, 0x16, 0x05,       // LDA $0516,X (local pixel X)
+            0x6A,                   // ROR A (screen index -> bit 7)
+            0x4A, 0x4A, 0x4A,       // divide by 16
+            0x85, 0x63,             // STA $63 (background face X)
+            0x85, 0x00,             // STA $00 (blocking-cell X)
+            0x60,                   // RTS
+        ];
+        Romfix.fixCodeInsert(
+            romData,
+            enemy9WorldXHelperRomAddr,
+            enemy9WorldXCode
         );
     }
 
@@ -622,7 +671,50 @@ class Romfix{
             0x60 
         ]
         Romfix.fixCodeInsert(newRomData, timerDataRomfixCodeAddr, timerDataRomfixCode);
-        
+
+        /*
+         * Keep NMI execution out of a switchable PRG bank.
+         *
+         * The expanded-ROM data helpers at $F004-$F0D1 temporarily map bank 1
+         * or bank 4 at $8000-$BFFF. If NMI starts before a helper restores
+         * bank 0, the original vector at $807C points into data instead of
+         * executable code.
+         *
+         * This fixed-bank entry reproduces the original A/X/Y prologue and
+         * inspects the interrupted program-counter high byte on the stack.
+         * An interrupted $F0xx helper skips only that NMI and returns to finish
+         * the bank read. Every other NMI continues at $8081, immediately after
+         * the original prologue. No RAM flag is required.
+         */
+        const bankSafeNmiCpuAddr = 0xF0E2;
+        const fixedBankRomAddr =
+            Config.PGR_PART_2_BANK_INDEX * 0x4000 + 0x10;
+        const bankSafeNmiRomAddr =
+            fixedBankRomAddr + (bankSafeNmiCpuAddr - 0xC000);
+        const nmiVectorRomAddr =
+            fixedBankRomAddr + (0xFFFA - 0xC000);
+        const bankSafeNmiCode = [
+            0x48,                   // PHA
+            0x8A, 0x48,             // TXA; PHA
+            0x98, 0x48,             // TYA; PHA
+            0xBA,                   // TSX
+            0xBD, 0x06, 0x01,       // LDA $0106,X (interrupted PC high)
+            0xC9, 0xF0,             // CMP #$F0
+            0xF0, 0x03,             // BEQ skipNmi
+            0x4C, 0x81, 0x80,       // JMP $8081 (original NMI body)
+            0x68, 0xA8,             // skipNmi: PLA; TAY
+            0x68, 0xAA,             // PLA; TAX
+            0x68, 0x40,             // PLA; RTI
+        ];
+        Romfix.fixCodeInsert(
+            newRomData,
+            bankSafeNmiRomAddr,
+            bankSafeNmiCode
+        );
+        newRomData[nmiVectorRomAddr] = bankSafeNmiCpuAddr & 0xFF;
+        newRomData[nmiVectorRomAddr + 1] =
+            (bankSafeNmiCpuAddr >> 8) & 0xFF;
+
         return newRomData;
     }
 
