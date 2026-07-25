@@ -403,24 +403,33 @@ class RomEditor {
         this.recalDataAddresses(levels);
        
         //
-        let expandedRomSize = 0;
-        if(this.romType === Config.ROM_TYPE_EXPANDED){
-            expandedRomSize = 0x4000 * 4; // expanded rom size
-        }
-        let newRomData = new Uint8Array(this.romData.length + expandedRomSize);
+        // Build the target format at its declared iNES size. Adding expansion
+        // bytes to the source length works only for the first conversion; an
+        // already-expanded ROM would otherwise grow by another 0x10000 bytes
+        // every time it is loaded and exported.
+        const targetPrgSize = this.romType === Config.ROM_TYPE_EXPANDED
+            ? 8 * 0x4000
+            : 2 * 0x4000;
+        const targetChrSize = this.romType === Config.ROM_TYPE_EXPANDED
+            ? 0
+            : 4 * 0x2000;
+        let newRomData = new Uint8Array(0x10 + targetPrgSize + targetChrSize);
 
         //1、 copy bank 1
         newRomData.set(this.romData.subarray(0, 0x4010), 0);
 
-        //获取原 rom type
-        const romType = this.romData[Config.ROM_TYPE_ADDRESS];
         const pgrBank2 = new Uint8Array(0x4000);
         //2、 copy bank 2
-        if(romType === 0x21){
-            pgrBank2.set(this.romData.subarray(Config.PGR_PART_2_BANK_INDEX * 0x4000 + 0x10, ), 0) 
-        }else{
-            pgrBank2.set(this.romData.subarray(0x4010, 0x8010), 0) 
-        }
+        const sourceFixedBankIndex =
+            this.originalRomType === Config.ROM_TYPE_EXPANDED
+                ? Config.PGR_PART_2_BANK_INDEX
+                : 1;
+        const sourceFixedBankStart = sourceFixedBankIndex * 0x4000 + 0x10;
+        const sourceFixedBankEnd = sourceFixedBankStart + 0x4000;
+        pgrBank2.set(
+            this.romData.subarray(sourceFixedBankStart, sourceFixedBankEnd),
+            0
+        );
 
         if(this.romType === Config.ROM_TYPE_EXPANDED){
             newRomData.set(pgrBank2, Config.PGR_PART_2_BANK_INDEX * 0x4000 + 0x10);
