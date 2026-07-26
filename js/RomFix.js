@@ -6,6 +6,11 @@ class Romfix{
         Romfix.fixSpecialLevelAnimations(romData, isExpanded);
         Romfix.fixWideScreenEnemy9Background(romData, isExpanded);
         Romfix.fixWideScreenRockPushBug(romData, isExpanded);
+        // Keep the reset call: it removes this optional patch when an already
+        // patched Mapper 2 ROM is loaded and exported again.
+        Romfix.resetWideScreenLoopingCameraPatch(romData, isExpanded);
+        // Optional feature: comment only this line to disable looping wide maps.
+        Romfix.fixWideScreenLoopingCamera(romData, isExpanded);
         Romfix.addMoaikunMakerLabel(romData);
     }
     // Backup unused images.
@@ -344,6 +349,310 @@ class Romfix{
         ];
         Romfix.fixCodeInsert(romData, 0x1E92, normalizeRockSourceCode);
         Romfix.fixCodeInsert(romData, 0x1EC1, normalizeRockSourceCode);
+    }
+
+    /**
+     * Restore every bank-0 byte owned by fixWideScreenLoopingCamera().
+     *
+     * This deliberately runs before the optional looping patch. It makes the
+     * feature removable even when the source is a previously exported Mapper 2
+     * ROM: leave this reset call enabled and comment only the feature call in
+     * fixOriginalRom().
+     *
+     * fixWideScreenRockPushBug() runs immediately before this method and
+     * restores its own $D9F8-$DA14 moving-rock helper.
+     */
+    static resetWideScreenLoopingCameraPatch(romData, isExpanded = false){
+        const bank0RomAddr = (cpuAddr) => 0x10 + (cpuAddr - 0x8000);
+        const fixedBankShift = isExpanded ? 0x4000 * 6 : 0;
+        const fixedBankRomAddr = (cpuAddr) =>
+            0x4010 + (cpuAddr - 0xC000) + fixedBankShift;
+        const restore = (cpuAddr, bytes) =>
+            Romfix.fixCodeInsert(romData, bank0RomAddr(cpuAddr), bytes);
+
+        // Restore the original stage-title setup.
+        restore(0x8A60, [0xA9, 0x00, 0x85, 0x2F]);
+
+        /**
+         * Restore the retired animation-filter bytes beneath the optional
+         * stage-camera reset helper at $FFD0-$FFE0. They are unreachable, but
+         * restoring them keeps exports deterministic when the camera feature
+         * is disabled on an already-patched Mapper 2 ROM.
+         */
+        Romfix.fixCodeInsert(romData, fixedBankRomAddr(0xFFD0), [
+            0x00, 0x85, 0x04, 0x20, 0xFF, 0x8D, 0xC9, 0x00,
+            0xD0, 0x02, 0xE6, 0x04, 0xA5, 0x3D, 0x4A, 0x90, 0x09,
+        ]);
+
+        restore(0x9B38, [
+            0xA5, 0x3D, 0xF0, 0x0A, 0xA5, 0xC1, 0xD0, 0x0B, 0xA5, 0xC2, 0xC9, 0x81,
+            0xB0, 0x10, 0xA9, 0x00, 0x4C, 0x5B, 0x9B, 0xA5, 0xC2, 0xC9, 0x7F, 0x90,
+            0x05, 0xA9, 0xFF, 0x4C, 0x5B, 0x9B, 0x38, 0xA5, 0xC2, 0xE9, 0x80, 0x85,
+            0xFD, 0xA9, 0x00, 0x85, 0x9D, 0x60,
+        ]);
+        restore(0x9B62, [
+            0xA5, 0x3D, 0xF0, 0x2E, 0xA5, 0xC5, 0x10, 0x10, 0xA5, 0xFD, 0xC9, 0x02,
+            0x90, 0x24, 0xAD, 0x3C, 0x04, 0xC9, 0x68, 0xB0, 0x1D, 0x4C, 0x87, 0x9B,
+            0xA5, 0xFD, 0xC9, 0xFE, 0xB0, 0x14, 0xAD, 0x3C, 0x04, 0xC9, 0x99, 0x90,
+            0x0D, 0x18, 0xA5, 0xC6, 0x65, 0x9D, 0x85, 0x9D, 0xA5, 0xC5, 0x65, 0xFD,
+            0x85, 0xFD,
+        ]);
+        restore(0x943C, [
+            0xA5, 0xD3, 0xF0, 0x06, 0xC6, 0xD3, 0x29, 0x04, 0xD0, 0x0E, 0x38, 0xA5,
+            0xC2, 0xE5, 0xFD, 0x8D, 0x3C, 0x04, 0xA5, 0xC1, 0xE9, 0x00, 0xF0, 0x05,
+            0xA9, 0x00, 0x8D, 0x00, 0x04, 0x60, 0xA5, 0x3D, 0x4A, 0xA5, 0xC1, 0x29,
+            0x01, 0xB0, 0x02, 0xA9, 0x00, 0x85, 0xC1, 0x60,
+        ]);
+        restore(0xA15B, [
+            0xA5, 0x8D, 0xE5, 0xFD, 0x8D, 0x59, 0x04, 0xA5, 0x8C, 0xE9, 0x00, 0xF0,
+            0x06, 0xA9, 0x00, 0x8D, 0x1D, 0x04, 0x60, 0xA9, 0x16, 0x8D, 0x1D, 0x04,
+            0x60,
+        ]);
+        restore(0xA2A3, [
+            0x38, 0xBD, 0x90, 0x04, 0xE5, 0xFD, 0x9D, 0x3D, 0x04, 0xBD, 0x84, 0x04,
+            0xE9, 0x00, 0xD0, 0x08, 0xAD, 0x90, 0xC3, 0x9D, 0x01, 0x04, 0x18, 0x60,
+            0xA9, 0x00, 0x9D, 0x01, 0x04, 0x38, 0x60,
+        ]);
+        restore(0xA405, [0xA5, 0x01, 0xE9, 0x00, 0xF0, 0x05]);
+        restore(0xA442, [0xA5, 0x01, 0xE9, 0x00, 0xF0, 0x05]);
+        restore(0xA44E, [
+            0x38, 0xBD, 0xB0, 0x04, 0xE5, 0xFD, 0x9D, 0x49, 0x04, 0xBD, 0xAC, 0x04,
+            0xE9, 0x00, 0xD0, 0x0F, 0xBC, 0xB8, 0x04, 0xB9, 0x77, 0xC3, 0x9D, 0x0D,
+            0x04, 0x60, 0xA9, 0x00, 0x9D, 0xA8, 0x04, 0xA9, 0x00, 0x9D, 0x0D, 0x04,
+            0x60,
+        ]);
+        restore(0xA780, [
+            0x38, 0xBD, 0xF8, 0x04, 0xE5, 0xFD, 0x9D, 0x4E, 0x04, 0xBD, 0xB4, 0xC3,
+            0x9D, 0x12, 0x04, 0xBD, 0xB7, 0xC3, 0x9D, 0x6C, 0x04, 0x60,
+        ]);
+        restore(0xAE54, [
+            0x38, 0xBD, 0x16, 0x05, 0xE5, 0xFD, 0x9D, 0x51, 0x04, 0xBD, 0x0E, 0x05,
+            0xE9, 0x00, 0xF0, 0x05, 0xA9, 0x00, 0x9D, 0x15, 0x04, 0x60,
+        ]);
+
+        // Restore the five original calls/jump to the player-X normalizer.
+        for(const callerCpuAddr of [0x941D, 0x9857, 0x986D, 0x98AE, 0x9991]){
+            restore(callerCpuAddr + 1, [0x5A, 0x94]);
+        }
+    }
+
+    /**
+     * Turn a 32-column level into a seamless 512-pixel horizontal ring.
+     *
+     * The background already occupies the two physical horizontal nametables,
+     * and the player/enemy world coordinates already wrap at 0/$1FF. The
+     * missing piece is a ninth camera bit. In wide mode this patch computes:
+     *
+     *     cameraX = (playerWorldX - $80) & $1FF
+     *
+     * $FD remains the low camera byte. The otherwise-unused $9D becomes its
+     * page bit and is copied to PPUCTRL/$FF bit 0. Single-screen levels keep
+     * camera $000 and retain their original 256-pixel wrapping behavior.
+     *
+     * Sprite visibility uses the low bit of the complete high-byte subtraction:
+     *
+     *     ((objectWorldX - cameraX) >> 8) & 1
+     *
+     * Zero is inside the current 256-pixel viewport. This parity test is
+     * required at the $1FF/$000 seam, where a normal 16-bit subtraction can
+     * produce $FE even though the object is visibly just to the right.
+     */
+    static fixWideScreenLoopingCamera(romData, isExpanded = false){
+        const bank0RomAddr = (cpuAddr) => 0x10 + (cpuAddr - 0x8000);
+        const fixedBankShift = isExpanded ? 0x4000 * 6 : 0;
+        const fixedBankRomAddr = (cpuAddr) =>
+            0x4010 + (cpuAddr - 0xC000) + fixedBankShift;
+        const patchBank0 = (cpuAddr, bytes) =>
+            Romfix.fixCodeInsert(romData, bank0RomAddr(cpuAddr), bytes);
+
+        /**
+         * A retry can enter the stage-title screen while the previous life
+         * still has camera page 1 selected. The title is written only to
+         * nametable $20, so reset both camera bytes and PPUCTRL's page bit at
+         * the title's common main-state/substate-0 entry.
+         *
+         * The helper also performs the original `LDA #$00 / STA $2F` setup
+         * replaced by its JSR. It returns to $8A64, immediately before the
+         * title's original drawing code.
+         */
+        patchBank0(0x8A60, [0x20, 0xD0, 0xFF, 0xEA]);
+        Romfix.fixCodeInsert(romData, fixedBankRomAddr(0xFFD0), [
+            0xA9, 0x00,             // LDA #$00
+            0x85, 0x2F,             // STA original title-state field
+            0x85, 0xFD,             // STA cameraXLow
+            0x85, 0x9D,             // STA cameraXHigh
+            0xA5, 0xFF,             // LDA PPUCTRL shadow
+            0x29, 0xFE,             // AND #$FE
+            0x85, 0xFF,             // STA PPUCTRL shadow
+            0xA9, 0x00,             // restore original accumulator result
+            0x60,                   // RTS
+        ]);
+
+        /**
+         * CPU $9B38-$9B61: centered 9-bit camera.
+         *
+         * Stage states 0-2 include the title/loading interval and always use
+         * nametable $20. State 3 is live gameplay and may use the centered
+         * wide-map camera. Updating $FF here is enough because the NMI already
+         * writes it to $2000 after writing $FD to horizontal PPUSCROLL.
+         */
+        patchBank0(0x9B38, [
+            0xA5, 0x56,             // LDA stageState
+            0xC9, 0x03,             // CMP #liveGameplay
+            0xD0, 0x15,             // BNE resetCamera
+            0xA5, 0x3D,             // LDA levelMode
+            0x4A,                   // LSR A (carry = wide flag)
+            0x90, 0x10,             // BCC resetCamera
+            0xA5, 0xC2,             // wide: LDA playerXLow (carry is already set)
+            0xE9, 0x80,             // SBC #$80
+            0x85, 0xFD,             // STA cameraXLow
+            0xA5, 0xC1,             // LDA playerXHigh
+            0xE9, 0x00,             // SBC #$00
+            0x29, 0x01,             // AND #$01
+            0x85, 0x9D,             // STA cameraXHigh
+            0x10, 0x06,             // BPL updatePpuPage (always)
+            0xA9, 0x00,             // resetCamera: LDA #$00
+            0x85, 0xFD,             // STA cameraXLow
+            0x85, 0x9D,             // STA cameraXHigh
+            0xA5, 0xFF,             // updatePpuPage: LDA PPUCTRL shadow
+            0x29, 0xFE,             // AND #$FE
+            0x05, 0x9D,             // ORA cameraXHigh
+            0x85, 0xFF,             // STA PPUCTRL shadow
+            0x60,                   // RTS
+        ]);
+
+        /**
+         * CPU $9B62-$9B93 was an unreferenced alternate camera routine.
+         * No JSR/JMP/table pointer in the original ROM targets it.
+         *
+         * $9B62: high-byte parity helper for a world high byte in scratch $01.
+         * $9B64: shared high-byte parity helper for a world high byte in A.
+         * $9B69: project the three temporary falling/special objects.
+         * $9B78: project a normal enemy.
+         * $9B87: hide a temporary object's metasprite.
+         * $9B8D: normalize the player's 9-bit world X using level mode.
+         */
+        patchBank0(0x9B62, [
+            0xA5, 0x01,             // scratchHigh: LDA $01
+            0xE5, 0x9D,             // finishHigh: SBC cameraXHigh
+            0x29, 0x01,             // AND #$01
+            0x60,                   // RTS
+
+            0x38,                   // projectTemporary: SEC
+            0xBD, 0xF8, 0x04,       // LDA temporaryXLow,X
+            0xE5, 0xFD,             // SBC cameraXLow
+            0x9D, 0x4E, 0x04,       // STA temporaryScreenX,X
+            0xBD, 0xF5, 0x04,       // LDA temporaryXHigh,X
+            0x4C, 0x64, 0x9B,       // JMP finishHigh
+
+            0x38,                   // projectEnemy: SEC
+            0xBD, 0x16, 0x05,       // LDA enemyXLow,X
+            0xE5, 0xFD,             // SBC cameraXLow
+            0x9D, 0x51, 0x04,       // STA enemyScreenX,X
+            0xBD, 0x0E, 0x05,       // LDA enemyXHigh,X
+            0x4C, 0x64, 0x9B,       // JMP finishHigh
+
+            0xA9, 0x00,             // hideTemporary: LDA #$00
+            0x9D, 0x12, 0x04,       // STA temporaryMetasprite,X
+            0x60,                   // RTS
+
+            0xA5, 0xC1,             // normalizePlayerX: LDA playerXHigh
+            0x25, 0x3D,             // AND levelMode (valid values are 0/1)
+            0x85, 0xC1,             // STA playerXHigh
+            0x60,                   // RTS
+        ]);
+
+        // CPU $943C: player projection and damage-blink visibility.
+        patchBank0(0x943C, [
+            0xA5, 0xD3,             // LDA blinkTimer
+            0xF0, 0x06,             // BEQ project
+            0xC6, 0xD3,             // DEC blinkTimer
+            0x29, 0x04,             // AND #$04
+            0xD0, 0x0F,             // BNE hide
+            0x38,                   // project: SEC
+            0xA5, 0xC2,             // LDA playerXLow
+            0xE5, 0xFD,             // SBC cameraXLow
+            0x8D, 0x3C, 0x04,       // STA playerScreenX
+            0xA5, 0xC1,             // LDA playerXHigh
+            0x20, 0x64, 0x9B,       // JSR finishHigh
+            0xF0, 0x05,             // BEQ done
+            0xA9, 0x00,             // hide: LDA #$00
+            0x8D, 0x00, 0x04,       // STA playerMetasprite
+            0x60,                   // done: RTS
+            0xEA, 0xEA, 0xEA, 0xEA, 0xEA, 0xEA, 0xEA,
+            0xEA, 0xEA, 0xEA, 0xEA, 0xEA, 0xEA,
+        ]);
+
+        // Redirect every original $945A player-X normalizer call/jump.
+        for(const callerCpuAddr of [0x941D, 0x9857, 0x986D, 0x98AE, 0x9991]){
+            patchBank0(callerCpuAddr + 1, [0x8D, 0x9B]);
+        }
+
+        // CPU $A15B: door/spring-like singleton projection.
+        patchBank0(0xA15B, [
+            0xA5, 0x8D, 0xE5, 0xFD, 0x8D, 0x59, 0x04,
+            0xA5, 0x8C, 0xE5, 0x9D, 0x29, 0x01,
+            0xD0, 0x04, 0xA9, 0x16, 0xD0, 0x02, 0xA9, 0x00,
+            0x8D, 0x1D, 0x04, 0x60,
+        ]);
+
+        // CPU $A2A3: object projection; preserve carry as its return status.
+        patchBank0(0xA2A3, [
+            0x38, 0xBD, 0x90, 0x04, 0xE5, 0xFD, 0x9D, 0x3D, 0x04,
+            0xBD, 0x84, 0x04, 0xE5, 0x9D, 0x29, 0x01, 0xD0, 0x06,
+            0xAD, 0x90, 0xC3, 0x18, 0x90, 0x03,
+            0xA9, 0x00, 0x38, 0x9D, 0x01, 0x04, 0x60,
+        ]);
+
+        // CPU $A405/$A442: two sub-sprites use the high byte in scratch $01.
+        patchBank0(0xA405, [0x20, 0x62, 0x9B, 0xF0, 0x06, 0xEA]);
+        patchBank0(0xA442, [0x20, 0x62, 0x9B, 0xF0, 0x06, 0xEA]);
+
+        // CPU $A44E: paired/special object projection.
+        patchBank0(0xA44E, [
+            0x38, 0xBD, 0xB0, 0x04, 0xE5, 0xFD, 0x9D, 0x49, 0x04,
+            0xBD, 0xAC, 0x04, 0xE5, 0x9D, 0x29, 0x01, 0xD0, 0x0A,
+            0xBC, 0xB8, 0x04, 0xB9, 0x77, 0xC3, 0x9D, 0x0D, 0x04, 0x60,
+            0xA9, 0x00, 0x9D, 0x0D, 0x04, 0x60, 0xEA, 0xEA, 0xEA,
+        ]);
+
+        // CPU $A780: temporary/falling objects previously ignored X high.
+        patchBank0(0xA780, [
+            0x20, 0x69, 0x9B,       // JSR projectTemporary
+            0xD0, 0x0D,             // BNE hide
+            0xBD, 0xB4, 0xC3,
+            0x9D, 0x12, 0x04,
+            0xBD, 0xB7, 0xC3,
+            0x9D, 0x6C, 0x04,
+            0x60,
+            0x4C, 0x87, 0x9B,       // hide: JMP hideTemporary
+            0xEA,
+        ]);
+
+        // CPU $AE54: normal-enemy projection.
+        patchBank0(0xAE54, [
+            0x20, 0x78, 0x9B,       // JSR projectEnemy
+            0xF0, 0x05,             // BEQ done
+            0xA9, 0x00,
+            0x9D, 0x15, 0x04,
+            0x60,                   // done: RTS
+            0xEA, 0xEA, 0xEA, 0xEA, 0xEA, 0xEA,
+            0xEA, 0xEA, 0xEA, 0xEA, 0xEA,
+        ]);
+
+        /**
+         * Replace the moving-rock projection installed by
+         * fixWideScreenRockPushBug(). Single-screen rock high bytes are already
+         * normalized to zero, so this unified parity test preserves their
+         * original opposite-edge wrapping.
+         */
+        patchBank0(0x9E3D, [0x20, 0xF8, 0xD9]);
+        Romfix.fixCodeInsert(romData, fixedBankRomAddr(0xD9F8), [
+            0x38, 0xA5, 0xDE, 0xE5, 0xFD, 0x8D, 0x4E, 0x04,
+            0xA5, 0xDD, 0xE5, 0x9D, 0x29, 0x01, 0xF0, 0x05,
+            0xA9, 0x00, 0x8D, 0x12, 0x04, 0x60,
+            0xEA, 0xEA, 0xEA, 0xEA, 0xEA, 0xEA, 0xEA,
+        ]);
     }
 
     // moaikun maker label
