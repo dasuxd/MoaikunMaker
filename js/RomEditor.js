@@ -397,6 +397,60 @@ class RomEditor {
         return {success: true};
     }
 
+    /**
+     * Keep the built-in attract-mode demos valid when the exported ROM has
+     * fewer than eight formal levels.
+     *
+     * The original game always demonstrates levels 8 and 7. Their map entries
+     * therefore have to remain readable even when those levels are outside the
+     * user-selected level count. Both missing entries reuse level 1.
+     *
+     * Enemy storage differs by ROM format:
+     * - original ROMs scan variable-length enemy records sequentially, so
+     *   append level-1 records until a valid eighth record exists;
+     * - expanded ROMs have an enemy address table, so point the two missing
+     *   demo entries directly at level 1 without copying enemy data.
+     */
+    writeDemoLevelFallbacks(romData, levels, levelCount) {
+        if(levelCount <= 0 || levelCount >= 8 || !levels[0]){
+            return;
+        }
+
+        const firstLevel = levels[0];
+        const demoLevelIndexes = [6, 7]; // one-based levels 7 and 8
+
+        for(const demoLevelIndex of demoLevelIndexes){
+            if(demoLevelIndex < levelCount){
+                continue;
+            }
+
+            const levelTableOffset = this.getLevelAddressTable() + demoLevelIndex * 2;
+            romData[levelTableOffset] = firstLevel.cpuAddress & 0xFF;
+            romData[levelTableOffset + 1] = (firstLevel.cpuAddress >> 8) & 0xFF;
+
+            if(this.romType === Config.ROM_TYPE_EXPANDED){
+                const enemyTableOffset =
+                    Config.ENEMY_ADDRESS_TABLE_EXPANDED + demoLevelIndex * 2;
+                romData[enemyTableOffset] = firstLevel.monsterCpuAddress & 0xFF;
+                romData[enemyTableOffset + 1] =
+                    (firstLevel.monsterCpuAddress >> 8) & 0xFF;
+            }
+        }
+
+        if(this.romType === Config.ROM_TYPE_ORIGINAL){
+            const lastLevel = levels[levelCount - 1];
+            let enemyWritePos =
+                lastLevel.monsterRomAddress + lastLevel.monsterData.length;
+
+            // The original loader skips one variable-length record per level
+            // before reading the requested demo, so records 1-8 must exist.
+            for(let enemyLevelIndex = levelCount; enemyLevelIndex < 8; enemyLevelIndex++){
+                romData.set(firstLevel.monsterData, enemyWritePos);
+                enemyWritePos += firstLevel.monsterData.length;
+            }
+        }
+    }
+
     //
 
     /**
@@ -479,6 +533,8 @@ class RomEditor {
                 newRomData[Config.ENEMY_ADDRESS_TABLE_EXPANDED + i * 2 + 1] = (levels[i].monsterCpuAddress >> 8) & 0xFF
             }
         }
+
+        this.writeDemoLevelFallbacks(newRomData, levels, levelCount);
 
         if(this.romType === Config.ROM_TYPE_EXPANDED){
            Romfix.expandRomCode(newRomData);
