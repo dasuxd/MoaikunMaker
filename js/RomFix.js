@@ -373,6 +373,10 @@ class Romfix{
         // Restore the original stage-title setup.
         restore(0x8A60, [0xA9, 0x00, 0x85, 0x2F]);
 
+        // Restore the main-title initializer and the ending-state jump target.
+        restore(0x838E, [0x20, 0x2E, 0xDA]);
+        restore(0x8A35, [0xE8, 0xC5]);
+
         // Restore the original pause early-return test.
         restore(0x8B4F, [0xA5, 0x32, 0xF0]);
 
@@ -385,7 +389,7 @@ class Romfix{
 
         /**
          * Restore the retired animation-filter bytes beneath the optional
-         * stage-camera reset helper at $FFD0-$FFE0. They are unreachable, but
+         * stage-camera reset wrapper at $FFD0-$FFE0. They are unreachable, but
          * restoring them keeps exports deterministic when the camera feature
          * is disabled on an already-patched Mapper 2 ROM.
          */
@@ -475,13 +479,58 @@ class Romfix{
         const patchBank0 = (cpuAddr, bytes) =>
             Romfix.fixCodeInsert(romData, bank0RomAddr(cpuAddr), bytes);
 
+        const resetCameraCpuAddr = 0xFF60;
+        const mainTitleResetCpuAddr = 0xFF6D;
+        const endingResetCpuAddr = 0xFF73;
+
+        /**
+         * CPU $FF60-$FF78: shared non-gameplay camera reset and two wrappers.
+         *
+         * The original global RAM clear reaches $9D but stops before $FD/$FF.
+         * Consequently, interrupting an attract-mode demo can enter the main
+         * title with PPUCTRL still selecting nametable $24. The ending state
+         * has the same problem when the last wide level finishes on page 1.
+         *
+         * Keep the camera-only helper independent from $2F: the stage-title
+         * wrapper owns that original graphics-bank write, while the ending
+         * must preserve its own $2F value.
+         */
+        Romfix.fixCodeInsert(romData, fixedBankRomAddr(resetCameraCpuAddr), [
+            0xA9, 0x00,             // resetCamera: LDA #$00
+            0x85, 0xFD,             // STA cameraXLow
+            0x85, 0x9D,             // STA cameraXHigh
+            0xA5, 0xFF,             // LDA PPUCTRL shadow
+            0x29, 0xFE,             // AND #$FE
+            0x85, 0xFF,             // STA PPUCTRL shadow
+            0x60,                   // RTS
+
+            0x20, 0x60, 0xFF,       // mainTitleReset: JSR resetCamera
+            0x4C, 0x2E, 0xDA,       // JMP original main-title initializer
+
+            0x20, 0x60, 0xFF,       // endingReset: JSR resetCamera
+            0x4C, 0xE8, 0xC5,       // JMP original ending-state handler
+        ]);
+
+        // Main title: reset before its first background/graphics setup call.
+        patchBank0(0x838E, [
+            0x20,
+            mainTitleResetCpuAddr & 0xFF,
+            (mainTitleResetCpuAddr >> 8) & 0xFF,
+        ]);
+
+        // Main state $0F: keep page 0 selected throughout the ending sequence.
+        patchBank0(0x8A35, [
+            endingResetCpuAddr & 0xFF,
+            (endingResetCpuAddr >> 8) & 0xFF,
+        ]);
+
         /**
          * A retry can enter the stage-title screen while the previous life
          * still has camera page 1 selected. The title is written only to
          * nametable $20, so reset both camera bytes and PPUCTRL's page bit at
          * the title's common main-state/substate-0 entry.
          *
-         * The helper also performs the original `LDA #$00 / STA $2F` setup
+         * The wrapper also performs the original `LDA #$00 / STA $2F` setup
          * replaced by its JSR. It returns to $8A64, immediately before the
          * title's original drawing code.
          */
@@ -489,13 +538,10 @@ class Romfix{
         Romfix.fixCodeInsert(romData, fixedBankRomAddr(0xFFD0), [
             0xA9, 0x00,             // LDA #$00
             0x85, 0x2F,             // STA original title-state field
-            0x85, 0xFD,             // STA cameraXLow
-            0x85, 0x9D,             // STA cameraXHigh
-            0xA5, 0xFF,             // LDA PPUCTRL shadow
-            0x29, 0xFE,             // AND #$FE
-            0x85, 0xFF,             // STA PPUCTRL shadow
+            0x20, 0x60, 0xFF,       // JSR resetCamera
             0xA9, 0x00,             // restore original accumulator result
             0x60,                   // RTS
+            0xEA, 0xEA, 0xEA, 0xEA, 0xEA, 0xEA, 0xEA,
         ]);
 
         /**
