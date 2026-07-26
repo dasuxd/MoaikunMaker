@@ -380,7 +380,7 @@ class Romfix{
         Romfix.fixCodeInsert(
             romData,
             fixedBankRomAddr(0xFED9),
-            new Array(0x50).fill(0xFF)
+            new Array(0xA7).fill(0xFF)
         );
 
         /**
@@ -499,43 +499,48 @@ class Romfix{
         ]);
 
         /**
-         * CPU $8B4F and $FED9-$FF28: paused wide-map free-look.
+         * CPU $8B4F and $FED9-$FF5F: paused wide-map free-look.
          *
          * The original active-game loop returns at $8B53 whenever $32 is
          * nonzero. Tail-jump through the helper instead:
          *
-         * - an unpaused frame restores PPUMASK sprite rendering and continues
-         *   at the original active update entry $8B54;
          * - a paused wide-map frame with Left/Right held changes the existing
-         *   9-bit camera by four pixels modulo $200 and clears PPUMASK bit 4;
-         * - a paused frame without a direction returns with the current camera
-         *   and sprite-visibility state unchanged.
-         *
-         * PPUMASK itself is the "free-look has started" flag, so this needs no
-         * additional RAM. Resuming immediately restores sprites; the normal
-         * gameplay update then recenters the camera on the player.
+         *   9-bit camera by four pixels modulo $200;
+         * - metasprite slots $0401-$041D are cleared, leaving only player slot
+         *   $0400, whose X and visibility are projected against the free camera;
+         * - $6E is cleared so the OAM builder omits its extra HUD sprites;
+         * - calling $88D3 immediately rebuilds OAM before the next NMI applies
+         *   the new scroll, preventing one frame of stale non-player sprites;
+         * - a paused frame without a direction preserves the selected view;
+         * - resuming restores $6E and uses one sprite-hidden transition frame
+         *   while normal gameplay rebuilds every metasprite and recenters.
          */
         patchBank0(0x8B4F, [0x4C, 0xD9, 0xFE]);
         Romfix.fixCodeInsert(romData, fixedBankRomAddr(0xFED9), [
             0xA5, 0x32,             // LDA pauseFlag
-            0xD0, 0x09,             // BNE paused
-            0xA5, 0xFE,             // unpaused: LDA PPUMASK shadow
+            0xD0, 0x1A,             // BNE paused
+            0xA5, 0x6E,             // unpaused: LDA extraSpriteEnable
+            0xD0, 0x0D,             // BNE normalFrame
+            0xA9, 0x01,             // first frame after free-look
+            0x85, 0x6E,             // restore extra Sprite groups
+            0xA5, 0xFE,             // LDA PPUMASK shadow
+            0x29, 0xEF,             // keep Sprites hidden for one rebuild frame
+            0x85, 0xFE,             // STA PPUMASK shadow
+            0x4C, 0x54, 0x8B,       // JMP original active update
+            0xA5, 0xFE,             // normalFrame: LDA PPUMASK shadow
             0x09, 0x10,             // ORA #showSprites
             0x85, 0xFE,             // STA PPUMASK shadow
             0x4C, 0x54, 0x8B,       // JMP original active update
 
             0xA5, 0x3D,             // paused: LDA levelMode
             0x4A,                   // LSR A (carry = wide flag)
-            0x90, 0x3D,             // BCC done
+            0x90, 0x63,             // BCC done
             0xA5, 0xF6,             // LDA held controller buttons
             0x29, 0x03,             // AND #(Left | Right)
-            0xF0, 0x37,             // BEQ done
+            0xF0, 0x5D,             // BEQ done
             0xC9, 0x03,             // CMP #(Left | Right)
-            0xF0, 0x33,             // BEQ done
+            0xF0, 0x59,             // BEQ done
             0x4A,                   // LSR A (carry set = Right)
-            0xA5, 0xFE,             // LDA PPUMASK shadow
-            0x29, 0xEF,             // AND #hideSprites
-            0x85, 0xFE,             // STA PPUMASK shadow
             0xB0, 0x12,             // BCS moveRight
 
             0x38,                   // moveLeft: SEC
@@ -546,7 +551,7 @@ class Romfix{
             0xE9, 0x00,             // SBC #$00
             0x29, 0x01,             // AND #$01
             0x85, 0x9D,             // STA cameraXHigh
-            0x4C, 0x1F, 0xFF,       // JMP updatePpuPage
+            0x4C, 0x2A, 0xFF,       // JMP updatePpuPage
 
             0x18,                   // moveRight: CLC
             0xA5, 0xFD,             // LDA cameraXLow
@@ -561,6 +566,28 @@ class Romfix{
             0x29, 0xFE,             // AND #$FE
             0x05, 0x9D,             // ORA cameraXHigh
             0x85, 0xFF,             // STA PPUCTRL shadow
+
+            0xA9, 0x00,             // LDA #$00
+            0x85, 0x6E,             // suppress extra OAM Sprite groups
+            0xA2, 0x1D,             // LDX #last non-player metasprite slot
+            0x9D, 0x00, 0x04,       // clearSlots: STA metaspriteId,X
+            0xCA,                   // DEX
+            0xD0, 0xFA,             // BNE clearSlots (preserve slot 0)
+
+            0x38,                   // SEC
+            0xA5, 0xC2,             // LDA playerXLow
+            0xE5, 0xFD,             // SBC cameraXLow
+            0x8D, 0x3C, 0x04,       // STA playerScreenX
+            0xA5, 0xC1,             // LDA playerXHigh
+            0xE5, 0x9D,             // SBC cameraXHigh
+            0x29, 0x01,             // AND #$01
+            0xD0, 0x08,             // BNE hidePlayer
+            0xA9, 0x02,             // fixed standing-player metasprite
+            0x8D, 0x00, 0x04,       // STA playerMetasprite
+            0x4C, 0x5B, 0xFF,       // JMP rebuildOam
+            0xA9, 0x00,             // hidePlayer: LDA #$00
+            0x8D, 0x00, 0x04,       // STA playerMetasprite
+            0x20, 0xD3, 0x88,       // rebuildOam: JSR OAM builder
             0x60,                   // RTS
             0x60,                   // done: RTS
         ]);
