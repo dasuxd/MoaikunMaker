@@ -190,7 +190,10 @@ body {
 
 .welcome-action {
     display: flex;
+    flex-direction: column;
+    align-items: center;
     justify-content: center;
+    gap: 10px;
 }
 
 .welcome-upload-btn {
@@ -214,6 +217,15 @@ body {
 
 .welcome-upload-btn:active {
     transform: translateY(0);
+}
+
+.recovery-export-btn {
+    background: linear-gradient(135deg, #00897b 0%, #00695c 100%);
+    box-shadow: 0 4px 15px rgba(0, 137, 123, 0.35);
+}
+
+.recovery-export-btn:hover {
+    box-shadow: 0 6px 20px rgba(0, 137, 123, 0.5);
 }
 
 

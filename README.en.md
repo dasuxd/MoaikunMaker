@@ -26,6 +26,9 @@ A web-based level editor for the NES game "モアイくん (Moai-kun)".
 - 💾 **ROM Editing** - Directly modify and export ROM files
 - 🌐 **Multi-language** - Seamless switching between Chinese/English/Japanese
 - 📋 **Level Management** - Drag-and-drop sorting, batch editing
+- 🛟 **Independent Backups** - Import/export one level or a full pack without ROM addresses
+- 📦 **Drafts / Shared Tab** - Edit drafts, imports and shared levels independently, then append them to the formal list
+- 📴 **Disabled-Level Protection** - Reducing the level count keeps trailing levels visible and disabled instead of deleting them
 
 ## 🚀 Quick Start
 
@@ -79,6 +82,11 @@ npx serve
 - **📝 Write ROM** - Write all changes to ROM data
 - **⬇️ Download ROM** - Download modified ROM file
 - **🔗 Share Level** - Generate share link, copy and send to friends
+- **📤 Export Current Level** - Export the current edit, including unsaved changes, as `.moailevel`
+- **🧰 Export All Levels** - Export formal levels and drafts as a `.moaipack` recovery file
+- **📥 Import Level** - Single levels enter the draft box; full packs can restore the formal level set
+- **🧰 Export All Drafts** - Export drafts/shared levels separately as `.moaidrafts`
+- **➕ Add to Formal Levels** - Insert a draft after active levels and before disabled trailing levels
 
 ## 🎮 Important Notice
 

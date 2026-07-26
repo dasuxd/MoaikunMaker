@@ -64,6 +64,11 @@
                 <label for="fileInput" class="welcome-upload-btn" data-i18n="welcomeUpload">
                     📤 上传 ROM 开始使用
                 </label>
+                <button type="button" class="welcome-upload-btn recovery-export-btn"
+                    id="recoveryExportBtn" onclick="exportLevelPack()" data-i18n="exportCachedRecovery"
+                    style="display: none;">
+                    🛟 导出缓存中的关卡
+                </button>
             </div>
         </div>
     </div>
@@ -129,48 +134,104 @@
         <div class="sidebar" id="sidebar">
             <h2 data-i18n="levelList">📋 关卡列表</h2>
 
-            <div class="level-count-editor"
-                style="margin: 12px 15px; padding: 12px; background: #f5f5f5; border-radius: 6px; border: 1px solid #ddd;">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <label for="levelCountInput"
-                        style="font-size: 14px; color: #333; font-weight: 500; white-space: nowrap;"
-                        data-i18n="totalLevels">🎮 关卡总数:</label>
-                    <input type="number" id="levelCountInput" min="1" max="56"
-                        style="flex: 1; padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; text-align: center; width: 80px;"
-                        disabled />
-                    <!-- <span style="font-size: 12px; color: #666;">(地址: 0x0BD3)</span> -->
-                </div>
-            </div>
-
-            <div class="level-order-controls" style="margin: 12px 15px;">
-                <button class="btn-edit-order" id="editLevelsBtn" onclick="startEditLevels()"
-                    style="width: 100%; padding: 10px; background: #4CAF50; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;"
-                    data-i18n="editLevels">
-                    ✏️ 编辑关卡组
+            <div class="sidebar-level-tabs" role="tablist" aria-label="Level library">
+                <button type="button" id="formalLevelsTab" class="sidebar-level-tab active"
+                    role="tab" aria-selected="true" aria-controls="formalLevelsPanel"
+                    onclick="switchLevelLibraryTab('formal')" data-i18n="formalLevelsTab">
+                    🎮 正式关卡
                 </button>
-                <div class="order-action-buttons" id="editLevelsActionButtons" style="display: none; gap: 8px;">
-                    <button class="btn-cancel-order" onclick="cancelEditLevels()"
-                        style="flex: 1; padding: 10px; background: #f44336; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;"
-                        data-i18n="cancel">
-                        ❌ 取消
+                <button type="button" id="draftLevelsTab" class="sidebar-level-tab"
+                    role="tab" aria-selected="false" aria-controls="draftLevelsPanel"
+                    onclick="switchLevelLibraryTab('drafts')">
+                    <span data-i18n="draftLevelsTab">📦 草稿/分享</span>
+                    <span id="draftCountBadge" class="draft-count-badge">0</span>
+                </button>
+            </div>
+
+            <div id="formalLevelsPanel" class="sidebar-level-panel active" role="tabpanel"
+                aria-labelledby="formalLevelsTab">
+                <div class="level-count-editor"
+                    style="margin: 12px 15px; padding: 12px; background: #f5f5f5; border-radius: 6px; border: 1px solid #ddd;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <label for="levelCountInput"
+                            style="font-size: 14px; color: #333; font-weight: 500; white-space: nowrap;"
+                            data-i18n="totalLevels">🎮 关卡总数:</label>
+                        <input type="number" id="levelCountInput" min="1" max="56"
+                            style="flex: 1; padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; text-align: center; width: 80px;"
+                            disabled />
+                        <!-- <span style="font-size: 12px; color: #666;">(地址: 0x0BD3)</span> -->
+                    </div>
+                </div>
+
+                <div class="level-order-controls" style="margin: 12px 15px;">
+                    <button class="btn-edit-order" id="editLevelsBtn" onclick="startEditLevels()"
+                        style="width: 100%; padding: 10px; background: #4CAF50; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;"
+                        data-i18n="editLevels">
+                        ✏️ 编辑关卡组
                     </button>
-                    <button class="btn-save-order" onclick="saveLevels()"
-                        style="flex: 1; padding: 10px; background: #2196F3; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;"
-                        data-i18n="saveLevelsEdit">
-                        ✔️ 保存关卡配置
+                    <div class="order-action-buttons" id="editLevelsActionButtons" style="display: none; gap: 8px;">
+                        <button class="btn-cancel-order" onclick="cancelEditLevels()"
+                            style="flex: 1; padding: 10px; background: #f44336; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;"
+                            data-i18n="cancel">
+                            ❌ 取消
+                        </button>
+                        <button class="btn-save-order" onclick="saveLevels()"
+                            style="flex: 1; padding: 10px; background: #2196F3; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;"
+                            data-i18n="saveLevelsEdit">
+                            ✔️ 保存关卡配置
+                        </button>
+                    </div>
+                </div>
+
+                <div class="level-file-controls">
+                    <button type="button" class="level-file-btn level-file-export" id="exportCurrentLevelBtn"
+                        onclick="exportCurrentLevel()" data-i18n="exportCurrentLevel">
+                        📤 导出当前关卡
                     </button>
+                    <button type="button" class="level-file-btn level-file-import" id="importLevelBtn"
+                        onclick="openLevelFilePicker('formal')" data-i18n="importLevel">
+                        📥 导入关卡
+                    </button>
+                    <button type="button" class="level-file-btn level-file-pack" id="exportLevelPackBtn"
+                        onclick="exportLevelPack()" data-i18n="exportLevelPack">
+                        🧰 导出全部
+                    </button>
+                </div>
+
+                <!-- <div class="drag-tip" data-i18n="dragTip">💡 拖动关卡可调整关卡顺序</div> -->
+                <div id="levelList" @touchmove.stop.prevent class="level-list"></div>
+            </div>
+
+            <div id="draftLevelsPanel" class="sidebar-level-panel" role="tabpanel"
+                aria-labelledby="draftLevelsTab" hidden>
+                <div class="draft-file-controls">
+                    <button type="button" class="level-file-btn level-file-import"
+                        onclick="openLevelFilePicker('drafts')" data-i18n="importDraftLevel">
+                        📥 导入草稿
+                    </button>
+                    <button type="button" class="level-file-btn level-file-export" id="exportCurrentDraftBtn"
+                        onclick="exportCurrentDraft()" data-i18n="exportCurrentDraft" disabled>
+                        📤 导出当前草稿
+                    </button>
+                    <button type="button" class="level-file-btn level-file-pack" id="exportAllDraftsBtn"
+                        onclick="exportAllDrafts()" data-i18n="exportAllDrafts" disabled>
+                        🧰 导出全部草稿
+                    </button>
+                </div>
+
+                <!-- 独立于 ROM 的本地草稿/分享关卡库 -->
+                <div id="backupSection" class="backup-section">
+                <h3 class="backup-section-title" data-i18n="draftBox">📦 草稿箱</h3>
+                <p class="backup-section-hint" data-i18n="draftBoxHint">保存未写入正式关卡的编辑、导入文件和分享关卡。点击草稿可载入编辑器。</p>
+                <div id="backupLevelList" class="backup-level-list"></div>
+                    <p id="draftEmptyState" class="draft-empty-state" data-i18n="draftEmptyState">
+                        这里还没有草稿或分享关卡。
+                    </p>
                 </div>
             </div>
 
-            <!-- <div class="drag-tip" data-i18n="dragTip">💡 拖动关卡可调整顺序</div> -->
-            <div id="levelList" @touchmove.stop.prevent  class="level-list"></div>
-            
-            <!-- 备份关卡列表 -->
-            <div id="backupSection" class="backup-section" style="display: none;">
-                <h3 class="backup-section-title" data-i18n="unsavedBackups">⚠️ 未保存的编辑备份</h3>
-                <p class="backup-section-hint" data-i18n="backupHint">切换关卡时，以下关卡有未保存的修改已自动备份。点击恢复可将备份数据还原到对应关卡。</p>
-                <div id="backupLevelList" class="backup-level-list"></div>
-            </div>
+            <input type="file" id="levelFileInput" class="file-input"
+                accept=".moailevel,.moaipack,.moaidrafts,.json,application/json">
         </div>
 
         <div class="main-content">
@@ -437,6 +498,28 @@
         </div>
     </div>
     </div>
+
+    <div class="level-modal-overlay" id="unsavedChangesModal" hidden>
+        <div class="level-modal" role="dialog" aria-modal="true" aria-labelledby="unsavedChangesTitle">
+            <h3 id="unsavedChangesTitle" data-i18n="unsavedChangesTitle">⚠️ 关卡已修改但未保存</h3>
+            <p data-i18n="unsavedChangesMessage">当前编辑内容尚未写入正式关卡。请选择如何处理。</p>
+            <div class="level-modal-actions">
+                <button type="button" class="level-modal-btn level-modal-cancel"
+                    onclick="resolveUnsavedChanges('cancel')" data-i18n="cancelSwitch">
+                    取消
+                </button>
+                <button type="button" class="level-modal-btn level-modal-discard"
+                    onclick="resolveUnsavedChanges('discard')" data-i18n="discardChanges">
+                    丢弃
+                </button>
+                <button type="button" class="level-modal-btn level-modal-draft"
+                    onclick="resolveUnsavedChanges('draft')" data-i18n="saveToDrafts">
+                    保存到草稿箱
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- JavaScript 模块 -->
 
     <!-- 引入 SortableJS v1.15.0 -->
@@ -462,6 +545,7 @@
     <script src="js/Level.js"></script>
     <script src="js/RomEditor.js"></script>
     <script src="js/DataConverter.js"></script>
+    <script src="js/LevelFile.js"></script>
     <script src="js/LevelEditor.js"></script>
 
     <script src="js/app.js"></script>

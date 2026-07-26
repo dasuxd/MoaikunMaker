@@ -215,7 +215,9 @@ class RomEditor {
      * Calculate total map size of all levels
      */
     calculateTotalSize() {
-        return this.levels.reduce((total, level) => total + level.getTotalSize(), 0);
+        return this.levels
+            .slice(0, this.levelCount)
+            .reduce((total, level) => total + level.getTotalSize(), 0);
     }
 
     /**
@@ -277,11 +279,12 @@ class RomEditor {
     //     return { success: true };
     // }
 
-    updateLevelInfo(){
+    updateLevelInfo(levels = this.levels, levelCount = this.levelCount){
         let currentPos = this.getLevelDataStart();
         let monsterDataPos = this.getEnemyDataStart();
-        for(let i = 0; i < this.levels.length; i++){
-            const level = this.levels[i];
+        const activeCount = Math.min(levelCount, levels.length);
+        for(let i = 0; i < activeCount; i++){
+            const level = levels[i];
             level.romAddress = currentPos;
             level.cpuAddress = this.getCpuAddressByRomAddress(currentPos);
             currentPos += level.getTotalSize();
@@ -298,17 +301,19 @@ class RomEditor {
     }
 
     /**
-     * Check if total enemy count exceeds the maximum allowed (78 enemies)
-     * @param {Array} levels - Array of level objects
-     * @param {number} levelCount - Number of levels
-     * @returns {Object} Object containing valid status and error message if invalid
+     * Check the enemy count against the selected ROM layout.
+     *
+     * The original ROM has 212 bytes for enemy data. With 56 one-byte level
+     * headers, that leaves room for 78 enemy records. Expanded ROMs have a
+     * much larger area, so a fixed limit of 78 is incorrect.
      */
-    static checkTotalEnemyCount(levels, levelCount) {
-        const MAX_ENEMY_COUNT = 78; // Maximum total enemies due to ROM storage structure
-        
+    checkTotalEnemyCount(levels = this.levels, levelCount = this.levelCount) {
+        const maxEnemyCount = this.getEnemyCountMax(levelCount);
+
         // Calculate total enemy count across all levels
         let totalEnemies = 0;
-        for (let i = 0; i < levelCount; i++) {
+        const activeCount = Math.min(levelCount, levels.length);
+        for (let i = 0; i < activeCount; i++) {
             const monsterData = levels[i].monsterData;
             if (monsterData && monsterData.length > 0) {
                 // First byte is (enemy count * 2 + 1), so calculate actual enemy count
@@ -317,14 +322,14 @@ class RomEditor {
             }
         }
         
-        if (totalEnemies > MAX_ENEMY_COUNT) {
+        if (totalEnemies > maxEnemyCount) {
             return {
                 valid: false,
                 totalEnemies: totalEnemies,
-                maxEnemies: MAX_ENEMY_COUNT,
+                maxEnemies: maxEnemyCount,
                 error: i18n.t('totalEnemyCountExceedError', {
                     currentCount: totalEnemies,
-                    maxCount: MAX_ENEMY_COUNT
+                    maxCount: maxEnemyCount
                 })
             };
         }
@@ -332,14 +337,18 @@ class RomEditor {
         return {
             valid: true,
             totalEnemies: totalEnemies,
-            maxEnemies: MAX_ENEMY_COUNT
+            maxEnemies: maxEnemyCount
         };
     }
 
-    recalDataAddresses(levels = this.levels){
+    recalDataAddresses(
+        levels = this.levels,
+        levelCount = levels === this.levels ? this.levelCount : levels.length
+    ){
         let currentLevelDataPos = this.getLevelDataStart()
         let currentEnemyDataPos = this.getEnemyDataStart();
-        for (let i=0; i < levels.length; i++){
+        const activeCount = Math.min(levelCount, levels.length);
+        for (let i=0; i < activeCount; i++){
             const level = levels[i];
             level.romAddress = currentLevelDataPos;
             level.cpuAddress = this.getCpuAddressByRomAddress(currentLevelDataPos);
@@ -400,7 +409,7 @@ class RomEditor {
         //     return result;
         // }
 
-        this.recalDataAddresses(levels);
+        this.recalDataAddresses(levels, levelCount);
        
         //
         // Build the target format at its declared iNES size. Adding expansion
@@ -629,9 +638,9 @@ class RomEditor {
         }
     }
 
-    getEnemyCountMax(){
+    getEnemyCountMax(levelCount = this.levelCount){
         const maxSize = this.getEnemyUsageMaxSize();
-        return (maxSize - this.levelCount) / 2
+        return Math.max(0, Math.floor((maxSize - levelCount) / 2));
     }
 
     getEnemyDataByAddr(startAddr = null){

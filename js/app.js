@@ -44,6 +44,14 @@ class App {
         
         // Backup levels list (unsaved levels)
         this.backupLevels = [];
+        this.editorBaseline = null;
+        this.editorSource = 'formal';
+        this.currentDraftId = null;
+        this.activeLevelLibraryTab = 'formal';
+        this.levelFileImportTarget = 'formal';
+        this.pendingUnsavedAction = null;
+        this.pendingSharedLevel = null;
+        this.recoveryLevelData = null;
         
         // Original ROM data (for re-patching on cache load)
         this.originalRomData = null;
@@ -76,14 +84,48 @@ class App {
     async initCache() {
         try {
             await this.romCache.init();
+
+            // Drafts are ROM-independent and must remain accessible even when
+            // the cached ROM is missing or no longer parses.
+            const cachedBackups = await this.romCache.loadBackupLevels();
+            if (cachedBackups && cachedBackups.length > 0) {
+                const loadedDrafts = cachedBackups
+                    .map((draft, index) => this.normalizeDraftLevel(draft, index))
+                    .filter(Boolean);
+                const mergedDrafts = [...this.backupLevels, ...loadedDrafts];
+                this.backupLevels = mergedDrafts.filter((draft, index) =>
+                    mergedDrafts.findIndex(candidate =>
+                        candidate.id === draft.id ||
+                        (candidate.checksum === draft.checksum &&
+                         candidate.source === draft.source)
+                    ) === index
+                );
+                this.renderBackupList();
+            }
+
+            // Load the ROM-independent formal level cache first. It can be
+            // exported even if the cached ROM later fails to parse.
+            const cachedLevelData = await this.romCache.loadLevelData();
+            if (cachedLevelData && cachedLevelData.levels) {
+                this.recoveryLevelData = cachedLevelData;
+                this.updateRecoveryExportVisibility();
+            }
+
             const cachedRom = await this.romCache.loadRom();
             
             if (cachedRom) {
                 // Load original ROM (will go through loadROM which applies patches)
-                this.loadRomData(cachedRom.data, cachedRom.fileName, true);
-                
+                try {
+                    this.loadRomData(cachedRom.data, cachedRom.fileName, true);
+                } catch (error) {
+                    console.error('Failed to parse cached ROM:', error);
+                    this.updateRecoveryExportVisibility();
+                    this.showMessage('error', i18n.t('cachedRomParseFailed'));
+                    this.initParams();
+                    return;
+                }
+
                 // Load saved level data and apply on top of patched ROM
-                const cachedLevelData = await this.romCache.loadLevelData();
                 if (cachedLevelData && cachedLevelData.levels) {
                     // Restore romType from cache
                     if (cachedLevelData.romType !== undefined) {
@@ -116,21 +158,10 @@ class App {
                     }
                 }
                 
-                // Load backup levels
-                const cachedBackups = await this.romCache.loadBackupLevels();
-                if (cachedBackups && cachedBackups.length > 0) {
-                    this.backupLevels = cachedBackups;
-                    this.renderBackupList();
-                }
-                
                 this.showMessage('info', i18n.t('loadedFromCacheMessage', {fileName: cachedRom.fileName}));
             }else{
-                const urlParams = new URLSearchParams(window.location.search);
-                const mapDataParam = urlParams.get("mapData");
-                if(mapDataParam != null){
-                    this.showMessage('warning', i18n.t('romNotFoundWarning'));
-                }
-               
+                // Parse and preserve a shared level even before a ROM is loaded.
+                this.initParams();
             }
         } catch (error) {
             console.error('Failed to initialize cache:', error);
@@ -138,6 +169,10 @@ class App {
     }
 
     initParams(){
+        if (this.pendingSharedLevel || this.hasSharedLevelLoaded) {
+            return;
+        }
+
         // Binary decode function: Base64 URL-Safe -> Uint8Array -> Array
         function decodeBase64UrlSafe(str) {
             if (!str) return null;
@@ -187,18 +222,19 @@ class App {
                 mapData: mapData,
                 monsterData: enemyData,
             };
+
+            this.addDraftLevel({
+                name: i18n.t('sharedLevelDraftName'),
+                source: 'shared',
+                mapData,
+                monsterData: enemyData,
+                createdAt: Date.now()
+            }, { deduplicate: true });
             
             // Check if ROM is loaded
             if (this.romEditor.romData == null) {
-                console.log("Data not ready, waiting for ROM to load...");
-                
-                // Delay execution, wait for ROM to load
-                const checkInterval = setInterval(() => {
-                    if (this.romEditor.romData != null) {
-                        clearInterval(checkInterval);
-                        this.loadSharedLevel(data);
-                    }
-                }, 100);
+                this.pendingSharedLevel = data;
+                this.showMessage('warning', i18n.t('romNotFoundWarning'));
                 return;
             }
             
@@ -242,6 +278,18 @@ class App {
         document.getElementById('fileInput').addEventListener('change', 
             (e) => this.handleFileSelect(e));
 
+        const levelFileInput = document.getElementById('levelFileInput');
+        if (levelFileInput) {
+            levelFileInput.addEventListener('change', (e) => this.handleLevelFileSelect(e));
+        }
+
+        window.addEventListener('beforeunload', (event) => {
+            if (this.hasUnsavedChanges()) {
+                event.preventDefault();
+                event.returnValue = '';
+            }
+        });
+
         // Initialize toolbar drag functionality
         this.initToolbarDragging();
         
@@ -274,7 +322,10 @@ class App {
                 // Only update when a complete valid number is entered
                 if (!isNaN(count) && count >= 1 && count <= app.romEditor.getMaxCountOfLevels()) {
                     this.romEditor.setLevelCount(count);
+                    this.ensureLevelSlots(count);
                     this.levelsListChanged = true;
+                    this.createLevelList();
+                    this.applyLevelOrderEditingState();
                 }else if (isNaN(count) || count < 1 || count > app.romEditor.getMaxCountOfLevels()) {
                     this.showMessage('error', i18n.t('invalidLevelCountMessageError', { maxLevelCount: app.romEditor.getMaxCountOfLevels() }));
                     e.target.value = this.romEditor.getLevelCount();
@@ -344,7 +395,15 @@ class App {
     async clearCache() {
         if (confirm(i18n.t('clearRomCacheConfirm'))) {
             try {
+                // "Clear cache" removes the ROM/project cache, not the user's
+                // ROM-independent draft library.
+                const drafts = this.backupLevels.map(draft => ({ ...draft }));
                 await this.romCache.clearCache();
+                if (drafts.length > 0) {
+                    await this.romCache.saveBackupLevels(drafts);
+                }
+                this.recoveryLevelData = null;
+                this.updateRecoveryExportVisibility();
                 this.showMessage('success', i18n.t('cacheCleanSuccess'));
                 
                 // Update button state
@@ -368,14 +427,20 @@ class App {
         const file = event.target.files[0];
         if (!file) return;
 
-        this.fileName = file.name;
         const reader = new FileReader();
         
         reader.onload = async (e) => {
-            this.loadRomData(e.target.result, file.name, false);
-            
-            // Save original ROM to cache
             try {
+                this.loadRomData(e.target.result, file.name, false);
+            } catch (error) {
+                console.error('Failed to load ROM:', error);
+                this.updateRecoveryExportVisibility();
+                this.showMessage('error', i18n.t('romParseFailedRecoveryAvailable'));
+                return;
+            }
+
+            try {
+                // Save original ROM to cache only after it parsed successfully.
                 await this.romCache.saveRom(e.target.result, file.name);
                 // Also save initial level data
                 await this.saveLevelDataToCache();
@@ -535,7 +600,11 @@ class App {
         this.testBtn.disabled = true;
         this.downloadBtn.disabled = false;
 
-        if(!this.hasSharedLevelLoaded){
+        if (this.pendingSharedLevel && !this.hasSharedLevelLoaded) {
+            const sharedLevel = this.pendingSharedLevel;
+            this.pendingSharedLevel = null;
+            this.loadSharedLevel(sharedLevel);
+        } else if(!this.hasSharedLevelLoaded){
             this.initParams();
         }
     }
@@ -547,6 +616,67 @@ class App {
         const welcomeOverlay = document.getElementById('welcomeOverlay');
         if (welcomeOverlay) {
             welcomeOverlay.classList.add('hidden');
+        }
+    }
+
+    updateRecoveryExportVisibility() {
+        const recoveryButton = document.getElementById('recoveryExportBtn');
+        if (!recoveryButton) return;
+        const hasRecoveryData = Boolean(
+            this.recoveryLevelData &&
+            Array.isArray(this.recoveryLevelData.levels) &&
+            this.recoveryLevelData.levels.length > 0
+        );
+        recoveryButton.style.display = hasRecoveryData ? 'inline-block' : 'none';
+    }
+
+    switchLevelLibraryTab(tab) {
+        const nextTab = tab === 'drafts' ? 'drafts' : 'formal';
+        this.activeLevelLibraryTab = nextTab;
+
+        const formalTab = document.getElementById('formalLevelsTab');
+        const draftTab = document.getElementById('draftLevelsTab');
+        const formalPanel = document.getElementById('formalLevelsPanel');
+        const draftPanel = document.getElementById('draftLevelsPanel');
+        const isFormal = nextTab === 'formal';
+
+        formalTab?.classList.toggle('active', isFormal);
+        draftTab?.classList.toggle('active', !isFormal);
+        formalTab?.setAttribute('aria-selected', String(isFormal));
+        draftTab?.setAttribute('aria-selected', String(!isFormal));
+
+        if (formalPanel) {
+            formalPanel.classList.toggle('active', isFormal);
+            formalPanel.hidden = !isFormal;
+        }
+        if (draftPanel) {
+            draftPanel.classList.toggle('active', !isFormal);
+            draftPanel.hidden = isFormal;
+        }
+    }
+
+    ensureLevelSlots(count) {
+        while (this.romEditor.levels.length < count) {
+            this.romEditor.levels.push(new Level(this.romEditor.levels.length));
+        }
+    }
+
+    applyLevelOrderEditingState() {
+        const levelCountInput = document.getElementById('levelCountInput');
+        if (levelCountInput) {
+            levelCountInput.disabled = !this.isEditingLevels;
+        }
+
+        const activeCount = this.romEditor.getLevelCount();
+        for (let i = 0; i < this.romEditor.levels.length; i++) {
+            const item = this.romEditor.levels[i].htmlItem;
+            if (!item) continue;
+            const isActive = i < activeCount;
+            const dragHandle = item.querySelector('.drag-handle');
+            if (dragHandle) {
+                dragHandle.style.display = this.isEditingLevels && isActive ? 'flex' : 'none';
+            }
+            item.classList.toggle('no-drag', !this.isEditingLevels || !isActive);
         }
     }
 
@@ -578,32 +708,22 @@ class App {
             }
         }
         
-        // Disable level count input (only enabled in edit mode)
+        // The count input is enabled only while editing the formal level group.
         const levelCountInput = document.getElementById('levelCountInput');
         if (levelCountInput) {
-            //levelCountInput.value = this.romEditor.getLevelCount();
-            levelCountInput.disabled = true;
+            levelCountInput.value = this.romEditor.getLevelCount();
+            levelCountInput.disabled = !this.isEditingLevels;
         }
 
-        if(levelCountInput.value > levels.length){
-            // Create extra levels
-            const levelCountInputValue = parseInt(levelCountInput.value, 10);
-            this.romEditor.setLevelCount(levelCountInputValue);
-            for(let i = levels.length; i < levelCountInputValue; i++){
-                const newLevel = new Level(i);
-                levels.push(newLevel);
-            }
-        }
+        this.ensureLevelSlots(this.romEditor.getLevelCount());
 
         for (let i = 0; i < levels.length; i++) {
             const level = levels[i];
-            // Skip deleted levels
-            if (level.isDeleted) {
-                continue;
-            }
-           level.htmlItem = this.createLevelItem(level, i);
-           level.htmlItem.classList.add('no-drag');
-           listElement.append(level.htmlItem);
+            level.index = i;
+            level.isDeleted = i >= this.romEditor.getLevelCount();
+            level.htmlItem = this.createLevelItem(level, i);
+            level.htmlItem.classList.add('no-drag');
+            listElement.append(level.htmlItem);
         }
 
         this.sortable = new Sortable(listElement, {
@@ -625,6 +745,12 @@ class App {
             touchStartThreshold: 5,
             // Prevent scroll conflict
             preventOnFilter: false,
+            onMove: function(evt) {
+                if (evt.related?.classList.contains('inactive-level')) {
+                    return false;
+                }
+                return true;
+            },
             onEnd: function(evt) {
                 // If position unchanged, return directly
                 if (evt.oldIndex === evt.newIndex) {
@@ -656,14 +782,21 @@ class App {
                 }
             }
             });
+        this.applyLevelOrderEditingState();
+        this.renderBackupList();
     }
 
     createLevelItem(level, index){
         const item = document.createElement('div');
-        //item.className = (index === levels.length) ? 'add-level-item' : 'level-item';
         item.className = 'level-item';
-        if(level.isDeleted){
-            item.classList.add('deleted-level');
+        const isInactive = index >= this.romEditor.getLevelCount();
+        if (isInactive) {
+            item.classList.add('inactive-level');
+            item.setAttribute('aria-disabled', 'true');
+            item.title = i18n.t('inactiveLevelHint');
+        }
+        if (!isInactive && this.editorSource === 'formal' && this.currentLevel === index) {
+            item.classList.add('active');
         }
         item.dataset.index =index;
         
@@ -678,6 +811,7 @@ class App {
         // Create clickable content area
         const content = document.createElement('div');
         content.className = 'level-content';
+        content.tabIndex = isInactive ? -1 : 0;
         
         // Track touch position to prevent accidental clicks during scrolling
         let touchStartX = 0;
@@ -701,7 +835,7 @@ class App {
             const deltaTime = touchEndTime - touchStartTime;
             
             // Only consider it a click if distance < 10px and time < 300ms
-            if (deltaX < 10 && deltaY < 10 && deltaTime < 300) {
+            if (!isInactive && deltaX < 10 && deltaY < 10 && deltaTime < 300) {
                 e.preventDefault();
                 e.stopPropagation();
                 this.selectLevel(index);
@@ -710,10 +844,17 @@ class App {
         
         // Keep click event for desktop
         content.onclick = (e) => {
-            if (!('ontouchstart' in window)) {
+            if (!isInactive && !('ontouchstart' in window)) {
                 this.selectLevel(index);
             }
         };
+
+        content.addEventListener('keydown', event => {
+            if (!isInactive && (event.key === 'Enter' || event.key === ' ')) {
+                event.preventDefault();
+                this.selectLevel(index);
+            }
+        });
 
         let levelLabel = i18n.t('levelLabel', {level: level.getLevelNumber()});
 
@@ -722,7 +863,7 @@ class App {
             <span class="level-wrapper ${level.isDragged() ? 'dragged' : ''}" style="position:relative;display:block;">
                 <span class="level-num">${levelLabel}</span>
             </span>
-            <span class="level-info">${level.getDataSize()} B</span>
+            <span class="level-info">${level.getDataSize()} B${isInactive ? ` · ${i18n.t('inactiveLevelShort')}` : ''}</span>
         `;
         item.appendChild(content);
         return item;
@@ -732,25 +873,52 @@ class App {
     /**
      * Select level for editing
      */
-    selectLevel(index) {
-        if(index === -1){
-            app.showMessage('warning', "");
-            return;
+    selectLevel(index, options = {}) {
+        if (index < 0 || index >= this.romEditor.getLevelCount()) {
+            app.showMessage('warning', i18n.t('inactiveLevelHint'));
+            return false;
         }
-        
-        // Backup current unsaved level before switching
-        if (this.currentLevel >= 0 && this.currentLevel !== index && this.levelEditor && this.levelEditor.modified) {
-            this.backupCurrentLevel();
+
+        if (!options.skipUnsavedGuard &&
+            this.currentLevel >= 0 &&
+            (this.editorSource !== 'formal' || this.currentLevel !== index) &&
+            this.hasUnsavedChanges()) {
+            this.requestAfterUnsavedChanges(() => this.selectLevel(index, {
+                skipUnsavedGuard: true
+            }));
+            return false;
         }
-        
-        this.currentLevel = index;
+
+        return this.selectLevelNow(index);
+    }
+
+    /**
+     * Select a level without prompting. Call through selectLevel() unless the
+     * caller has already resolved unsaved edits.
+     */
+    selectLevelNow(index) {
         const level = this.romEditor.getLevel(index);
+        if (!level) {
+            this.showMessage('error', i18n.t('invalidLevelIndexError'));
+            return false;
+        }
+        if (index >= this.romEditor.getLevelCount()) {
+            this.showMessage('warning', i18n.t('inactiveLevelHint'));
+            return false;
+        }
+        this.editorSource = 'formal';
+        this.currentDraftId = null;
+        this.currentLevel = index;
         
         // Update selection state
         const items = document.querySelectorAll('.level-item');
-        items.forEach((item, i) => {
-            item.classList.toggle('active', i === index);
+        items.forEach(item => {
+            item.classList.toggle('active', Number(item.dataset.index) === index);
         });
+        document.querySelectorAll('.backup-level-item').forEach(item => {
+            item.classList.remove('active');
+        });
+        this.updateDraftActionState();
 
         // Show editor
         // const editorSection = document.getElementById('editorSection');
@@ -772,12 +940,14 @@ class App {
         
         // Load data to visual editor
         this.loadLevelToVisualEditor(level);
+        this.markEditorClean();
 
         this.testLevelBtn.disabled = false;;
         this.testBtn.disabled = false;;
         
         // Show/hide visual edit button
         //document.getElementById('visualEditBtn').style.display = 'inline-block';
+        return true;
     }
     
     /**
@@ -798,6 +968,94 @@ class App {
             }
         } catch (error) {
             console.error('Failed to load level to visual editor:', error);
+        }
+    }
+
+    createEditorSnapshot() {
+        if (!this.levelEditor || this.currentLevel < 0) {
+            return null;
+        }
+
+        const editor = this.levelEditor;
+        return JSON.stringify({
+            background: String(editor.currentBgId),
+            isWideScreen: Boolean(editor.isWideScreen),
+            isBuggyScreen: Boolean(editor.isBuggyScreen),
+            map: Array.isArray(editor.mapData)
+                ? editor.mapData.map(row => Array.isArray(row) ? [...row] : [])
+                : [],
+            player: editor.playerPos
+                ? { x: editor.playerPos.x, y: editor.playerPos.y }
+                : null,
+            door: editor.doorPos
+                ? { x: editor.doorPos.x, y: editor.doorPos.y }
+                : null,
+            enemies: Array.isArray(editor.enemies)
+                ? editor.enemies.map(enemy => ({
+                    id: enemy.enemyId,
+                    x: enemy.x,
+                    y: enemy.y
+                }))
+                : []
+        });
+    }
+
+    markEditorClean() {
+        if (!this.levelEditor) return;
+        this.levelEditor.modified = false;
+        this.editorBaseline = this.createEditorSnapshot();
+        if (this.saveBtn) {
+            this.saveBtn.disabled = true;
+        }
+    }
+
+    hasUnsavedChanges() {
+        if (!this.levelEditor) {
+            return false;
+        }
+        if (this.editorBaseline === null) {
+            return Boolean(this.levelEditor.modified);
+        }
+        return this.createEditorSnapshot() !== this.editorBaseline;
+    }
+
+    requestAfterUnsavedChanges(action) {
+        if (!this.hasUnsavedChanges()) {
+            action();
+            return true;
+        }
+
+        this.pendingUnsavedAction = action;
+        const modal = document.getElementById('unsavedChangesModal');
+        if (modal) {
+            modal.hidden = false;
+        }
+        return false;
+    }
+
+    resolveUnsavedChanges(choice) {
+        const modal = document.getElementById('unsavedChangesModal');
+        const action = this.pendingUnsavedAction;
+
+        if (choice === 'cancel') {
+            this.pendingUnsavedAction = null;
+            if (modal) modal.hidden = true;
+            return;
+        }
+
+        if (choice === 'draft' && !this.backupCurrentLevel()) {
+            return;
+        }
+
+        if (choice !== 'discard' && choice !== 'draft') {
+            return;
+        }
+
+        this.pendingUnsavedAction = null;
+        this.levelEditor.modified = false;
+        if (modal) modal.hidden = true;
+        if (typeof action === 'function') {
+            action();
         }
     }
 
@@ -1104,6 +1362,11 @@ class App {
      * Save current level
      */
     saveLevel() {
+        if (this.editorSource === 'draft') {
+            this.saveCurrentDraft();
+            return;
+        }
+
         const levelEditorData = this.getLevelEditorData();
 
         if (!levelEditorData) {
@@ -1289,7 +1552,8 @@ class App {
      * Update memory usage overview
      */
     updateMemoryOverview() {
-        const levels = this.romEditor.getAllLevels();
+        const levels = this.romEditor.getAllLevels()
+            .slice(0, this.romEditor.getLevelCount());
         if (levels.length === 0) return;
 
         const maxSize = this.romEditor.getLevelUsageMaxSize();
@@ -1468,6 +1732,13 @@ class App {
             const levelsData = this.romEditor.exportLevelsData();
             const levelCount = this.romEditor.getLevelCount();
             const romType = this.romEditor.romType;
+            this.recoveryLevelData = {
+                levels: levelsData,
+                levelCount,
+                romType,
+                timestamp: Date.now()
+            };
+            this.updateRecoveryExportVisibility();
             this.romCache.saveLevelData(levelsData, levelCount, romType).catch((error) => {
                 console.error('Failed to save level data to cache:', error);
             });
@@ -1476,150 +1747,773 @@ class App {
         }
     }
     
-    /**
-     * Backup current unsaved level before switching.
-     * Only backs up if the level editor has been modified (dirty).
+    /*
+     * ROM-independent level files and draft library.
      */
+    getCurrentLevelRomData() {
+        if (!this.romEditor.romData || this.currentLevel < 0 || this.editorBaseline === null) {
+            this.showMessage('warning', i18n.t('pleaseSelectLevelFirstWarning'));
+            return null;
+        }
+
+        const editorData = this.getLevelEditorData();
+        if (!editorData) return null;
+        return DataConverter.fromLevelEditorToROMData(
+            editorData,
+            this.levelEditor.isWideScreen
+        );
+    }
+
+    normalizeDraftLevel(draft, index = 0) {
+        try {
+            const allowedSources = new Set([
+                'unsaved', 'import', 'shared', 'recovered', 'file', 'editor', 'pack'
+            ]);
+            const levelNumber = Number.isInteger(draft.levelNumber)
+                ? draft.levelNumber
+                : (Number.isInteger(draft.levelIndex) ? draft.levelIndex + 1 : null);
+            return LevelFile.validateLevel({
+                ...draft,
+                id: draft.id || LevelFile.createId('draft'),
+                name: draft.name || (levelNumber
+                    ? i18n.t('draftFromLevel', { level: levelNumber })
+                    : i18n.t('draftDefaultName', { number: index + 1 })),
+                source: allowedSources.has(draft.source) ? draft.source : 'unsaved',
+                mapData: draft.mapData ?? draft.data,
+                createdAt: draft.createdAt ?? draft.timestamp ?? Date.now()
+            });
+        } catch (error) {
+            console.warn('Skipped invalid draft level:', error);
+            return null;
+        }
+    }
+
+    saveDraftLevels() {
+        this.romCache.saveBackupLevels(this.backupLevels).catch((error) => {
+            console.error('Failed to save draft levels:', error);
+        });
+    }
+
+    getCurrentDraft() {
+        if (this.editorSource !== 'draft' || !this.currentDraftId) {
+            return null;
+        }
+        return this.backupLevels.find(draft => draft.id === this.currentDraftId) || null;
+    }
+
+    updateDraftActionState() {
+        const hasDrafts = this.backupLevels.length > 0;
+        const hasCurrentDraft = Boolean(this.getCurrentDraft());
+        const currentButton = document.getElementById('exportCurrentDraftBtn');
+        const allButton = document.getElementById('exportAllDraftsBtn');
+        const badge = document.getElementById('draftCountBadge');
+        if (currentButton) currentButton.disabled = !hasCurrentDraft;
+        if (allButton) allButton.disabled = !hasDrafts;
+        if (badge) badge.textContent = String(this.backupLevels.length);
+    }
+
+    saveCurrentDraft({ showMessage = true } = {}) {
+        const draft = this.getCurrentDraft();
+        if (!draft) return false;
+
+        try {
+            const levelRomData = this.getCurrentLevelRomData();
+            if (!levelRomData) return false;
+            const updatedDraft = LevelFile.validateLevel({
+                ...draft,
+                mapData: levelRomData.mapData,
+                monsterData: levelRomData.monsterData,
+                checksum: null
+            }, draft.name);
+            const draftIndex = this.backupLevels.findIndex(item => item.id === draft.id);
+            if (draftIndex < 0) return false;
+
+            this.backupLevels[draftIndex] = updatedDraft;
+            this.currentDraftId = updatedDraft.id;
+            this.saveDraftLevels();
+            this.markEditorClean();
+            this.renderBackupList();
+            if (showMessage) {
+                this.showMessage('success', i18n.t('draftSavedSuccess', {
+                    name: updatedDraft.name
+                }));
+            }
+            return true;
+        } catch (error) {
+            this.showMessage('error', i18n.t('levelDraftFailed', { error: error.message }));
+            return false;
+        }
+    }
+
+    addDraftLevel(levelData, options = {}) {
+        const draft = this.normalizeDraftLevel({
+            ...levelData,
+            id: levelData.id || LevelFile.createId('draft'),
+            createdAt: levelData.createdAt || Date.now()
+        }, this.backupLevels.length);
+        if (!draft) return null;
+
+        if (options.deduplicate) {
+            const existing = this.backupLevels.find(item =>
+                item.checksum === draft.checksum && item.source === draft.source);
+            if (existing) {
+                return existing;
+            }
+        }
+
+        this.backupLevels.unshift(draft);
+        this.saveDraftLevels();
+        this.renderBackupList();
+        return draft;
+    }
+
     backupCurrentLevel() {
         try {
-            // Only backup if editor is actually dirty
-            if (!this.levelEditor || !this.levelEditor.modified) return;
-
-            const editorData = this.getLevelEditorData();
-            if (!editorData) return;
-            
-            const levelRomData = DataConverter.fromLevelEditorToROMData(editorData, this.levelEditor.isWideScreen);
-            
-            // Create backup entry
-            const backup = {
-                levelIndex: this.currentLevel,
-                levelNumber: this.currentLevel + 1,
-                data: [...levelRomData.mapData],
-                monsterData: [...levelRomData.monsterData],
-                timestamp: Date.now()
-            };
-            
-            // Replace existing backup for the same level, or add new
-            const existingIndex = this.backupLevels.findIndex(b => b.levelIndex === this.currentLevel);
-            if (existingIndex >= 0) {
-                this.backupLevels[existingIndex] = backup;
-            } else {
-                this.backupLevels.push(backup);
+            if (!this.hasUnsavedChanges()) return true;
+            if (this.editorSource === 'draft') {
+                return this.saveCurrentDraft();
             }
-            
-            // Save backups to cache
-            this.romCache.saveBackupLevels(this.backupLevels).catch((error) => {
-                console.error('Failed to save backup levels:', error);
+            const levelRomData = this.getCurrentLevelRomData();
+            if (!levelRomData) return false;
+
+            const draft = this.addDraftLevel({
+                name: i18n.t('draftFromLevel', { level: this.currentLevel + 1 }),
+                source: 'unsaved',
+                levelIndex: this.currentLevel,
+                mapData: levelRomData.mapData,
+                monsterData: levelRomData.monsterData,
+                createdAt: Date.now()
             });
-            
-            // Render backup list UI
-            this.renderBackupList();
-            
-            this.showMessage('warning', i18n.t('levelBackupCreated', {level: this.currentLevel + 1}));
+            if (!draft) return false;
+
+            this.showMessage('warning', i18n.t('levelDraftCreated', {
+                level: this.currentLevel + 1
+            }));
+            return true;
         } catch (error) {
-            console.error('Failed to backup level:', error);
+            console.error('Failed to create draft level:', error);
+            this.showMessage('error', i18n.t('levelDraftFailed', { error: error.message }));
+            return false;
         }
     }
-    
-    /**
-     * Restore a backup level — applies backup data to the target level,
-     * then removes the backup entry (no confusing swap).
-     * Navigates to the restored level so the user can see the result.
-     * @param {number} backupIndex - Index in the backup list
-     */
-    restoreBackupLevel(backupIndex) {
-        const backup = this.backupLevels[backupIndex];
-        if (!backup) return;
-        
-        const targetLevel = this.romEditor.getLevel(backup.levelIndex);
-        if (!targetLevel) {
-            this.showMessage('error', i18n.t('invalidLevelIndexError'));
+
+    exportCurrentLevel() {
+        if (this.editorSource === 'draft') {
+            this.exportCurrentDraft();
             return;
         }
-        
-        // Confirm before restoring
-        if (!confirm(i18n.t('backupRestoreConfirm', {level: backup.levelNumber}))) {
+        try {
+            const levelRomData = this.getCurrentLevelRomData();
+            if (!levelRomData) return;
+
+            const name = i18n.t('levelLabel', { level: this.currentLevel + 1 });
+            const level = LevelFile.createLevelRecord(
+                levelRomData.mapData,
+                levelRomData.monsterData,
+                {
+                    name,
+                    source: 'editor',
+                    levelIndex: this.currentLevel,
+                    createdAt: Date.now()
+                }
+            );
+            LevelFile.download(
+                LevelFile.createSingle(level),
+                `${LevelFile.safeFileName(name, 'level')}.moailevel`
+            );
+            this.showMessage('success', i18n.t('levelExportSuccess', { name }));
+        } catch (error) {
+            this.showMessage('error', i18n.t('levelExportFailed', { error: error.message }));
+        }
+    }
+
+    exportLevelPack() {
+        if (!this.romEditor.romData || this.romEditor.levels.length === 0) {
+            if (this.recoveryLevelData && Array.isArray(this.recoveryLevelData.levels)) {
+                this.exportRecoveryLevelPack();
+            } else {
+                this.showMessage('error', i18n.t('romNotLoadedError'));
+            }
             return;
         }
-        
-        // Apply backup data to the level
-        targetLevel.saveMapData(backup.data);
-        targetLevel.saveMonsterData(backup.monsterData);
-        
-        // Remove the backup entry (it has been applied)
-        this.backupLevels.splice(backupIndex, 1);
-        
-        // Save everything
-        this.saveLevelDataToCache();
-        this.romCache.saveBackupLevels(this.backupLevels).catch((error) => {
-            console.error('Failed to save backup levels:', error);
-        });
-        
-        // Refresh display
-        this.renderBackupList();
+
+        try {
+            let unsavedCurrent = null;
+            if (this.editorSource === 'formal' && this.hasUnsavedChanges()) {
+                unsavedCurrent = this.getCurrentLevelRomData();
+                if (!unsavedCurrent) return;
+            }
+
+            const levels = this.romEditor.levels
+                .slice(0, this.romEditor.getLevelCount())
+                .map((level, index) => {
+                    const useEditor = index === this.currentLevel && unsavedCurrent;
+                    return LevelFile.createLevelRecord(
+                        useEditor ? unsavedCurrent.mapData : level.data,
+                        useEditor ? unsavedCurrent.monsterData : level.monsterData,
+                        {
+                            name: i18n.t('levelLabel', { level: index + 1 }),
+                            source: 'pack',
+                            levelIndex: index,
+                            createdAt: Date.now()
+                        }
+                    );
+                });
+
+            let drafts = this.backupLevels;
+            const currentDraft = this.getCurrentDraft();
+            if (currentDraft && this.hasUnsavedChanges()) {
+                const currentDraftData = this.getCurrentLevelRomData();
+                if (!currentDraftData) return;
+                drafts = this.backupLevels.map(draft =>
+                    draft.id === currentDraft.id
+                        ? {
+                            ...draft,
+                            mapData: currentDraftData.mapData,
+                            monsterData: currentDraftData.monsterData,
+                            checksum: null
+                        }
+                        : draft
+                );
+            }
+
+            const pack = LevelFile.createPack(levels, drafts);
+            const baseName = this.fileName
+                ? this.fileName.replace(/\.nes$/i, '')
+                : 'Moaikun';
+            LevelFile.download(
+                pack,
+                `${LevelFile.safeFileName(baseName, 'Moaikun')}-levels.moaipack`
+            );
+            this.showMessage('success', i18n.t('levelPackExportSuccess', {
+                count: levels.length,
+                drafts: drafts.length
+            }));
+        } catch (error) {
+            this.showMessage('error', i18n.t('levelExportFailed', { error: error.message }));
+        }
+    }
+
+    exportRecoveryLevelPack() {
+        try {
+            const cachedLevels = this.recoveryLevelData.levels
+                .slice(0, this.recoveryLevelData.levelCount ?? this.recoveryLevelData.levels.length)
+                .map((level, index) => LevelFile.createLevelRecord(
+                    level.data,
+                    level.monsterData,
+                    {
+                        name: i18n.t('levelLabel', { level: index + 1 }),
+                        source: 'recovered',
+                        levelIndex: index,
+                        createdAt: this.recoveryLevelData.timestamp || Date.now()
+                    }
+                ));
+            const pack = LevelFile.createPack(cachedLevels, this.backupLevels);
+            LevelFile.download(pack, 'Moaikun-recovery-levels.moaipack');
+            this.showMessage('success', i18n.t('recoveryPackExportSuccess', {
+                count: cachedLevels.length,
+                drafts: this.backupLevels.length
+            }));
+        } catch (error) {
+            this.showMessage('error', i18n.t('levelExportFailed', { error: error.message }));
+        }
+    }
+
+    openLevelFilePicker(target = 'formal') {
+        const input = document.getElementById('levelFileInput');
+        if (!input) return;
+        this.levelFileImportTarget = target === 'drafts' ? 'drafts' : 'formal';
+        input.accept = this.levelFileImportTarget === 'drafts'
+            ? '.moailevel,.moaidrafts,.moaipack,.json,application/json'
+            : '.moailevel,.moaipack,.json,application/json';
+        input.click();
+    }
+
+    async handleLevelFileSelect(event) {
+        const input = event.target;
+        const file = input.files && input.files[0];
+        if (!file) return;
+
+        try {
+            const parsed = LevelFile.parse(await file.text());
+            if (parsed.type === 'level') {
+                const fileBaseName = file.name.replace(/\.(moailevel|json)$/i, '');
+                const draft = this.addDraftLevel({
+                    ...parsed.level,
+                    id: LevelFile.createId('draft'),
+                    name: parsed.level.name || fileBaseName || i18n.t('importedLevelDefaultName'),
+                    source: 'import',
+                    createdAt: Date.now()
+                });
+                if (!draft) {
+                    throw new Error(i18n.t('levelFileInvalidLevel'));
+                }
+                this.showMessage('success', i18n.t('levelImportToDraftSuccess', {
+                    name: draft.name
+                }));
+                this.switchLevelLibraryTab('drafts');
+                return;
+            }
+
+            if (parsed.type === 'draft-pack') {
+                let added = 0;
+                for (const draft of parsed.drafts) {
+                    const beforeCount = this.backupLevels.length;
+                    this.addDraftLevel({
+                        ...draft,
+                        id: LevelFile.createId('draft'),
+                        source: draft.source || 'import'
+                    }, { deduplicate: true });
+                    if (this.backupLevels.length > beforeCount) added++;
+                }
+                this.switchLevelLibraryTab('drafts');
+                this.showMessage('success', i18n.t('draftPackImportSuccess', {
+                    count: added
+                }));
+                return;
+            }
+
+            if (this.levelFileImportTarget === 'drafts') {
+                let added = 0;
+                for (const draft of [...parsed.levels, ...(parsed.drafts || [])]) {
+                    const beforeCount = this.backupLevels.length;
+                    this.addDraftLevel({
+                        ...draft,
+                        id: LevelFile.createId('draft'),
+                        source: draft.source || 'import'
+                    }, { deduplicate: true });
+                    if (this.backupLevels.length > beforeCount) added++;
+                }
+                this.switchLevelLibraryTab('drafts');
+                this.showMessage('success', i18n.t('draftPackImportSuccess', {
+                    count: added
+                }));
+                return;
+            }
+
+            if (!this.romEditor.romData) {
+                throw new Error(i18n.t('romRequiredForPackImport'));
+            }
+            if (!this.validatePackCapacity(parsed.levels)) {
+                return;
+            }
+            if (!confirm(i18n.t('levelPackImportConfirm', {
+                count: parsed.levels.length
+            }))) {
+                return;
+            }
+            this.requestAfterUnsavedChanges(() => this.applyLevelPack(parsed));
+        } catch (error) {
+            console.error('Failed to import level file:', error);
+            this.showMessage('error', i18n.t('levelImportFailed', { error: error.message }));
+        } finally {
+            input.value = '';
+        }
+    }
+
+    validatePackCapacity(levels) {
+        if (levels.length > this.romEditor.getMaxCountOfLevels()) {
+            this.showMessage('error', i18n.t('invalidLevelCountMessageError', {
+                maxLevelCount: this.romEditor.getMaxCountOfLevels()
+            }));
+            return false;
+        }
+
+        const mapSize = levels.reduce((total, level) => total + level.mapData.length + 1, 0);
+        if (mapSize > this.romEditor.getLevelUsageMaxSize()) {
+            this.showMessage('error', i18n.t('levelDataSizeExceedError', {
+                currentSize: mapSize,
+                maxSize: this.romEditor.getLevelUsageMaxSize()
+            }));
+            return false;
+        }
+
+        const enemySize = levels.reduce((total, level) => total + level.monsterData.length, 0);
+        if (enemySize > this.romEditor.getEnemyUsageMaxSize()) {
+            this.showMessage('error', i18n.t('enemyDataSizeExceedError', {
+                currentSize: enemySize,
+                maxSize: this.romEditor.getEnemyUsageMaxSize()
+            }));
+            return false;
+        }
+        return true;
+    }
+
+    applyLevelPack(pack) {
+        const levelsData = pack.levels.map((level, index) => ({
+            index,
+            originalIndex: index,
+            data: [...level.mapData],
+            monsterData: [...level.monsterData],
+            isDeleted: false,
+            modified: true
+        }));
+
+        if (!this.romEditor.importLevelsData(levelsData, levelsData.length)) {
+            this.showMessage('error', i18n.t('levelImportFailed', {
+                error: i18n.t('levelFileInvalidLevel')
+            }));
+            return;
+        }
+
+        for (const draft of pack.drafts || []) {
+            this.addDraftLevel({
+                ...draft,
+                id: LevelFile.createId('draft'),
+                source: draft.source || 'recovered'
+            }, { deduplicate: true });
+        }
+
+        const levelCountInput = document.getElementById('levelCountInput');
+        if (levelCountInput) {
+            levelCountInput.value = levelsData.length;
+        }
         this.createLevelList();
         this.updateMemoryOverview();
-        
-        // Navigate to the restored level so user can see the result
-        this.selectLevel(backup.levelIndex);
-        
-        this.showMessage('success', i18n.t('backupRestoredSuccess', {level: backup.levelNumber}));
+        this.saveLevelDataToCache();
+        this.selectLevel(0, { skipUnsavedGuard: true });
+        this.showMessage('success', i18n.t('levelPackImportSuccess', {
+            count: levelsData.length
+        }));
     }
-    
-    /**
-     * Delete a backup level
-     * @param {number} backupIndex - Index in the backup list
-     */
-    deleteBackupLevel(backupIndex) {
-        this.backupLevels.splice(backupIndex, 1);
-        
-        // Save to cache
-        this.romCache.saveBackupLevels(this.backupLevels).catch((error) => {
-            console.error('Failed to save backup levels:', error);
-        });
-        
-        // Update UI
-        this.renderBackupList();
-    }
-    
-    /**
-     * Render backup levels list in sidebar
-     */
-    renderBackupList() {
-        let container = document.getElementById('backupLevelList');
-        let section = document.getElementById('backupSection');
-        
-        if (!container || !section) return;
-        
-        container.innerHTML = '';
-        
-        if (this.backupLevels.length === 0) {
-            section.style.display = 'none';
+
+    loadDraftLevel(draftIndex) {
+        const draft = this.backupLevels[draftIndex];
+        if (!draft) return;
+        if (!this.romEditor.romData) {
+            this.showMessage('error', i18n.t('romRequiredForDraft'));
             return;
         }
-        
-        section.style.display = 'block';
-        
-        for (let i = 0; i < this.backupLevels.length; i++) {
-            const backup = this.backupLevels[i];
+
+        this.requestAfterUnsavedChanges(() => {
+            this.editorSource = 'draft';
+            this.currentDraftId = draft.id;
+            this.switchLevelLibraryTab('drafts');
+            const editorData = DataConverter.fromROMtoEditor(
+                draft.mapData,
+                draft.monsterData
+            );
+            this.levelEditor.loadFromData(editorData, null);
+            document.getElementById('hexData').value = draft.mapData
+                .map(byte => byte.toString(16).toUpperCase().padStart(2, '0'))
+                .join(' ');
+            document.getElementById('monsterData').value = draft.monsterData
+                .map(byte => byte.toString(16).toUpperCase().padStart(2, '0'))
+                .join(' ');
+            document.getElementById('romAddress').textContent = '-';
+            document.getElementById('cpuAddress').textContent = '-';
+            document.getElementById('monsterRomAddress').textContent = '-';
+            document.getElementById('monsterCpuAddress').textContent = '-';
+            document.querySelectorAll('.level-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            this.markEditorClean();
+            this.testLevelBtn.disabled = false;
+            this.testBtn.disabled = false;
+            this.renderBackupList();
+            this.showMessage('success', i18n.t('draftLoadedSuccess', {
+                name: draft.name
+            }));
+        });
+    }
+
+    restoreBackupLevel(backupIndex) {
+        this.loadDraftLevel(backupIndex);
+    }
+
+    exportDraftLevel(draftIndex) {
+        const draft = this.backupLevels[draftIndex];
+        if (!draft) return;
+        try {
+            let exportDraft = draft;
+            if (this.currentDraftId === draft.id && this.hasUnsavedChanges()) {
+                const editorData = this.getCurrentLevelRomData();
+                if (!editorData) return;
+                exportDraft = {
+                    ...draft,
+                    mapData: editorData.mapData,
+                    monsterData: editorData.monsterData,
+                    checksum: null
+                };
+            }
+            LevelFile.download(
+                LevelFile.createSingle(exportDraft),
+                `${LevelFile.safeFileName(draft.name, 'draft')}.moailevel`
+            );
+            this.showMessage('success', i18n.t('levelExportSuccess', {
+                name: draft.name
+            }));
+        } catch (error) {
+            this.showMessage('error', i18n.t('levelExportFailed', { error: error.message }));
+        }
+    }
+
+    exportCurrentDraft() {
+        const draftIndex = this.backupLevels.findIndex(
+            draft => draft.id === this.currentDraftId
+        );
+        if (draftIndex < 0) {
+            this.showMessage('warning', i18n.t('selectDraftFirst'));
+            return;
+        }
+        this.exportDraftLevel(draftIndex);
+    }
+
+    exportAllDrafts() {
+        if (this.backupLevels.length === 0) {
+            this.showMessage('warning', i18n.t('draftPackEmpty'));
+            return;
+        }
+
+        try {
+            const currentDraft = this.getCurrentDraft();
+            let unsavedData = null;
+            if (currentDraft && this.hasUnsavedChanges()) {
+                unsavedData = this.getCurrentLevelRomData();
+                if (!unsavedData) return;
+            }
+            const drafts = this.backupLevels.map(draft => {
+                if (!currentDraft || draft.id !== currentDraft.id || !unsavedData) {
+                    return draft;
+                }
+                return {
+                    ...draft,
+                    mapData: unsavedData.mapData,
+                    monsterData: unsavedData.monsterData,
+                    checksum: null
+                };
+            });
+            LevelFile.download(
+                LevelFile.createDraftPack(drafts),
+                'Moaikun-drafts.moaidrafts'
+            );
+            this.showMessage('success', i18n.t('draftPackExportSuccess', {
+                count: drafts.length
+            }));
+        } catch (error) {
+            this.showMessage('error', i18n.t('levelExportFailed', { error: error.message }));
+        }
+    }
+
+    appendDraftToFormal(draftIndex) {
+        const draft = this.backupLevels[draftIndex];
+        if (!draft) return;
+        if (!this.romEditor.romData) {
+            this.showMessage('error', i18n.t('romRequiredForDraft'));
+            return;
+        }
+
+        const activeCount = this.romEditor.getLevelCount();
+        if (activeCount >= this.romEditor.getMaxCountOfLevels()) {
+            this.showMessage('error', i18n.t('invalidLevelCountMessageError', {
+                maxLevelCount: this.romEditor.getMaxCountOfLevels()
+            }));
+            return;
+        }
+
+        try {
+            let mapData = draft.mapData;
+            let monsterData = draft.monsterData;
+            if (this.currentDraftId === draft.id && this.hasUnsavedChanges()) {
+                const editorData = this.getCurrentLevelRomData();
+                if (!editorData) return;
+                mapData = editorData.mapData;
+                monsterData = editorData.monsterData;
+                this.backupLevels[draftIndex] = LevelFile.validateLevel({
+                    ...draft,
+                    mapData,
+                    monsterData,
+                    checksum: null
+                }, draft.name);
+                this.currentDraftId = this.backupLevels[draftIndex].id;
+                this.saveDraftLevels();
+                this.markEditorClean();
+            }
+
+            const activeRecords = this.romEditor.levels
+                .slice(0, activeCount)
+                .map(level => ({
+                    mapData: level.data,
+                    monsterData: level.monsterData
+                }));
+            const nextRecords = [
+                ...activeRecords,
+                { mapData, monsterData }
+            ];
+            if (!this.validatePackCapacity(nextRecords)) {
+                return;
+            }
+
+            const enemyCountResult = this.romEditor.checkTotalEnemyCount(
+                nextRecords.map((record, index) =>
+                    new Level(index, 0, 0, record.mapData, record.monsterData)),
+                nextRecords.length
+            );
+            if (!enemyCountResult.valid) {
+                this.showMessage('error', enemyCountResult.error);
+                return;
+            }
+
+            const addedLevel = new Level(
+                activeCount,
+                0,
+                0,
+                [...mapData],
+                [...monsterData]
+            );
+            addedLevel.originalIndex = -1;
+            addedLevel.modified = true;
+
+            // Inactive/grey levels remain recoverable. The new formal level is
+            // inserted immediately before them.
+            this.romEditor.levels.splice(activeCount, 0, addedLevel);
+            this.romEditor.setLevelCount(activeCount + 1);
+            this.romEditor.levels.forEach((level, index) => {
+                level.index = index;
+                level.isDeleted = index >= this.romEditor.getLevelCount();
+            });
+            this.romEditor.recalDataAddresses();
+            this.romEditor.modified = true;
+
+            const levelCountInput = document.getElementById('levelCountInput');
+            if (levelCountInput) {
+                levelCountInput.value = this.romEditor.getLevelCount();
+            }
+            this.saveLevelDataToCache();
+            this.createLevelList();
+            this.updateMemoryOverview();
+            this.switchLevelLibraryTab('formal');
+            this.selectLevel(activeCount, { skipUnsavedGuard: true });
+            this.showMessage('success', i18n.t('draftAddedToFormalSuccess', {
+                name: draft.name,
+                level: activeCount + 1
+            }));
+        } catch (error) {
+            this.showMessage('error', i18n.t('draftAddToFormalFailed', {
+                error: error.message
+            }));
+        }
+    }
+
+    deleteBackupLevel(backupIndex) {
+        const draft = this.backupLevels[backupIndex];
+        if (!draft || !confirm(i18n.t('deleteDraftConfirm', { name: draft.name }))) {
+            return;
+        }
+        this.backupLevels.splice(backupIndex, 1);
+        if (this.currentDraftId === draft.id) {
+            this.currentDraftId = null;
+            this.editorSource = 'formal';
+            const nextFormalIndex = Math.min(
+                this.currentLevel,
+                this.romEditor.getLevelCount() - 1
+            );
+            if (this.romEditor.romData && nextFormalIndex >= 0) {
+                this.selectLevel(nextFormalIndex, { skipUnsavedGuard: true });
+            } else {
+                this.editorBaseline = null;
+            }
+        }
+        this.saveDraftLevels();
+        this.renderBackupList();
+    }
+
+    renderBackupList() {
+        const container = document.getElementById('backupLevelList');
+        const section = document.getElementById('backupSection');
+        if (!container || !section) return;
+
+        container.innerHTML = '';
+        const emptyState = document.getElementById('draftEmptyState');
+        if (this.backupLevels.length === 0) {
+            if (emptyState) emptyState.style.display = 'block';
+            this.updateDraftActionState();
+            return;
+        }
+        if (emptyState) emptyState.style.display = 'none';
+
+        this.backupLevels.forEach((draft, index) => {
             const item = document.createElement('div');
             item.className = 'backup-level-item';
-            
-            const timeStr = new Date(backup.timestamp).toLocaleTimeString();
-            
-            item.innerHTML = `
-                <div class="backup-level-content" onclick="app.restoreBackupLevel(${i})">
-                    <span class="backup-level-num">${i18n.t('levelLabel', {level: backup.levelNumber})}</span>
-                    <span class="backup-level-time">${timeStr}</span>
-                </div>
-                <button class="backup-restore-btn" onclick="event.stopPropagation(); app.restoreBackupLevel(${i})" title="${i18n.t('restoreBackup')}">
-                    ↩️
-                </button>
-                <button class="backup-delete-btn" onclick="event.stopPropagation(); app.deleteBackupLevel(${i})" title="${i18n.t('deleteBackup')}">🗑️</button>
-            `;
-            
+            item.dataset.draftId = draft.id;
+            item.classList.toggle('active',
+                this.editorSource === 'draft' && this.currentDraftId === draft.id);
+
+            const content = document.createElement('div');
+            content.className = 'backup-level-content';
+            content.tabIndex = 0;
+            content.setAttribute('role', 'button');
+            content.addEventListener('click', () => this.loadDraftLevel(index));
+            content.addEventListener('keydown', event => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    this.loadDraftLevel(index);
+                }
+            });
+
+            const name = document.createElement('span');
+            name.className = 'backup-level-num';
+            name.textContent = draft.name;
+
+            const source = document.createElement('span');
+            source.className = 'backup-level-source';
+            source.textContent = i18n.t(`draftSource_${draft.source}`);
+
+            const time = document.createElement('span');
+            time.className = 'backup-level-time';
+            time.textContent = new Date(draft.createdAt).toLocaleString();
+            content.append(name, source, time);
+
+            const actions = document.createElement('div');
+            actions.className = 'backup-level-actions';
+
+            const addButton = document.createElement('button');
+            addButton.className = 'backup-add-btn';
+            addButton.type = 'button';
+            addButton.title = i18n.t('addDraftToFormal');
+            addButton.textContent = i18n.t('addDraftToFormalShort');
+            addButton.disabled = !this.romEditor.romData ||
+                this.romEditor.getLevelCount() >= this.romEditor.getMaxCountOfLevels();
+            addButton.addEventListener('click', event => {
+                event.stopPropagation();
+                this.appendDraftToFormal(index);
+            });
+
+            const loadButton = document.createElement('button');
+            loadButton.className = 'backup-restore-btn';
+            loadButton.type = 'button';
+            loadButton.title = i18n.t('loadDraft');
+            loadButton.textContent = '✏️';
+            loadButton.addEventListener('click', event => {
+                event.stopPropagation();
+                this.loadDraftLevel(index);
+            });
+
+            const exportButton = document.createElement('button');
+            exportButton.className = 'backup-export-btn';
+            exportButton.type = 'button';
+            exportButton.title = i18n.t('exportDraft');
+            exportButton.textContent = '📤';
+            exportButton.addEventListener('click', event => {
+                event.stopPropagation();
+                this.exportDraftLevel(index);
+            });
+
+            const deleteButton = document.createElement('button');
+            deleteButton.className = 'backup-delete-btn';
+            deleteButton.type = 'button';
+            deleteButton.title = i18n.t('deleteDraft');
+            deleteButton.textContent = '🗑️';
+            deleteButton.addEventListener('click', event => {
+                event.stopPropagation();
+                this.deleteBackupLevel(index);
+            });
+
+            actions.append(addButton, loadButton, exportButton, deleteButton);
+            item.append(content, actions);
             container.appendChild(item);
-        }
+        });
+        this.updateDraftActionState();
     }
 }
 
@@ -1655,6 +2549,34 @@ function shareLevel(){
     app.shareLevel();
 }
 
+function exportCurrentLevel() {
+    app.exportCurrentLevel();
+}
+
+function exportLevelPack() {
+    app.exportLevelPack();
+}
+
+function exportCurrentDraft() {
+    app.exportCurrentDraft();
+}
+
+function exportAllDrafts() {
+    app.exportAllDrafts();
+}
+
+function openLevelFilePicker(target) {
+    app.openLevelFilePicker(target);
+}
+
+function switchLevelLibraryTab(tab) {
+    app.switchLevelLibraryTab(tab);
+}
+
+function resolveUnsavedChanges(choice) {
+    app.resolveUnsavedChanges(choice);
+}
+
 function downloadROM() {
     app.downloadROM();
 }
@@ -1675,6 +2597,7 @@ function startEditLevels() {
     
     // Backup current order (shallow copy array, Level objects keep reference)
     app.originalLevelsOrder = app.romEditor.levels.slice();
+    app.originalLevelCount = app.romEditor.getLevelCount();
     app.levelsListChanged = false;
     
     // Toggle button display
@@ -1687,34 +2610,12 @@ function startEditLevels() {
         levelCountInput.disabled = false;
     }
 
-    // Change item to drag style
-    for(let i=0; i< app.romEditor.levels.length; i++){
-        const level = app.romEditor.getLevel(i);
-        const item = level.htmlItem;
-        if (!item) continue; // Skip if htmlItem is not set
-        
-        const dragHandle = item.querySelector('.drag-handle');
-        if (dragHandle) {
-            dragHandle.style.display = 'flex';
-        }
-        item.classList.remove('no-drag');
-    }
+    app.applyLevelOrderEditingState();
 }
 
 
 function hideDragHandle(){
-    // Hide dragHandle
-    for(let i=0; i< app.romEditor.levels.length; i++){
-        const level = app.romEditor.getLevel(i);
-        const item = level.htmlItem;
-        if (!item) continue; // Skip if htmlItem is not set
-        
-        const dragHandle = item.querySelector('.drag-handle');
-        if (dragHandle) {
-            dragHandle.style.display = 'none';
-        }
-        item.classList.add('no-drag');
-    }
+    app.applyLevelOrderEditingState();
 }
 
 /**
@@ -1729,14 +2630,10 @@ function cancelEditLevels() {
     
     // Disable level count input
     const levelCountInput = document.getElementById('levelCountInput');
-    if (levelCountInput) {
-        levelCountInput.value = app.romEditor.getLevelCount();
-        levelCountInput.disabled = true;
-    }
-    
     // If user made changes, restore original order
     if (app.levelsListChanged && app.originalLevelsOrder) {
         app.romEditor.levels = app.originalLevelsOrder.slice();
+        app.romEditor.setLevelCount(app.originalLevelCount);
         
         // Reset all level indices to ensure correct level numbers
         for (let i = 0; i < app.romEditor.levels.length; i++) {
@@ -1744,13 +2641,16 @@ function cancelEditLevels() {
         }
         
         app.originalLevelsOrder = null;
+        app.originalLevelCount = null;
         app.levelsListChanged = false;
         
         // Recreate list to reflect restored order
         app.createLevelList();
         
         // Restore current selected level (if any)
-        if (app.currentLevel >= 0 && app.currentLevel < app.romEditor.levels.length) {
+        if (app.editorSource === 'formal' &&
+            app.currentLevel >= 0 &&
+            app.currentLevel < app.romEditor.getLevelCount()) {
             app.selectLevel(app.currentLevel);
         }
         
@@ -1759,6 +2659,12 @@ function cancelEditLevels() {
         // No changes, just hide drag handles
         hideDragHandle();
         app.originalLevelsOrder = null;
+        app.originalLevelCount = null;
+    }
+
+    if (levelCountInput) {
+        levelCountInput.value = app.romEditor.getLevelCount();
+        levelCountInput.disabled = true;
     }
 }
 
@@ -1791,7 +2697,9 @@ function checkConsecutiveMoai(mapData, isWideScreen) {
 function saveLevels() {
     const levelCount = app.romEditor.getLevelCount();
     if (levelCount > app.romEditor.getMaxCountOfLevels()) {
-        app.showMessage('error', i18n.t("levelCountExceedError",{maxCount: app.romEditor.getMaxCountOfLevels()}));
+        app.showMessage('error', i18n.t("invalidLevelCountMessageError",{
+            maxLevelCount: app.romEditor.getMaxCountOfLevels()
+        }));
         return;
     } 
 
@@ -1812,6 +2720,7 @@ function saveLevels() {
     // If no changes, return directly
     if (!app.levelsListChanged) {
         app.originalLevelsOrder = null;
+        app.originalLevelCount = null;
         return;
     }
     
@@ -1835,13 +2744,18 @@ function saveLevels() {
     
     // Clear backup and flags
     app.originalLevelsOrder = null;
+    app.originalLevelCount = null;
     app.levelsListChanged = false;
+    app.saveLevelDataToCache();
     
     // Recreate list to update all htmlItem references and level number display
     app.createLevelList();
+    app.updateMemoryOverview();
     
     // Restore current selected level (if in valid range)
-    if (app.currentLevel >= 0 && app.currentLevel < levelCount) {
+    if (app.editorSource !== 'formal') {
+        app.renderBackupList();
+    } else if (app.currentLevel >= 0 && app.currentLevel < levelCount) {
         app.selectLevel(app.currentLevel);
     } else if (app.currentLevel >= levelCount && levelCount > 0) {
         // If current level was deleted, select last valid level
@@ -1858,6 +2772,12 @@ function saveLevels() {
  */
 function switchLanguage(lang) {
     i18n.setLanguage(lang);
+    if (app) {
+        app.renderBackupList();
+        if (app.romEditor.romData) {
+            app.createLevelList();
+        }
+    }
     
     // Update language button active state
     document.querySelectorAll('.lang-btn').forEach(btn => {

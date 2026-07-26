@@ -898,25 +898,142 @@ body.ios-device .editor-layout {
     }
 }
 
-/* 备份关卡列表样式 */
+/* ROM 独立关卡文件操作 */
+.sidebar-level-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin: 12px 15px 4px;
+    padding: 4px;
+    border-radius: 9px;
+    background: #edf1f5;
+}
+
+.sidebar-level-tab {
+    position: relative;
+    min-height: 38px;
+    padding: 8px 6px;
+    border: 0;
+    border-radius: 7px;
+    color: #607080;
+    background: transparent;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.18s, color 0.18s, box-shadow 0.18s;
+}
+
+.sidebar-level-tab:hover {
+    color: #1e88e5;
+    background: rgba(255, 255, 255, 0.62);
+}
+
+.sidebar-level-tab.active {
+    color: #1565c0;
+    background: #fff;
+    box-shadow: 0 1px 5px rgba(36, 64, 94, 0.16);
+}
+
+.draft-count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    margin-left: 3px;
+    padding: 0 5px;
+    border-radius: 9px;
+    color: #fff;
+    background: #5c6bc0;
+    font-size: 10px;
+    line-height: 1;
+}
+
+.sidebar-level-panel {
+    display: none;
+}
+
+.sidebar-level-panel.active {
+    display: block;
+}
+
+.level-file-controls {
+    margin: 12px 15px 16px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.draft-file-controls {
+    margin: 14px 15px 10px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.draft-file-controls .level-file-pack {
+    grid-column: 1 / -1;
+}
+
+.level-file-btn {
+    min-height: 38px;
+    padding: 8px 6px;
+    border: 0;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.15s, filter 0.15s;
+}
+
+.level-file-btn:hover {
+    filter: brightness(0.94);
+    transform: translateY(-1px);
+}
+
+.level-file-btn:active {
+    transform: translateY(0);
+}
+
+.level-file-export {
+    background: #00897b;
+}
+
+.level-file-import {
+    background: #1e88e5;
+}
+
+.level-file-pack {
+    grid-column: 1 / -1;
+    background: #6d4c41;
+}
+
+.level-file-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+    transform: none;
+}
+
+/* 草稿箱样式 */
 .backup-section {
-    margin-top: 20px;
+    margin: 12px 15px 18px;
     padding: 15px;
-    background: #fff3cd;
+    background: #eef5ff;
     border-radius: 8px;
-    border-left: 4px solid #ff9800;
+    border-left: 4px solid #5c6bc0;
 }
 
 .backup-section-title {
     font-size: 14px;
-    color: #856404;
+    color: #3949ab;
     margin: 0 0 8px 0;
     font-weight: bold;
 }
 
 .backup-section-hint {
     font-size: 12px;
-    color: #856404;
+    color: #455a64;
     margin: 0 0 12px 0;
     opacity: 0.9;
 }
@@ -924,6 +1041,9 @@ body.ios-device .editor-layout {
 .backup-level-list {
     display: grid;
     gap: 8px;
+    max-height: 280px;
+    overflow-y: auto;
+    padding-right: 2px;
 }
 
 .backup-level-item {
@@ -932,16 +1052,22 @@ body.ios-device .editor-layout {
     justify-content: space-between;
     padding: 10px;
     background: white;
-    border: 2px solid #ffecb3;
+    border: 2px solid #dbe4ff;
     border-radius: 6px;
     cursor: pointer;
     transition: all 0.2s;
 }
 
 .backup-level-item:hover {
-    background: #fffbf0;
-    border-color: #ffc107;
+    background: #f7f9ff;
+    border-color: #7986cb;
     transform: translateX(3px);
+}
+
+.backup-level-item.active {
+    background: #e8eaff;
+    border-color: #3949ab;
+    box-shadow: 0 0 0 2px rgba(57, 73, 171, 0.12);
 }
 
 .backup-level-content {
@@ -960,6 +1086,44 @@ body.ios-device .editor-layout {
 .backup-level-time {
     font-size: 11px;
     color: #999;
+}
+
+.backup-level-source {
+    font-size: 10px;
+    color: #5c6bc0;
+}
+
+.backup-level-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 4px;
+    margin-left: 6px;
+}
+
+.backup-add-btn {
+    min-height: 30px;
+    padding: 4px 8px;
+    border: none;
+    border-radius: 15px;
+    color: #fff;
+    background: #fb8c00;
+    font-size: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.backup-add-btn:hover {
+    background: #ef6c00;
+    transform: scale(1.04);
+}
+
+.backup-add-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+    transform: none;
 }
 
 .backup-delete-btn {
@@ -987,6 +1151,27 @@ body.ios-device .editor-layout {
     transform: scale(0.95);
 }
 
+.backup-export-btn {
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: #00897b;
+    color: white;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.backup-export-btn:hover {
+    background: #00695c;
+    transform: scale(1.1);
+}
+
 .backup-restore-btn {
     width: 32px;
     height: 32px;
@@ -1011,4 +1196,88 @@ body.ios-device .editor-layout {
 
 .backup-restore-btn:active {
     transform: scale(0.95);
+}
+
+.draft-empty-state {
+    margin: 14px 0 4px;
+    padding: 18px 10px;
+    border: 1px dashed #9fa8da;
+    border-radius: 7px;
+    color: #697386;
+    background: rgba(255, 255, 255, 0.55);
+    font-size: 12px;
+    text-align: center;
+}
+
+/* 未保存修改三选项弹窗 */
+.level-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10020;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(20, 24, 32, 0.55);
+    backdrop-filter: blur(2px);
+}
+
+.level-modal-overlay[hidden] {
+    display: none;
+}
+
+.level-modal {
+    width: min(460px, 100%);
+    padding: 24px;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 18px 55px rgba(0, 0, 0, 0.28);
+}
+
+.level-modal h3 {
+    margin: 0 0 12px;
+    color: #8a4b08;
+    font-size: 19px;
+}
+
+.level-modal p {
+    margin: 0 0 22px;
+    color: #4f5965;
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.level-modal-actions {
+    display: grid;
+    grid-template-columns: 0.8fr 0.8fr 1.4fr;
+    gap: 9px;
+}
+
+.level-modal-btn {
+    min-height: 42px;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 7px;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.level-modal-cancel {
+    background: #78909c;
+}
+
+.level-modal-discard {
+    background: #ef5350;
+}
+
+.level-modal-draft {
+    background: #43a047;
+}
+
+@media (max-width: 520px) {
+    .level-modal-actions {
+        grid-template-columns: 1fr;
+    }
 }

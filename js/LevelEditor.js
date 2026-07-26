@@ -142,6 +142,9 @@ class LevelEditor {
         } catch (error) {
             console.error('Failed to load data:', error);
         }
+        // Loading a level is not an edit. App keeps an additional content
+        // snapshot so navigation does not rely on this flag alone.
+        this.modified = false;
         this.resetImages();
     }
 

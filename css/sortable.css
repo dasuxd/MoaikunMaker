@@ -36,18 +36,24 @@
 }
 
 /* 关卡列表项基础样式 */
+.level-item.inactive-level,
 .level-item.deleted-level {
-    position: relative;
-    padding: 0;
-    background: #262424;
-    border-left: 3px solid #ddd;
-    border-radius: 4px;
-    transition: all 0.3s;
-    overflow: hidden;
-    font-size: 11px;
-    margin-bottom: 4px;
-    display: flex;
-    align-items: center;
+    background: #ededed;
+    border-left-color: #c7c7c7;
+    color: #8b8b8b;
+    opacity: 0.62;
+    filter: grayscale(0.9);
+}
+
+.level-item.inactive-level:hover,
+.level-item.deleted-level:hover {
+    background: #ededed;
+    border-left-color: #c7c7c7;
+}
+
+.level-item.inactive-level .level-content,
+.level-item.deleted-level .level-content {
+    cursor: not-allowed;
 }
 
 .level-item:hover {
