@@ -373,6 +373,16 @@ class Romfix{
         // Restore the original stage-title setup.
         restore(0x8A60, [0xA9, 0x00, 0x85, 0x2F]);
 
+        // Restore the original pause early-return test.
+        restore(0x8B4F, [0xA5, 0x32, 0xF0]);
+
+        // Restore the unused fixed-bank padding used by pause free-look.
+        Romfix.fixCodeInsert(
+            romData,
+            fixedBankRomAddr(0xFED9),
+            new Array(0x50).fill(0xFF)
+        );
+
         /**
          * Restore the retired animation-filter bytes beneath the optional
          * stage-camera reset helper at $FFD0-$FFE0. They are unreachable, but
@@ -486,6 +496,73 @@ class Romfix{
             0x85, 0xFF,             // STA PPUCTRL shadow
             0xA9, 0x00,             // restore original accumulator result
             0x60,                   // RTS
+        ]);
+
+        /**
+         * CPU $8B4F and $FED9-$FF28: paused wide-map free-look.
+         *
+         * The original active-game loop returns at $8B53 whenever $32 is
+         * nonzero. Tail-jump through the helper instead:
+         *
+         * - an unpaused frame restores PPUMASK sprite rendering and continues
+         *   at the original active update entry $8B54;
+         * - a paused wide-map frame with Left/Right held changes the existing
+         *   9-bit camera by four pixels modulo $200 and clears PPUMASK bit 4;
+         * - a paused frame without a direction returns with the current camera
+         *   and sprite-visibility state unchanged.
+         *
+         * PPUMASK itself is the "free-look has started" flag, so this needs no
+         * additional RAM. Resuming immediately restores sprites; the normal
+         * gameplay update then recenters the camera on the player.
+         */
+        patchBank0(0x8B4F, [0x4C, 0xD9, 0xFE]);
+        Romfix.fixCodeInsert(romData, fixedBankRomAddr(0xFED9), [
+            0xA5, 0x32,             // LDA pauseFlag
+            0xD0, 0x09,             // BNE paused
+            0xA5, 0xFE,             // unpaused: LDA PPUMASK shadow
+            0x09, 0x10,             // ORA #showSprites
+            0x85, 0xFE,             // STA PPUMASK shadow
+            0x4C, 0x54, 0x8B,       // JMP original active update
+
+            0xA5, 0x3D,             // paused: LDA levelMode
+            0x4A,                   // LSR A (carry = wide flag)
+            0x90, 0x3D,             // BCC done
+            0xA5, 0xF6,             // LDA held controller buttons
+            0x29, 0x03,             // AND #(Left | Right)
+            0xF0, 0x37,             // BEQ done
+            0xC9, 0x03,             // CMP #(Left | Right)
+            0xF0, 0x33,             // BEQ done
+            0x4A,                   // LSR A (carry set = Right)
+            0xA5, 0xFE,             // LDA PPUMASK shadow
+            0x29, 0xEF,             // AND #hideSprites
+            0x85, 0xFE,             // STA PPUMASK shadow
+            0xB0, 0x12,             // BCS moveRight
+
+            0x38,                   // moveLeft: SEC
+            0xA5, 0xFD,             // LDA cameraXLow
+            0xE9, 0x04,             // SBC #$04
+            0x85, 0xFD,             // STA cameraXLow
+            0xA5, 0x9D,             // LDA cameraXHigh
+            0xE9, 0x00,             // SBC #$00
+            0x29, 0x01,             // AND #$01
+            0x85, 0x9D,             // STA cameraXHigh
+            0x4C, 0x1F, 0xFF,       // JMP updatePpuPage
+
+            0x18,                   // moveRight: CLC
+            0xA5, 0xFD,             // LDA cameraXLow
+            0x69, 0x04,             // ADC #$04
+            0x85, 0xFD,             // STA cameraXLow
+            0xA5, 0x9D,             // LDA cameraXHigh
+            0x69, 0x00,             // ADC #$00
+            0x29, 0x01,             // AND #$01
+            0x85, 0x9D,             // STA cameraXHigh
+
+            0xA5, 0xFF,             // updatePpuPage: LDA PPUCTRL shadow
+            0x29, 0xFE,             // AND #$FE
+            0x05, 0x9D,             // ORA cameraXHigh
+            0x85, 0xFF,             // STA PPUCTRL shadow
+            0x60,                   // RTS
+            0x60,                   // done: RTS
         ]);
 
         /**
