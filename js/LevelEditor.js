@@ -63,7 +63,12 @@ class LevelEditor {
         this._currentBgId = value;
         const bgSelect = document.getElementById('bgSelect');
         bgSelect.value = value
-        OptimizedMap.optimizedMap(this._currentBgId, this.mapData, this.optimizedMapData);
+        OptimizedMap.optimizedMap(
+            this._currentBgId,
+            this.mapData,
+            this.optimizedMapData,
+            this.isWideScreen
+        );
     }
     
     /**
@@ -102,7 +107,12 @@ class LevelEditor {
             // Set map data (16x14)
             if (data.map && data.map.length === Config.GRID_HEIGHT) {
                 this.mapData = data.map.map(row => [...row]);
-                OptimizedMap.optimizedMap(this.currentBgId, this.mapData, this.optimizedMapData);
+                OptimizedMap.optimizedMap(
+                    this.currentBgId,
+                    this.mapData,
+                    this.optimizedMapData,
+                    this.isWideScreen
+                );
             }
             
             // Set player position
@@ -548,6 +558,12 @@ class LevelEditor {
         if (wideScreenCheckbox) {
             wideScreenCheckbox.addEventListener('change', (e) => {
                 this.isWideScreen = e.target.checked;
+                OptimizedMap.optimizedMap(
+                    this.currentBgId,
+                    this.mapData,
+                    this.optimizedMapData,
+                    this.isWideScreen
+                );
                 this.saveStatusEnabled();
                 this.render();
                 // Re-center canvas after switching wide screen mode
@@ -910,7 +926,12 @@ class LevelEditor {
 
     performEnd(){
         // Optimize tile display
-        OptimizedMap.optimizedMap(this.currentBgId, this.mapData, this.optimizedMapData);
+        OptimizedMap.optimizedMap(
+            this.currentBgId,
+            this.mapData,
+            this.optimizedMapData,
+            this.isWideScreen
+        );
 
         this.saveStatusEnabled();
         // Immediately render update
@@ -979,7 +1000,12 @@ class LevelEditor {
     clearMap() {
         if (confirm('Are you sure you want to clear the map?')) {
             this.mapData = Array(Config.GRID_HEIGHT).fill(null).map(() => Array(Config.GRID_WIDTH).fill(0));
-            OptimizedMap.optimizedMap(this.currentBgId, this.mapData, this.optimizedMapData);
+            OptimizedMap.optimizedMap(
+                this.currentBgId,
+                this.mapData,
+                this.optimizedMapData,
+                this.isWideScreen
+            );
             this.playerPos = null;
             this.doorPos = null;
             this.enemies = [];

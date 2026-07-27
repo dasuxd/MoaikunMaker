@@ -1,6 +1,9 @@
 class OptimizedMap{
-    static optimizedMap(bgId, mapData, optimizedMapData){
+    static optimizedMap(bgId, mapData, optimizedMapData, isWideScreen = false){
         const bgIdNum = parseInt(bgId, 10);
+        const mapWidth = isWideScreen
+            ? Config.GRID_WIDTH
+            : Config.GRID_WIDTH / 2;
         switch(bgIdNum){
             case 0x00:
                 OptimizedMap.optimizeMap00(mapData, optimizedMapData);
@@ -18,7 +21,7 @@ class OptimizedMap{
                 OptimizedMap.optimizeMap04(mapData, optimizedMapData);
                 break;
             case 0x05:
-                OptimizedMap.optimizeMap05(mapData, optimizedMapData);
+                OptimizedMap.optimizeMap05(mapData, optimizedMapData, mapWidth);
                 break;
             case 0x06:
                 OptimizedMap.optimizeMap06(mapData, optimizedMapData);
@@ -30,10 +33,10 @@ class OptimizedMap{
                 OptimizedMap.optimizeMap08(mapData, optimizedMapData);
                 break;
             case 0x09:
-                OptimizedMap.optimizeMap09(mapData, optimizedMapData);
+                OptimizedMap.optimizeMap09(mapData, optimizedMapData, mapWidth);
                 break;
             case 0x0A:
-                OptimizedMap.optimizeMap10(mapData, optimizedMapData);
+                OptimizedMap.optimizeMap10(mapData, optimizedMapData, mapWidth);
                 break;
             case 0x0B:
                 OptimizedMap.optimizeMap11(mapData, optimizedMapData);
@@ -173,20 +176,24 @@ class OptimizedMap{
         }
     }
 
-    static optimizeMap05(mapData, optimizedMap){
+    static optimizeMap05(mapData, optimizedMap, mapWidth = Config.GRID_WIDTH){
         for(let y=0; y<Config.GRID_HEIGHT; y++){
+            const row = Array.isArray(mapData[y]) ? mapData[y] : [];
+            // Single-screen rows have 16 cells and wide-screen rows have 32.
+            // Both modes wrap horizontally, so the row edges are neighbours.
+            const rowWidth = Math.min(mapWidth, Config.GRID_WIDTH);
             //
             for(let x=0; x<Config.GRID_WIDTH; x++){
-                let tile = mapData[y][x];
+                let tile = row[x] ?? 0;
                 // 示例优化规则：所有 1 、 2 、3 号砖块
                 // 如果两边都没有砖块 则变为 4 号砖块
                 // 如果左边有右边没有则变成  3 号砖块
                 // 如果右边有左边没有则变成 1 号砖块
                 // 如果左右都有 则变成 2 号砖块
 
-                if(tile === 1 || tile === 2 || tile ===3){
-                    const leftTile = (x > 0) ? mapData[y][x - 1] : 0;
-                    const rightTile = (x < Config.GRID_WIDTH - 1) ? mapData[y][x + 1] : 0;
+                if((tile === 1 || tile === 2 || tile ===3) && rowWidth > 0 && x < rowWidth){
+                    const leftTile = row[(x - 1 + rowWidth) % rowWidth] ?? 0;
+                    const rightTile = row[(x + 1) % rowWidth] ?? 0;
                     if(![1, 2, 3].includes(leftTile) && ![1, 2, 3].includes(rightTile)){
                         tile = 4;
                     }else if([1, 2, 3].includes(leftTile) && ![1, 2, 3].includes(rightTile)){
@@ -234,12 +241,12 @@ class OptimizedMap{
         OptimizedMap.optimizeMap07(mapData, optimizedMap);
     }
 
-    static optimizeMap09(mapData, optimizedMap){
-        OptimizedMap.optimizeMap05(mapData, optimizedMap);
+    static optimizeMap09(mapData, optimizedMap, mapWidth){
+        OptimizedMap.optimizeMap05(mapData, optimizedMap, mapWidth);
     }
 
-    static optimizeMap10(mapData, optimizedMap){
-        OptimizedMap.optimizeMap05(mapData, optimizedMap);
+    static optimizeMap10(mapData, optimizedMap, mapWidth){
+        OptimizedMap.optimizeMap05(mapData, optimizedMap, mapWidth);
     }
 
     static optimizeMap11(mapData, optimizedMap){
