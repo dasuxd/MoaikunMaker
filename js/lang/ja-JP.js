@@ -131,7 +131,7 @@ const translations_jaJP = {
     'clearRomCacheConfirm': 'キャッシュされたROMをクリアしてもよろしいですか？',
     'forbiddenPlaceConsecutiveMoaiWarning': 'システムの制限により、14個以上の連続したモアイNPCを配置することはできません。そうしないと、圧縮されたデータがマップの終わりを示すことになります。',
     'prohibitedTileAreaWarning': '最初の行はタイルを配置できない禁止エリアです',
-    'prohibitedPlayerAreaWarning': 'システムの制限により、プレイヤーの開始位置は左半分のエリアにのみ配置できます',
+    'prohibitedPlayerAreaWarning': 'システムの制限により、プレイヤーの開始位置は左半分のエリアにのみ配置できます、必要に応じてマップ全体を左右に移動できます。',
     'prohibitedDoorAreaWarning': 'システムの制限により、この位置ではプレイヤーがステージをクリアできなくなります。',
     'consecutiveMoaiError': "システムの制限により、14個の連続したモアイNPCを防ぐことはできません。そうしないと、圧縮されたデータがマップの終わりを示すことになります。",
     'buggyEnemy9PlaceInfo': "第2画面に配置された火を吹く像はゲーム内でバグが発生する可能性があります。第1画面にのみ配置することをお勧めします。",

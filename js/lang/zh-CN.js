@@ -131,7 +131,7 @@ const translations_zhCN = {
     'clearRomCacheConfirm': '确定要清除缓存的 ROM 吗？',
     'forbiddenPlaceConsecutiveMoaiWarning': '由于系统限制，无法连续放置 14 个以上的摩艾 NPC，否则压缩后的数据意味着地图结束符号。',
     'prohibitedTileAreaWarning': '第一行为非法放置区域，无法放置图块',
-    'prohibitedPlayerAreaWarning': '由于系统限制，玩家起始点只能放在左半边区域',
+    'prohibitedPlayerAreaWarning': '由于系统限制，玩家起始点只能放在左半边区域，如果必要可以整体左右移动地图。',
     'prohibitedDoorAreaWarning': '由于系统限制，该位置将导致玩家无法通关。',
     'consecutiveMoaiError': "由于系统限制，无法防止连续14个摩艾 NPC，否则压缩后的数据意味着地图结束符号。",
     'buggyEnemy9PlaceInfo': "放置在第二屏的喷火像会在游戏中有bug，建议只放在第一屏。",
