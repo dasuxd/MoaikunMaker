@@ -93,8 +93,9 @@ class RomCache {
      * @param {Array} levelsData - 序列化的关卡数据数组
      * @param {number} levelCount - 关卡总数
      * @param {number} romType - ROM 类型（0=原始，1=扩展）
+     * @param {object} gameConfig - 可选游戏功能配置
      */
-    async saveLevelData(levelsData, levelCount, romType) {
+    async saveLevelData(levelsData, levelCount, romType, gameConfig = {}) {
         if (!this.db) {
             await this.init();
         }
@@ -107,6 +108,7 @@ class RomCache {
                 levels: levelsData,
                 levelCount: levelCount,
                 romType: romType,
+                gameConfig: { ...gameConfig },
                 timestamp: Date.now()
             };
             

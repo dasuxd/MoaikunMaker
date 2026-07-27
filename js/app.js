@@ -58,6 +58,7 @@ class App {
 
         // Game expansion
         this.expansionrom = false;
+        this.syncGameConfigControls();
     }
     
     /**
@@ -130,6 +131,10 @@ class App {
                     // Restore romType from cache
                     if (cachedLevelData.romType !== undefined) {
                         this.romEditor.romType = cachedLevelData.romType;
+                    }
+                    if (cachedLevelData.gameConfig) {
+                        this.romEditor.setGameConfig(cachedLevelData.gameConfig);
+                        this.syncGameConfigControls();
                     }
                     
                     const imported = this.romEditor.importLevelsData(
@@ -292,6 +297,12 @@ class App {
 
         // Initialize toolbar drag functionality
         this.initToolbarDragging();
+
+        document.querySelectorAll('.toolbar-section-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                this.switchToolbarSection(tab.dataset.toolbarTab);
+            });
+        });
         
         // Level list drawer toggle
         const sidebarToggle = document.getElementById('sidebarToggle');
@@ -357,6 +368,23 @@ class App {
             });
         }
 
+        const disableTimerCheckbox = document.getElementById('disableTimerCheckbox');
+        if (disableTimerCheckbox) {
+            disableTimerCheckbox.addEventListener('change', (e) => {
+                this.updateGameConfig('disableTimer', e.target.checked);
+            });
+        }
+
+        const showNpcCountCheckbox = document.getElementById('showNpcCountCheckbox');
+        if (showNpcCountCheckbox) {
+            showNpcCountCheckbox.addEventListener('change', (e) => {
+                this.updateGameConfig(
+                    'showRemainingRescueCount',
+                    e.target.checked
+                );
+            });
+        }
+
         // Clear cache button
         const clearCacheBtn = document.getElementById('clearCacheBtn');
         if (clearCacheBtn) {
@@ -390,6 +418,52 @@ class App {
         this.saveLevelDataToCache();
 
         this.showMessage('info', i18n.t(expanded ? 'romExpansionEnabled' : 'romExpansionDisabled'));
+    }
+
+    switchToolbarSection(sectionName) {
+        const nextSection = sectionName === 'gameConfig'
+            ? 'gameConfig'
+            : 'operations';
+
+        document.querySelectorAll('.toolbar-section-tab').forEach(tab => {
+            const isActive = tab.dataset.toolbarTab === nextSection;
+            tab.classList.toggle('active', isActive);
+            tab.setAttribute('aria-selected', String(isActive));
+        });
+
+        document.querySelectorAll('.toolbar-section-panel').forEach(panel => {
+            const isActive = panel.id === `${nextSection}Panel`;
+            panel.classList.toggle('active', isActive);
+            panel.hidden = !isActive;
+        });
+    }
+
+    updateGameConfig(key, value) {
+        this.romEditor.setGameConfig({
+            ...this.romEditor.getGameConfig(),
+            [key]: Boolean(value)
+        });
+        this.syncGameConfigControls();
+
+        if (this.romEditor.romData) {
+            this.saveLevelDataToCache();
+        }
+    }
+
+    syncGameConfigControls() {
+        const gameConfig = this.romEditor.getGameConfig();
+        const disableTimerCheckbox =
+            document.getElementById('disableTimerCheckbox');
+        const showNpcCountCheckbox =
+            document.getElementById('showNpcCountCheckbox');
+
+        if (disableTimerCheckbox) {
+            disableTimerCheckbox.checked = gameConfig.disableTimer;
+        }
+        if (showNpcCountCheckbox) {
+            showNpcCountCheckbox.checked =
+                gameConfig.showRemainingRescueCount;
+        }
     }
 
     async clearCache() {
@@ -574,6 +648,7 @@ class App {
                 this.showMessage('info', i18n.t('romAlreadyExpanded'));
             }
         }
+        this.syncGameConfigControls();
         const maxLevels = this.romEditor.getMaxCountOfLevels();
         levelCountInput.max = maxLevels;
 
@@ -1732,14 +1807,21 @@ class App {
             const levelsData = this.romEditor.exportLevelsData();
             const levelCount = this.romEditor.getLevelCount();
             const romType = this.romEditor.romType;
+            const gameConfig = this.romEditor.getGameConfig();
             this.recoveryLevelData = {
                 levels: levelsData,
                 levelCount,
                 romType,
+                gameConfig,
                 timestamp: Date.now()
             };
             this.updateRecoveryExportVisibility();
-            this.romCache.saveLevelData(levelsData, levelCount, romType).catch((error) => {
+            this.romCache.saveLevelData(
+                levelsData,
+                levelCount,
+                romType,
+                gameConfig
+            ).catch((error) => {
                 console.error('Failed to save level data to cache:', error);
             });
         } catch (error) {

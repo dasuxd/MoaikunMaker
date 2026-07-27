@@ -19,6 +19,13 @@ class RomEditor {
         this.romType = Config.ROM_TYPE_ORIGINAL;
         // ROM's actual binary type (detected from header, never modified after parse)
         this.originalRomType = Config.ROM_TYPE_ORIGINAL;
+
+        // Optional game patches. These are project settings rather than
+        // per-level data and are applied only when a ROM is exported/tested.
+        this.gameConfig = {
+            disableTimer: false,
+            showRemainingRescueCount: true
+        };
     }
 
     /**
@@ -542,8 +549,26 @@ class RomEditor {
         }
 
         // fix other data
-        Romfix.fixOriginalRom(newRomData, this.romType === Config.ROM_TYPE_EXPANDED);
+        Romfix.fixOriginalRom(
+            newRomData,
+            this.romType === Config.ROM_TYPE_EXPANDED,
+            this.gameConfig
+        );
         return newRomData;
+    }
+
+    setGameConfig(config = {}) {
+        this.gameConfig = {
+            disableTimer: Boolean(config.disableTimer),
+            showRemainingRescueCount:
+                config.showRemainingRescueCount === undefined
+                    ? true
+                    : Boolean(config.showRemainingRescueCount)
+        };
+    }
+
+    getGameConfig() {
+        return { ...this.gameConfig };
     }
 
     /**

@@ -157,9 +157,138 @@ h1 {
 .toolbar h3 {
     font-size: 18px;
     color: #333;
+    margin-top: 14px;
     margin-bottom: 10px;
     border-bottom: 2px solid #2196F3;
     padding-bottom: 8px;
+}
+
+.toolbar-section-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    margin-bottom: 14px;
+    padding: 4px;
+    border-radius: 7px;
+    background: #eef1f5;
+}
+
+.toolbar-section-tab {
+    min-width: 0;
+    padding: 8px 6px;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: #667085;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+}
+
+.toolbar-section-tab:hover {
+    color: #333;
+    background: rgba(255, 255, 255, 0.65);
+}
+
+.toolbar-section-tab.active {
+    color: white;
+    background: #2196F3;
+    box-shadow: 0 2px 5px rgba(33, 150, 243, 0.25);
+}
+
+.toolbar-section-panel {
+    display: none;
+    animation: fadeIn 0.2s;
+}
+
+.toolbar-section-panel.active {
+    display: block;
+}
+
+.scene-controls {
+    margin-bottom: 4px;
+}
+
+.scene-select-label {
+    display: block;
+    margin-bottom: 5px;
+    color: #666;
+    font-size: 13px;
+}
+
+.scene-control-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.scene-select {
+    flex: 1;
+    min-width: 0;
+    padding: 8px;
+    border: 2px solid #ddd;
+    border-radius: 4px;
+    background: white;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.inline-config-option,
+.game-config-option {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: #555;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.inline-config-option {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+.inline-config-option input,
+.game-config-option input {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    cursor: pointer;
+}
+
+.game-config-list {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+}
+
+.game-config-option {
+    min-height: 38px;
+    padding: 9px 10px;
+    border: 1px solid #e1e5ea;
+    border-radius: 6px;
+    background: #f8f9fb;
+}
+
+.game-config-option:hover {
+    border-color: #b8d9f4;
+    background: #f3f9fe;
+}
+
+.game-config-option input:disabled {
+    cursor: not-allowed;
+}
+
+.game-config-option input:disabled + span {
+    opacity: 0.65;
+}
+
+.game-config-hint {
+    margin: 12px 2px 0;
+    color: #888;
+    font-size: 12px;
+    line-height: 1.55;
 }
 
 .tool-tabs {

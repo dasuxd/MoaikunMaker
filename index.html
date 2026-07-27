@@ -244,48 +244,41 @@
                             <button class="toolbar-mode-toggle" id="toolbarModeToggle" onclick="toggleToolbarMode()">📌</button>
                         </div>
                         <div class="toolbar-content">
-                            <h3 data-i18n="operations">操作</h3>
+                            <div class="toolbar-section-tabs" role="tablist">
+                                <button type="button" class="toolbar-section-tab active"
+                                    data-toolbar-tab="operations" role="tab" aria-selected="true"
+                                    data-i18n="operations">操作</button>
+                                <button type="button" class="toolbar-section-tab"
+                                    data-toolbar-tab="gameConfig" role="tab" aria-selected="false"
+                                    data-i18n="gameConfig">游戏配置</button>
+                            </div>
 
-                            <div style="margin-bottom: 10px;">
-                                <label for="bgSelect"
-                                    style="display: block; margin-bottom: 5px; font-size: 13px; color: #666;"
-                                    data-i18n="selectScene">选择场景</label>
-                                <select id="bgSelect"
-                                    style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 4px; font-size: 13px; cursor: pointer;"
-                                    data-i18n-options="scene">
-                                    <option value="0">场景 0</option>
-                                    <option value="1">场景 1</option>
-                                    <option value="2">场景 2</option>
-                                    <option value="3" selected>场景 3</option>
-                                    <option value="4">场景 4</option>
-                                    <option value="5">场景 5</option>
-                                    <option value="6">场景 6</option>
-                                    <option value="7">场景 7</option>
-                                    <option value="8">场景 8</option>
-                                    <option value="9">场景 9</option>
-                                    <option value="10">场景 10</option>
-                                    <option value="11">场景 11</option>
-                                    <!-- <option value="12">场景 12</option>
-                        <option value="13">场景 13</option> -->
-                                </select>
-
-                                <div style="margin-top: 8px;">
-                                    <label
-                                        style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; color: #666;">
-                                        <input type="checkbox" id="wideScreenCheckbox"
-                                            style="width: 16px; height: 16px; cursor: pointer;">
-                                        <span data-i18n="wideScene">📺 宽场景</span>
-                                    </label>
-                                </div>
-
-                                <div style="margin-top: 8px;">
-                                    <label
-                                        style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; color: #666;">
-                                        <input type="checkbox" id="romExpansionCheckbox"
-                                            style="width: 16px; height: 16px; cursor: pointer;" disabled>
-                                        <span data-i18n="romExpansion">🔧 ROM 拓展</span>
-                                        <span class="help-icon" data-i18n-title="romExpansionTooltip" title="">❓</span>
-                                    </label>
+                            <section class="toolbar-section-panel active" id="operationsPanel"
+                                role="tabpanel">
+                                <div class="scene-controls">
+                                    <label for="bgSelect" class="scene-select-label"
+                                        data-i18n="selectScene">选择场景</label>
+                                    <div class="scene-control-row">
+                                        <select id="bgSelect" class="scene-select"
+                                            data-i18n-options="scene">
+                                            <option value="0">场景 0</option>
+                                            <option value="1">场景 1</option>
+                                            <option value="2">场景 2</option>
+                                            <option value="3" selected>场景 3</option>
+                                            <option value="4">场景 4</option>
+                                            <option value="5">场景 5</option>
+                                            <option value="6">场景 6</option>
+                                            <option value="7">场景 7</option>
+                                            <option value="8">场景 8</option>
+                                            <option value="9">场景 9</option>
+                                            <option value="10">场景 10</option>
+                                            <option value="11">场景 11</option>
+                                        </select>
+                                        <label class="inline-config-option">
+                                            <input type="checkbox" id="wideScreenCheckbox">
+                                            <span data-i18n="wideScene">📺 宽场景</span>
+                                        </label>
+                                    </div>
                                 </div>
 
                                 <div class="map-shift-controls">
@@ -294,34 +287,55 @@
                                     <button type="button" class="map-shift-btn" id="shiftMapRightBtn"
                                         data-i18n="shiftMapRight">地图右移 ➡️</button>
                                 </div>
-                            </div>
 
-                            <button class="action-btn" id="clearBtn" style="display: none;"
-                                data-i18n="clearMap">清空地图</button>
-                            <button class="action-btn" id="exportBtn" style="display: none;"
-                                data-i18n="exportData">导出数据</button>
-                            <button class="action-btn" id="applyToRomBtn" style="display: none;"
-                                data-i18n="applyToRom">应用到 ROM 编辑器</button>
-                            <h3 data-i18n="tools">工具</h3>
-                            <!-- 选项卡标题 -->
-                            <div class="tool-tabs">
-                                <button class="tool-tab active" data-tab="tiles" data-i18n="tiles">图块</button>
-                                <button class="tool-tab" data-tab="enemies" data-i18n="enemies">敌人</button>
-                                <button class="tool-tab" data-tab="special" data-i18n="special">特殊</button>
-                            </div>
+                                <button class="action-btn" id="clearBtn" style="display: none;"
+                                    data-i18n="clearMap">清空地图</button>
+                                <button class="action-btn" id="exportBtn" style="display: none;"
+                                    data-i18n="exportData">导出数据</button>
+                                <button class="action-btn" id="applyToRomBtn" style="display: none;"
+                                    data-i18n="applyToRom">应用到 ROM 编辑器</button>
+                                <h3 data-i18n="tools">工具</h3>
+                                <div class="tool-tabs">
+                                    <button class="tool-tab active" data-tab="tiles" data-i18n="tiles">图块</button>
+                                    <button class="tool-tab" data-tab="enemies" data-i18n="enemies">敌人</button>
+                                    <button class="tool-tab" data-tab="special" data-i18n="special">特殊</button>
+                                </div>
 
-                            <!-- 选项卡内容 -->
-                            <div class="tool-tab-content active" id="tilesTab">
-                                <div class="tile-buttons" id="tileButtons"></div>
-                            </div>
+                                <div class="tool-tab-content active" id="tilesTab">
+                                    <div class="tile-buttons" id="tileButtons"></div>
+                                </div>
 
-                            <div class="tool-tab-content" id="enemiesTab">
-                                <div class="enemy-buttons" id="enemyButtons"></div>
-                            </div>
+                                <div class="tool-tab-content" id="enemiesTab">
+                                    <div class="enemy-buttons" id="enemyButtons"></div>
+                                </div>
 
-                            <div class="tool-tab-content" id="specialTab">
-                                <div class="special-buttons" id="specialButtons"></div>
-                            </div>
+                                <div class="tool-tab-content" id="specialTab">
+                                    <div class="special-buttons" id="specialButtons"></div>
+                                </div>
+                            </section>
+
+                            <section class="toolbar-section-panel" id="gameConfigPanel"
+                                role="tabpanel" hidden>
+                                <div class="game-config-list">
+                                    <label class="game-config-option">
+                                        <input type="checkbox" id="romExpansionCheckbox" disabled>
+                                        <span data-i18n="romExpansion">🔧 拓展 ROM</span>
+                                        <span class="help-icon" data-i18n-title="romExpansionTooltip"
+                                            title="">❓</span>
+                                    </label>
+                                    <label class="game-config-option">
+                                        <input type="checkbox" id="disableTimerCheckbox">
+                                        <span data-i18n="disableTimer">⏱️ 停用计时</span>
+                                    </label>
+                                    <label class="game-config-option">
+                                        <input type="checkbox" id="showNpcCountCheckbox" checked>
+                                        <span data-i18n="showNpcCount">🗿 显示 NPC 数量</span>
+                                    </label>
+                                </div>
+                                <p class="game-config-hint" data-i18n="gameConfigHint">
+                                    停用计时后，NPC 数量会显示在原计时器位置。
+                                </p>
+                            </section>
                         </div>
                     </div>
 
