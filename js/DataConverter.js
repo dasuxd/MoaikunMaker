@@ -244,12 +244,13 @@ class DataConverter {
         // 添加每个怪物的数据
         for (const enemy of enemies) {
             let x = enemy.x;
+            let enemyId = enemy.enemyId & 0x7F;
 
             if(enemy.x >= Config.GRID_WIDTH / 2){
-                enemy.enemyId = (enemy.enemyId | 0x80); // 设置高4位的bit 7为1，表示第二屏
+                enemyId |= 0x80; // 设置 bit 7，表示第二屏
                 x = enemy.x - Config.GRID_WIDTH / 2;
             }
-            bytes.push(enemy.enemyId);
+            bytes.push(enemyId);
             bytes.push(x * 16 + enemy.y);
         }
         

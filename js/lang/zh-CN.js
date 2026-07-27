@@ -29,6 +29,8 @@ const translations_zhCN = {
     'wideScene': '📺 宽场景',
     'romExpansion': '🔧 ROM 拓展',
     'romExpansionTooltip': '把游戏 ROM 从 mapper3 转换为 mapper2\n可以扩大游戏内容, 可以添加新功能\n注意：场景切换的时候可能有瞬间的花屏，不过不影响体验',
+    'shiftMapLeft': '⬅️ 地图左移',
+    'shiftMapRight': '地图右移 ➡️',
     'romAlreadyExpanded': '当前 ROM 已经是扩展版本（mapper2），无需再次转换',
     'romExpansionEnabled': '🔧 ROM 拓展模式已开启，关卡容量和敌人数量上限已扩大',
     'romExpansionDisabled': '🔧 ROM 拓展模式已关闭，已恢复为原始 ROM 限制',

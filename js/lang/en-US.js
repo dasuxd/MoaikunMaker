@@ -29,6 +29,8 @@ const translations_enUS = {
     'wideScene': '📺 Wide Screen',
     'romExpansion': '🔧 ROM Expansion',
     'romExpansionTooltip': 'Converts the game ROM from mapper3 to mapper2\nExpands game content and adds new features\nNote: There may be brief screen glitches during scene transitions, but it does not affect gameplay',
+    'shiftMapLeft': '⬅️ Shift Map Left',
+    'shiftMapRight': 'Shift Map Right ➡️',
     'romAlreadyExpanded': 'Current ROM is already expanded version (mapper2), no conversion needed',
     'romExpansionEnabled': '🔧 ROM expansion mode enabled, level capacity and enemy limits increased',
     'romExpansionDisabled': '🔧 ROM expansion mode disabled, reverted to original ROM limits',

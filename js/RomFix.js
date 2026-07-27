@@ -5,7 +5,11 @@ class Romfix{
         Romfix.fixPlayerDeathBug(romData);
         Romfix.fixSpecialLevelAnimations(romData, isExpanded);
         Romfix.fixWideScreenEnemy9Background(romData, isExpanded);
+        //宽屏模式的时候 敌人只会重生在第一屏幕，有bug
+        //Romfix.fixWideScreenEnemyRespawn(romData);
         Romfix.fixWideScreenRockPushBug(romData, isExpanded);
+        //似乎碰覆盖了碰撞判定，代码有bug，取消了
+        //Romfix.addRemainingRescueCountHud(romData, isExpanded);
         // Keep the reset call: it removes this optional patch when an already
         // patched Mapper 2 ROM is loaded and exported again.
         Romfix.resetWideScreenLoopingCameraPatch(romData, isExpanded);
@@ -248,6 +252,28 @@ class Romfix{
     }
 
     /**
+     * Allow ordinary enemies to finish their death/respawn countdown in a
+     * wide level.
+     *
+     * CPU $AC22 assigns state $0D and timer $C8 in $057E,X. The original
+     * unfinished wide-mode branch at $AC37 then clears $04FE,X, the enemy type.
+     * Since the main enemy loop skips type-zero slots, state $0D never runs
+     * again and the timer remains frozen at $C8.
+     *
+     * Always skip that wide-only clear for ordinary enemies. Enemy types 5 and
+     * 11 branch directly to $AC3B before this hook and therefore retain their
+     * original permanent-removal behavior.
+     */
+    static fixWideScreenEnemyRespawn(romData){
+        const bank0RomAddr = (cpuAddr) => 0x10 + (cpuAddr - 0x8000);
+
+        Romfix.fixCodeInsert(romData, bank0RomAddr(0xAC37), [
+            0x4C, 0x40, 0xAC,       // JMP $AC40 (keep ordinary enemy type)
+            0xEA,                   // padding
+        ]);
+    }
+
+    /**
      * Fix round-rock pushes that cross a horizontal map boundary.
      *
      * The original rock-specific code normalizes X with 0x0F in one place and
@@ -349,6 +375,113 @@ class Romfix{
         ];
         Romfix.fixCodeInsert(romData, 0x1E92, normalizeRockSourceCode);
         Romfix.fixCodeInsert(romData, 0x1EC1, normalizeRockSourceCode);
+    }
+
+    /**
+     * Show the number of unreleased Moai as a two-digit HUD value.
+     *
+     * The original game already maintains the exact live count in $43:
+     * initialization counts map tile $0F and rescuing one decrements it. Its
+     * two-digit item renderer also has an unused layout mode. Move that mode's
+     * coordinates four character cells right to $E0/$E8 and raise its OAM Y
+     * to $0F.
+     * The new row then starts immediately after the original HUD row ends,
+     * avoiding the NES eight-Sprites-per-scanline limit without leaving the
+     * count visually detached from the item display.
+     *
+     * CPU $891B originally calls the item-count renderer at $B72A. Redirect it
+     * through a compact wrapper at $B760. The original icon path at
+     * $B758-$B75F and the new second-row icon both call a shared one-Sprite
+     * renderer in the unused bank-0 padding at $96EB. The count/clamp tail fits
+     * exactly in the safe fixed-bank padding at $FFE1-$FFEF.
+     */
+    static addRemainingRescueCountHud(romData, isExpanded = false){
+        const bank0RomAddr = (cpuAddr) => 0x10 + (cpuAddr - 0x8000);
+        const fixedBankShift = isExpanded ? 0x4000 * 6 : 0;
+        const fixedBankRomAddr = (cpuAddr) =>
+            0x4010 + (cpuAddr - 0xC000) + fixedBankShift;
+        const hudIconRendererCpuAddr = 0x96EB;
+        const remainingCountWrapperCpuAddr = 0xB760;
+        const remainingCountTailCpuAddr = 0xFFE1;
+
+        Romfix.fixCodeInsert(romData, bank0RomAddr(0x891B), [
+            0x20,
+            remainingCountWrapperCpuAddr & 0xFF,
+            (remainingCountWrapperCpuAddr >> 8) & 0xFF,
+        ]);
+
+        /**
+         * CPU $B758-$B76E: original item icon plus remaining-count wrapper.
+         *
+         * The original B72A renderer reaches $B758 only for layout 0. Preserve
+         * its icon at Y $07 with Sprite palette 1, then return. The bytes freed
+         * before the digit renderer at $B76F hold the new wrapper:
+         *
+         * - draw the original item HUD;
+         * - draw the same round icon at Y $18 with player palette 0;
+         * - tail-jump to the two-digit remaining-count preparation.
+         */
+        Romfix.fixCodeInsert(romData, bank0RomAddr(0xB758), [
+            0xA9, 0x07,             // originalIcon: LDA #$07
+            0xA0, 0x01,             // LDY #itemPalette
+            0x20, 0xEB, 0x96,       // JSR drawRoundHudIcon
+            0x60,                   // RTS
+
+            0x20, 0x2A, 0xB7,       // wrapper: JSR $B72A (original item HUD)
+            0xA9, 0x18,             // LDA #secondRowY
+            0xA0, 0x00,             // LDY #playerPalette
+            0x20, 0xEB, 0x96,       // JSR drawRoundHudIcon
+            0x4C, 0xE1, 0xFF,       // JMP prepareRemainingCount
+            0xEA, 0xEA,             // padding before $B76F
+        ]);
+
+        /**
+         * CPU $96EB-$96FE: draw one round HUD icon.
+         *
+         * Input: A = OAM Y, Y = Sprite palette, X = current OAM buffer slot.
+         * The original shared tail at $B79B consumes the slot, advances X by
+         * $C4, stores it in $04, and returns to this routine's caller.
+         */
+        Romfix.fixCodeInsert(
+            romData,
+            bank0RomAddr(hudIconRendererCpuAddr),
+            [
+                0x9D, 0x00, 0x02,       // STA OAM Y
+                0xA9, 0xE8,             // LDA #round icon tile
+                0x9D, 0x01, 0x02,       // STA OAM tile
+                0x98,                   // TYA
+                0x9D, 0x02, 0x02,       // STA OAM attributes/palette
+                0xA9, 0xD0,             // LDA #icon X
+                0x9D, 0x03, 0x02,       // STA OAM X
+                0x4C, 0x9B, 0xB7,       // JMP $B79B (consume OAM slot)
+            ]
+        );
+
+        /**
+         * CPU $FFE1-$FFEF: prepare and draw min($43, 99).
+         */
+        Romfix.fixCodeInsert(
+            romData,
+            fixedBankRomAddr(remainingCountTailCpuAddr),
+            [
+                0xA9, 0x03,             // LDA #$03 (aligned $E0/$E8 layout)
+                0x85, 0x10,             // STA HUD number layout
+                0xA5, 0x43,             // LDA remaining rescue count
+                0xC9, 0x64,             // CMP #100
+                0x90, 0x02,             // BCC draw
+                0xA9, 0x63,             // LDA #99 (display saturation)
+                0x4C, 0x33, 0xB7,       // JMP $B733 (shared 2-digit renderer)
+            ]
+        );
+
+        // Layout 3 uses coordinate-table entries 6 and 7.
+        Romfix.fixCodeInsert(romData, fixedBankRomAddr(0xC3CD), [
+            0xE0, 0xE8,
+        ]);
+
+        // Restore the original second-row Y. This also makes re-exporting a ROM
+        // produced by the previous closer-row version deterministic.
+        Romfix.fixCodeInsert(romData, bank0RomAddr(0xB793), [0x18]);
     }
 
     /**

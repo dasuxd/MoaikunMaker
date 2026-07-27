@@ -168,6 +168,33 @@ h1 {
     margin-bottom: 15px;
 }
 
+.map-shift-controls {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.map-shift-btn {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 6px;
+    background: #607D8B;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background 0.2s, transform 0.1s;
+}
+
+.map-shift-btn:hover {
+    background: #455A64;
+}
+
+.map-shift-btn:active {
+    transform: translateY(1px);
+}
+
 .tool-tab {
     flex: 1;
     padding: 8px 12px;

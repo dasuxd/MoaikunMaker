@@ -29,6 +29,8 @@ const translations_jaJP = {
     'wideScene': '📺 ワイドスクリーン',
     'romExpansion': '🔧 ROM拡張',
     'romExpansionTooltip': 'ゲームROMをmapper3からmapper2に変換します\nゲームコンテンツを拡張し、新機能を追加します\n注意：シーン切り替え時に一時的な画面の乱れが発生する場合がありますが、ゲームプレイには影響しません',
+    'shiftMapLeft': '⬅️ マップを左へ',
+    'shiftMapRight': 'マップを右へ ➡️',
     'romAlreadyExpanded': '現在のROMはすでに拡張版（mapper2）です。変換は不要です',
     'romExpansionEnabled': '🔧 ROM拡張モードが有効になりました。ステージ容量と敵の上限が拡大されました',
     'romExpansionDisabled': '🔧 ROM拡張モードが無効になりました。元のROM制限に戻りました',

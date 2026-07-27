@@ -558,6 +558,16 @@ class LevelEditor {
                 console.log('Wide scene mode:', this.isWideScreen);
             });
         }
+
+        const shiftMapLeftBtn = document.getElementById('shiftMapLeftBtn');
+        if (shiftMapLeftBtn) {
+            shiftMapLeftBtn.addEventListener('click', () => this.shiftLevelHorizontally(-1));
+        }
+
+        const shiftMapRightBtn = document.getElementById('shiftMapRightBtn');
+        if (shiftMapRightBtn) {
+            shiftMapRightBtn.addEventListener('click', () => this.shiftLevelHorizontally(1));
+        }
         
         // Apply to ROM editor button
         const applyToRomBtn = document.getElementById('applyToRomBtn');
@@ -907,6 +917,55 @@ class LevelEditor {
         this.render();
 
         this.updateDataDisplays();
+    }
+
+    /**
+     * Circularly shift every horizontal level element except the player.
+     *
+     * Wide levels wrap over 32 columns and single-screen levels over 16.
+     * Keeping the player fixed lets an author rotate a wide level until the
+     * desired starting area is under the original first-screen spawn point.
+     *
+     * @param {number} delta - -1 shifts left; +1 shifts right.
+     */
+    shiftLevelHorizontally(delta) {
+        if (this.testMode || (delta !== -1 && delta !== 1)) {
+            return;
+        }
+
+        const width = this.isWideScreen
+            ? Config.GRID_WIDTH
+            : Config.GRID_WIDTH / 2;
+        const wrapX = (x) => ((x % width) + width) % width;
+
+        this.mapData = this.mapData.map((sourceRow) => {
+            const row = Array.isArray(sourceRow) ? sourceRow : [];
+            const shiftedRow = row.slice();
+
+            while (shiftedRow.length < width) {
+                shiftedRow.push(0);
+            }
+
+            for (let sourceX = 0; sourceX < width; sourceX++) {
+                shiftedRow[wrapX(sourceX + delta)] = row[sourceX] ?? 0;
+            }
+
+            return shiftedRow;
+        });
+
+        for (const enemy of this.enemies) {
+            enemy.x = wrapX(enemy.x + delta);
+            enemy.enemyId = enemy.x >= Config.GRID_WIDTH / 2
+                ? (enemy.enemyId | 0x80)
+                : (enemy.enemyId & 0x7F);
+        }
+
+        if (this.doorPos) {
+            this.doorPos.x = wrapX(this.doorPos.x + delta);
+        }
+
+        // Player position deliberately remains unchanged.
+        this.performEnd();
     }
 
     saveStatusEnabled(){
