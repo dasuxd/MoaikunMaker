@@ -4,6 +4,7 @@
 const translations_zhCN = {
     // Top Bar
     'title': 'Moai-kun Maker',
+    'topBarSubtitle': 'NES 关卡编辑器',
     'selectRom': '📁 选择 ROM 文件',
     'clearCache': '🗑️ 清除缓存',
     'clearCacheTitle': '清除缓存的 ROM',
@@ -33,8 +34,8 @@ const translations_zhCN = {
     'disableTimer': '⏱️ 停用计时',
     'showNpcCount': '🗿 显示 NPC 数量',
     'gameConfigHint': '停用计时后，NPC 数量会显示在原计时器位置。',
-    'shiftMapLeft': '⬅️ 地图左移',
-    'shiftMapRight': '地图右移 ➡️',
+    'shiftMapLeft': '地图左移',
+    'shiftMapRight': '地图右移',
     'romAlreadyExpanded': '当前 ROM 已经是扩展版本（mapper2），无需再次转换',
     'romExpansionEnabled': '🔧 ROM 拓展模式已开启，关卡容量和敌人数量上限已扩大',
     'romExpansionDisabled': '🔧 ROM 拓展模式已关闭，已恢复为原始 ROM 限制',
@@ -224,4 +225,12 @@ const translations_zhCN = {
     'levelFileUnknownFormat': '无法识别关卡文件格式',
     'levelPackEmpty': '关卡包中没有关卡',
     'levelAddressTableSizeExceedError': '关卡地址表大小超出限制！当前大小: {currentSize} 字节，最大允许: {maxSize} 字节。请减少关卡数量后重试。',
+    'footerAriaLabel': '项目支持与问题反馈',
+    'footerActionsAriaLabel': 'GitHub 项目操作',
+    'footerTitle': '喜欢 MoaikunMaker？',
+    'footerDescription': '给项目一个 Star 支持开发；如果遇到 Bug，欢迎提交 Issue。',
+    'footerStarButton': '在 GitHub 上点 Star',
+    'footerStarTitle': '前往 GitHub 为 MoaikunMaker 点 Star',
+    'footerIssueButton': '发现 Bug？提交 Issue',
+    'footerIssueTitle': '前往 GitHub 提交问题',
 };

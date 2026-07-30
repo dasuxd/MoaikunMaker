@@ -4,6 +4,7 @@
 const translations_jaJP = {
     // Top Bar
     'title': 'Moai-kun Maker',
+    'topBarSubtitle': 'NES ステージエディター',
     'selectRom': '📁 ROMファイル選択',
     'clearCache': '🗑️ キャッシュクリア',
     'clearCacheTitle': 'キャッシュされたROMをクリア',
@@ -33,8 +34,8 @@ const translations_jaJP = {
     'disableTimer': '⏱️ タイマーを無効化',
     'showNpcCount': '🗿 NPC数を表示',
     'gameConfigHint': 'タイマーを無効にすると、NPC数は元のタイマー位置に表示されます。',
-    'shiftMapLeft': '⬅️ マップを左へ',
-    'shiftMapRight': 'マップを右へ ➡️',
+    'shiftMapLeft': 'マップを左へ',
+    'shiftMapRight': 'マップを右へ',
     'romAlreadyExpanded': '現在のROMはすでに拡張版（mapper2）です。変換は不要です',
     'romExpansionEnabled': '🔧 ROM拡張モードが有効になりました。ステージ容量と敵の上限が拡大されました',
     'romExpansionDisabled': '🔧 ROM拡張モードが無効になりました。元のROM制限に戻りました',
@@ -224,4 +225,12 @@ const translations_jaJP = {
     'levelFileUnknownFormat': 'ステージファイル形式を認識できません',
     'levelPackEmpty': 'ステージパックにステージがありません',
     'levelAddressTableSizeExceedError': 'ステージアドレステーブルのサイズが制限を超えています！現在のサイズ: {currentSize}バイト、最大許容: {maxSize}バイト。ステージ数を減らしてから再試行してください。',
+    'footerAriaLabel': 'プロジェクトの応援と不具合報告',
+    'footerActionsAriaLabel': 'GitHubプロジェクトの操作',
+    'footerTitle': 'MoaikunMakerを気に入っていただけましたか？',
+    'footerDescription': 'Starで開発を応援してください。不具合を見つけた場合はIssueでお知らせください。',
+    'footerStarButton': 'GitHubでStar',
+    'footerStarTitle': 'GitHubでMoaikunMakerにStarを付ける',
+    'footerIssueButton': '不具合を報告する',
+    'footerIssueTitle': 'GitHubでIssueを作成する',
 };

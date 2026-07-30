@@ -265,12 +265,6 @@ class LevelEditor {
         btn.className = 'tool-btn';
         btn.dataset.type = type;
         
-        // Fixed button size
-        btn.style.width = '60px';
-        btn.style.height = '85px';
-        btn.style.minWidth = '60px';
-        btn.style.minHeight = '85px';
-        
         let imgName = type;
         if(id !== null){
             imgName += `_${id}`;

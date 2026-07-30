@@ -4,6 +4,7 @@
 const translations_enUS = {
     // Top Bar
     'title': 'Moai-kun Maker',
+    'topBarSubtitle': 'NES Level Editor',
     'selectRom': '📁 Select ROM File',
     'clearCache': '🗑️ Clear Cache',
     'clearCacheTitle': 'Clear Cached ROM',
@@ -33,8 +34,8 @@ const translations_enUS = {
     'disableTimer': '⏱️ Disable Timer',
     'showNpcCount': '🗿 Show NPC Count',
     'gameConfigHint': 'When the timer is disabled, the NPC count uses the timer position.',
-    'shiftMapLeft': '⬅️ Shift Map Left',
-    'shiftMapRight': 'Shift Map Right ➡️',
+    'shiftMapLeft': 'Shift Map Left',
+    'shiftMapRight': 'Shift Map Right',
     'romAlreadyExpanded': 'Current ROM is already expanded version (mapper2), no conversion needed',
     'romExpansionEnabled': '🔧 ROM expansion mode enabled, level capacity and enemy limits increased',
     'romExpansionDisabled': '🔧 ROM expansion mode disabled, reverted to original ROM limits',
@@ -224,4 +225,12 @@ const translations_enUS = {
     'levelFileUnknownFormat': 'Unrecognized level file format',
     'levelPackEmpty': 'The level pack contains no levels',
     'levelAddressTableSizeExceedError': 'Level address table size exceeds limit! Current size: {currentSize} bytes, maximum allowed: {maxSize} bytes. Please reduce the number of levels and try again.',
+    'footerAriaLabel': 'Project support and bug reports',
+    'footerActionsAriaLabel': 'GitHub project actions',
+    'footerTitle': 'Enjoying MoaikunMaker?',
+    'footerDescription': 'Star the project to support its development. Found a bug? Please open an Issue.',
+    'footerStarButton': 'Star on GitHub',
+    'footerStarTitle': 'Star MoaikunMaker on GitHub',
+    'footerIssueButton': 'Found a bug? Open an Issue',
+    'footerIssueTitle': 'Open an Issue on GitHub',
 };

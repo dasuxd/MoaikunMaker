@@ -74,7 +74,13 @@
     </div>
 
     <div class="top-bar">
-        <h1 data-i18n="title">🗿 Moai-kun Maker</h1>
+        <div class="top-bar-brand">
+            <span class="top-bar-brand-mark" aria-hidden="true">🗿</span>
+            <div class="top-bar-brand-copy">
+                <h1 data-i18n="title">Moai-kun Maker</h1>
+                <span class="top-bar-brand-subtitle" data-i18n="topBarSubtitle">NES 关卡编辑器</span>
+            </div>
+        </div>
 
         <div class="top-bar-actions">
             <!-- 移动端菜单按钮 -->
@@ -283,9 +289,15 @@
 
                                 <div class="map-shift-controls">
                                     <button type="button" class="map-shift-btn" id="shiftMapLeftBtn"
-                                        data-i18n="shiftMapLeft">⬅️ 地图左移</button>
+                                        data-i18n-title="shiftMapLeft">
+                                        <span class="map-shift-icon" aria-hidden="true">←</span>
+                                        <span data-i18n="shiftMapLeft">地图左移</span>
+                                    </button>
                                     <button type="button" class="map-shift-btn" id="shiftMapRightBtn"
-                                        data-i18n="shiftMapRight">地图右移 ➡️</button>
+                                        data-i18n-title="shiftMapRight">
+                                        <span data-i18n="shiftMapRight">地图右移</span>
+                                        <span class="map-shift-icon" aria-hidden="true">→</span>
+                                    </button>
                                 </div>
 
                                 <button class="action-btn" id="clearBtn" style="display: none;"
@@ -575,13 +587,41 @@
     <div id="messageContainer" class="message-container"></div>
 
     <!-- GitHub Footer -->
-    <footer class="github-footer">
-        <a href="https://github.com/dasuxd/MoaikunMaker" target="_blank" rel="noopener noreferrer" class="github-link" title="View on GitHub">
-            <svg height="24" viewBox="0 0 16 16" width="24" aria-hidden="true">
-                <path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
-            </svg>
-            <span>MoaikunMaker</span>
-        </a>
+    <footer class="github-footer" aria-label="GitHub" data-i18n-title="footerAriaLabel">
+        <div class="github-footer-inner">
+            <div class="github-footer-copy">
+                <div class="github-footer-mark" aria-hidden="true">
+                    <svg viewBox="0 0 16 16">
+                        <path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <p class="github-footer-title" data-i18n="footerTitle">喜欢 MoaikunMaker？</p>
+                    <p class="github-footer-description" data-i18n="footerDescription">给项目一个 Star 支持开发；如果遇到 Bug，欢迎提交 Issue。</p>
+                </div>
+            </div>
+            <nav class="github-footer-actions" aria-label="GitHub" data-i18n-title="footerActionsAriaLabel">
+                <a href="https://github.com/dasuxd/MoaikunMaker" target="_blank" rel="noopener noreferrer"
+                    class="github-footer-button github-star-button" data-i18n-title="footerStarTitle">
+                    <svg viewBox="0 0 16 16" aria-hidden="true">
+                        <path fill="currentColor" d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.193a.75.75 0 0 1-1.088.79L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194-3.047-2.97a.75.75 0 0 1 .416-1.278l4.21-.612L7.327.668A.75.75 0 0 1 8 .25Z"></path>
+                    </svg>
+                    <span data-i18n="footerStarButton">在 GitHub 上点 Star</span>
+                    <svg class="github-footer-arrow" viewBox="0 0 16 16" aria-hidden="true">
+                        <path fill="currentColor" d="M10.78 2.22a.75.75 0 0 0-1.06 1.06l1.97 1.97H5.75a3.5 3.5 0 0 0-3.5 3.5v3a.75.75 0 0 0 1.5 0v-3a2 2 0 0 1 2-2h5.94L9.72 8.72a.75.75 0 1 0 1.06 1.06l3.25-3.25a.75.75 0 0 0 0-1.06l-3.25-3.25Z"></path>
+                    </svg>
+                </a>
+                <a href="https://github.com/dasuxd/MoaikunMaker/issues/new/choose" target="_blank"
+                    rel="noopener noreferrer" class="github-footer-button github-issue-button"
+                    data-i18n-title="footerIssueTitle">
+                    <svg viewBox="0 0 16 16" aria-hidden="true">
+                        <path fill="currentColor" d="M8 9.5a.75.75 0 0 1-.75-.75v-4a.75.75 0 0 1 1.5 0v4A.75.75 0 0 1 8 9.5Zm0 3.25a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z"></path>
+                        <path fill="currentColor" d="M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0Zm0 1.5a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13Z"></path>
+                    </svg>
+                    <span data-i18n="footerIssueButton">发现 Bug？提交 Issue</span>
+                </a>
+            </nav>
+        </div>
     </footer>
 </body>
 

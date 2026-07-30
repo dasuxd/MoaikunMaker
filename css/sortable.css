@@ -6,7 +6,7 @@
 /* 关卡列表网格布局 */
 .level-list {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
     gap: 8px;
     /* 移动端滚动优化 */
     overscroll-behavior-y: contain;
@@ -199,9 +199,14 @@
 }
 
 .level-num {
+    display: block;
     font-weight: 600;
     font-size: 12px;
     margin-bottom: 2px;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .level-item.active .level-num {
@@ -210,6 +215,7 @@
 
 /* 关卡信息（字节数） */
 .level-info {
+    display: block;
     font-size: 9px;
     opacity: 0.7;
     text-align: center;

@@ -323,6 +323,25 @@ class App {
                 toolbarToggle.classList.toggle('toolbar-open');
             });
         }
+
+        document.addEventListener('click', event => {
+            const actionArea = event.target instanceof Element
+                ? event.target.closest('.backup-level-actions')
+                : null;
+            if (!actionArea) {
+                this.closeBackupActionMenus();
+            }
+        });
+
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape') {
+                const openToggle = document.querySelector(
+                    '.backup-action-toggle[aria-expanded="true"]'
+                );
+                this.closeBackupActionMenus();
+                if (openToggle) openToggle.focus();
+            }
+        });
         
         // Level count input box
         const levelCountInput = document.getElementById('levelCountInput');
@@ -2500,6 +2519,15 @@ class App {
         this.renderBackupList();
     }
 
+    closeBackupActionMenus(exceptMenu = null) {
+        document.querySelectorAll('.backup-action-menu:not([hidden])').forEach(menu => {
+            if (menu === exceptMenu) return;
+            menu.hidden = true;
+            const toggle = menu.parentElement?.querySelector('.backup-action-toggle');
+            if (toggle) toggle.setAttribute('aria-expanded', 'false');
+        });
+    }
+
     renderBackupList() {
         const container = document.getElementById('backupLevelList');
         const section = document.getElementById('backupSection');
@@ -2544,54 +2572,98 @@ class App {
             const time = document.createElement('span');
             time.className = 'backup-level-time';
             time.textContent = new Date(draft.createdAt).toLocaleString();
-            content.append(name, source, time);
+
+            const meta = document.createElement('span');
+            meta.className = 'backup-level-meta';
+            meta.append(source, time);
+            content.append(name, meta);
 
             const actions = document.createElement('div');
             actions.className = 'backup-level-actions';
 
-            const addButton = document.createElement('button');
-            addButton.className = 'backup-add-btn';
-            addButton.type = 'button';
-            addButton.title = i18n.t('addDraftToFormal');
-            addButton.textContent = i18n.t('addDraftToFormalShort');
+            const actionToggle = document.createElement('button');
+            actionToggle.className = 'backup-action-toggle';
+            actionToggle.type = 'button';
+            actionToggle.id = `backupActionToggle_${index}`;
+            actionToggle.setAttribute('aria-haspopup', 'menu');
+            actionToggle.setAttribute('aria-expanded', 'false');
+
+            const actionToggleLabel = document.createElement('span');
+            actionToggleLabel.textContent = i18n.t('operations');
+            const actionChevron = document.createElement('span');
+            actionChevron.className = 'backup-action-chevron';
+            actionChevron.setAttribute('aria-hidden', 'true');
+            actionChevron.textContent = '▼';
+            actionToggle.append(actionToggleLabel, actionChevron);
+
+            const actionMenu = document.createElement('div');
+            actionMenu.className = 'backup-action-menu';
+            actionMenu.id = `backupActionMenu_${index}`;
+            actionMenu.setAttribute('role', 'menu');
+            actionMenu.setAttribute('aria-labelledby', actionToggle.id);
+            actionMenu.hidden = true;
+            actionToggle.setAttribute('aria-controls', actionMenu.id);
+
+            actionToggle.addEventListener('click', event => {
+                event.stopPropagation();
+                const shouldOpen = actionMenu.hidden;
+                this.closeBackupActionMenus();
+                if (shouldOpen) {
+                    actionMenu.hidden = false;
+                    actionToggle.setAttribute('aria-expanded', 'true');
+                }
+            });
+            actionMenu.addEventListener('click', event => event.stopPropagation());
+
+            const createActionButton = (icon, label, handler, className = '') => {
+                const button = document.createElement('button');
+                button.className = `backup-action-menu-item ${className}`.trim();
+                button.type = 'button';
+                button.title = label;
+                button.setAttribute('role', 'menuitem');
+
+                const iconElement = document.createElement('span');
+                iconElement.className = 'backup-action-icon';
+                iconElement.setAttribute('aria-hidden', 'true');
+                iconElement.textContent = icon;
+                const labelElement = document.createElement('span');
+                labelElement.textContent = label;
+                button.append(iconElement, labelElement);
+                button.addEventListener('click', event => {
+                    event.stopPropagation();
+                    this.closeBackupActionMenus();
+                    handler();
+                });
+                return button;
+            };
+
+            const addButton = createActionButton(
+                '➕',
+                i18n.t('addDraftToFormal'),
+                () => this.appendDraftToFormal(index)
+            );
             addButton.disabled = !this.romEditor.romData ||
                 this.romEditor.getLevelCount() >= this.romEditor.getMaxCountOfLevels();
-            addButton.addEventListener('click', event => {
-                event.stopPropagation();
-                this.appendDraftToFormal(index);
-            });
 
-            const loadButton = document.createElement('button');
-            loadButton.className = 'backup-restore-btn';
-            loadButton.type = 'button';
-            loadButton.title = i18n.t('loadDraft');
-            loadButton.textContent = '✏️';
-            loadButton.addEventListener('click', event => {
-                event.stopPropagation();
-                this.loadDraftLevel(index);
-            });
+            const loadButton = createActionButton(
+                '✏️',
+                i18n.t('loadDraft'),
+                () => this.loadDraftLevel(index)
+            );
+            const exportButton = createActionButton(
+                '📤',
+                i18n.t('exportDraft'),
+                () => this.exportDraftLevel(index)
+            );
+            const deleteButton = createActionButton(
+                '🗑️',
+                i18n.t('deleteDraft'),
+                () => this.deleteBackupLevel(index),
+                'danger'
+            );
 
-            const exportButton = document.createElement('button');
-            exportButton.className = 'backup-export-btn';
-            exportButton.type = 'button';
-            exportButton.title = i18n.t('exportDraft');
-            exportButton.textContent = '📤';
-            exportButton.addEventListener('click', event => {
-                event.stopPropagation();
-                this.exportDraftLevel(index);
-            });
-
-            const deleteButton = document.createElement('button');
-            deleteButton.className = 'backup-delete-btn';
-            deleteButton.type = 'button';
-            deleteButton.title = i18n.t('deleteDraft');
-            deleteButton.textContent = '🗑️';
-            deleteButton.addEventListener('click', event => {
-                event.stopPropagation();
-                this.deleteBackupLevel(index);
-            });
-
-            actions.append(addButton, loadButton, exportButton, deleteButton);
+            actionMenu.append(addButton, loadButton, exportButton, deleteButton);
+            actions.append(actionToggle, actionMenu);
             item.append(content, actions);
             container.appendChild(item);
         });
