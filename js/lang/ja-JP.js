@@ -39,6 +39,8 @@ const translations_jaJP = {
     'romAlreadyExpanded': '現在のROMはすでに拡張版（mapper2）です。変換は不要です',
     'romExpansionEnabled': '🔧 ROM拡張モードが有効になりました。ステージ容量と敵の上限が拡大されました',
     'romExpansionDisabled': '🔧 ROM拡張モードが無効になりました。元のROM制限に戻りました',
+    'romAutoExpandedForImportWarning': 'ステージ内容が多いため、ROMを拡張ROMへ自動変換しました。',
+    'modifiedRomDesignWarning': '拡張ROMが検出されました。未対応の不具合が発生する可能性があるため、変更済みROMでのステージ作成は推奨されません。ステージリストから全ステージを書き出し、キャッシュを削除してオリジナルROMを読み込んだ後、ステージを再度読み込んでください。',
     'clearMap': 'マップクリア',
     'exportData': 'データエクスポート',
     'applyToRom': 'ROMエディタに適用',

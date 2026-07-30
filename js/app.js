@@ -342,6 +342,10 @@ class App {
                 if (openToggle) openToggle.focus();
             }
         });
+
+        window.addEventListener('resize', () => {
+            this.updateModifiedRomWarningOverflow();
+        });
         
         // Level count input box
         const levelCountInput = document.getElementById('levelCountInput');
@@ -416,12 +420,18 @@ class App {
     /**
      * Toggle ROM expansion mode
      * @param {boolean} expanded - Whether to enable expansion mode
+     * @param {Object} options - Optional notification/cache behavior
      */
-    toggleRomExpansion(expanded) {
+    toggleRomExpansion(expanded, { notify = true, persist = true } = {}) {
         if (!this.romEditor.romData) return;
 
         const newRomType = expanded ? Config.ROM_TYPE_EXPANDED : Config.ROM_TYPE_ORIGINAL;
         this.romEditor.romType = newRomType;
+
+        const romExpansionCheckbox = document.getElementById('romExpansionCheckbox');
+        if (romExpansionCheckbox && romExpansionCheckbox.checked !== expanded) {
+            romExpansionCheckbox.checked = expanded;
+        }
 
         // Update level count input max
         const levelCountInput = document.getElementById('levelCountInput');
@@ -433,10 +443,13 @@ class App {
         // Update memory overview and enemy count
         this.updateMemoryOverview();
 
-        // Save romType to cache
-        this.saveLevelDataToCache();
+        if (persist) {
+            this.saveLevelDataToCache();
+        }
 
-        this.showMessage('info', i18n.t(expanded ? 'romExpansionEnabled' : 'romExpansionDisabled'));
+        if (notify) {
+            this.showMessage('info', i18n.t(expanded ? 'romExpansionEnabled' : 'romExpansionDisabled'));
+        }
     }
 
     switchToolbarSection(sectionName) {
@@ -661,11 +674,6 @@ class App {
             romExpansionCheckbox.checked = isExpanded;
             // Disable checkbox if ROM file is already mapper2
             romExpansionCheckbox.disabled = isRomAlreadyMapper2;
-            
-            // Show message if ROM is already mapper2
-            if (isRomAlreadyMapper2 && !fromCache) {
-                this.showMessage('info', i18n.t('romAlreadyExpanded'));
-            }
         }
         this.syncGameConfigControls();
         const maxLevels = this.romEditor.getMaxCountOfLevels();
@@ -686,6 +694,10 @@ class App {
             romSelectBtn.textContent = `📁 ${fileName}`;
             romSelectBtn.classList.add('loaded');
             romSelectBtn.title = `${fileName} (${this.romEditor.romData.length} Byte)`;
+        }
+        this.updateModifiedRomWarning(isRomAlreadyMapper2);
+        if (isRomAlreadyMapper2 && !fromCache) {
+            this.showMessage('warning', i18n.t('modifiedRomDesignWarning'));
         }
 
         this.testLevelBtn.disabled = true;
@@ -710,6 +722,41 @@ class App {
         const welcomeOverlay = document.getElementById('welcomeOverlay');
         if (welcomeOverlay) {
             welcomeOverlay.classList.add('hidden');
+        }
+    }
+
+    updateModifiedRomWarning(
+        visible = this.romEditor.originalRomType === Config.ROM_TYPE_EXPANDED
+    ) {
+        const warning = document.getElementById('modifiedRomWarning');
+        if (!warning) return;
+
+        warning.hidden = !visible;
+        if (!visible) {
+            warning.classList.remove('is-overflowing');
+            return;
+        }
+
+        requestAnimationFrame(() => this.updateModifiedRomWarningOverflow());
+    }
+
+    updateModifiedRomWarningOverflow() {
+        const warning = document.getElementById('modifiedRomWarning');
+        const viewport = warning?.querySelector('.top-bar-warning-viewport');
+        const text = document.getElementById('modifiedRomWarningText');
+        if (!warning || warning.hidden || !viewport || !text) return;
+
+        warning.classList.remove('is-overflowing');
+        const textWidth = text.scrollWidth;
+        const shouldScroll = textWidth > viewport.clientWidth + 1;
+        warning.classList.toggle('is-overflowing', shouldScroll);
+
+        if (shouldScroll) {
+            const duration = Math.max(16, (textWidth + 48) / 34);
+            warning.style.setProperty(
+                '--top-bar-warning-duration',
+                `${duration.toFixed(1)}s`
+            );
         }
     }
 
@@ -2195,7 +2242,8 @@ class App {
             if (!this.romEditor.romData) {
                 throw new Error(i18n.t('romRequiredForPackImport'));
             }
-            if (!this.validatePackCapacity(parsed.levels)) {
+            const importPlan = this.planLevelPackImport(parsed.levels);
+            if (!importPlan.valid) {
                 return;
             }
             if (!confirm(i18n.t('levelPackImportConfirm', {
@@ -2203,7 +2251,9 @@ class App {
             }))) {
                 return;
             }
-            this.requestAfterUnsavedChanges(() => this.applyLevelPack(parsed));
+            this.requestAfterUnsavedChanges(() => this.applyLevelPack(parsed, {
+                autoExpandRom: importPlan.autoExpandRom
+            }));
         } catch (error) {
             console.error('Failed to import level file:', error);
             this.showMessage('error', i18n.t('levelImportFailed', { error: error.message }));
@@ -2212,35 +2262,86 @@ class App {
         }
     }
 
-    validatePackCapacity(levels) {
-        if (levels.length > this.romEditor.getMaxCountOfLevels()) {
-            this.showMessage('error', i18n.t('invalidLevelCountMessageError', {
-                maxLevelCount: this.romEditor.getMaxCountOfLevels()
-            }));
+    validatePackCapacity(
+        levels,
+        {
+            romType = this.romEditor.romType,
+            showErrors = true
+        } = {}
+    ) {
+        const maxLevelCount = this.romEditor.getMaxCountOfLevels(romType);
+        if (levels.length > maxLevelCount) {
+            if (showErrors) {
+                this.showMessage('error', i18n.t('invalidLevelCountMessageError', {
+                    maxLevelCount
+                }));
+            }
             return false;
         }
 
         const mapSize = levels.reduce((total, level) => total + level.mapData.length + 1, 0);
-        if (mapSize > this.romEditor.getLevelUsageMaxSize()) {
-            this.showMessage('error', i18n.t('levelDataSizeExceedError', {
-                currentSize: mapSize,
-                maxSize: this.romEditor.getLevelUsageMaxSize()
-            }));
+        const maxMapSize = this.romEditor.getLevelUsageMaxSize(romType);
+        if (mapSize > maxMapSize) {
+            if (showErrors) {
+                this.showMessage('error', i18n.t('levelDataSizeExceedError', {
+                    currentSize: mapSize,
+                    maxSize: maxMapSize
+                }));
+            }
             return false;
         }
 
         const enemySize = levels.reduce((total, level) => total + level.monsterData.length, 0);
-        if (enemySize > this.romEditor.getEnemyUsageMaxSize()) {
-            this.showMessage('error', i18n.t('enemyDataSizeExceedError', {
-                currentSize: enemySize,
-                maxSize: this.romEditor.getEnemyUsageMaxSize()
-            }));
+        const maxEnemySize = this.romEditor.getEnemyUsageMaxSize(romType);
+        if (enemySize > maxEnemySize) {
+            if (showErrors) {
+                this.showMessage('error', i18n.t('enemyDataSizeExceedError', {
+                    currentSize: enemySize,
+                    maxSize: maxEnemySize
+                }));
+            }
             return false;
         }
         return true;
     }
 
-    applyLevelPack(pack) {
+    planLevelPackImport(levels) {
+        if (this.validatePackCapacity(levels, { showErrors: false })) {
+            return { valid: true, autoExpandRom: false };
+        }
+
+        const canAutoExpand =
+            this.romEditor.romType === Config.ROM_TYPE_ORIGINAL &&
+            this.validatePackCapacity(levels, {
+                romType: Config.ROM_TYPE_EXPANDED,
+                showErrors: false
+            });
+
+        if (canAutoExpand) {
+            return { valid: true, autoExpandRom: true };
+        }
+
+        const errorRomType = this.romEditor.romType === Config.ROM_TYPE_ORIGINAL
+            ? Config.ROM_TYPE_EXPANDED
+            : this.romEditor.romType;
+        this.validatePackCapacity(levels, {
+            romType: errorRomType,
+            showErrors: true
+        });
+        return { valid: false, autoExpandRom: false };
+    }
+
+    applyLevelPack(pack, { autoExpandRom = false } = {}) {
+        const previousRomType = this.romEditor.romType;
+        const shouldAutoExpand =
+            autoExpandRom && previousRomType === Config.ROM_TYPE_ORIGINAL;
+        if (shouldAutoExpand) {
+            this.toggleRomExpansion(true, {
+                notify: false,
+                persist: false
+            });
+        }
+
         const levelsData = pack.levels.map((level, index) => ({
             index,
             originalIndex: index,
@@ -2251,6 +2352,12 @@ class App {
         }));
 
         if (!this.romEditor.importLevelsData(levelsData, levelsData.length)) {
+            if (shouldAutoExpand) {
+                this.toggleRomExpansion(
+                    previousRomType === Config.ROM_TYPE_EXPANDED,
+                    { notify: false, persist: false }
+                );
+            }
             this.showMessage('error', i18n.t('levelImportFailed', {
                 error: i18n.t('levelFileInvalidLevel')
             }));
@@ -2276,6 +2383,9 @@ class App {
         this.showMessage('success', i18n.t('levelPackImportSuccess', {
             count: levelsData.length
         }));
+        if (shouldAutoExpand) {
+            this.showMessage('warning', i18n.t('romAutoExpandedForImportWarning'));
+        }
     }
 
     loadDraftLevel(draftIndex) {
@@ -2931,6 +3041,7 @@ function switchLanguage(lang) {
         if (app.romEditor.romData) {
             app.createLevelList();
         }
+        app.updateModifiedRomWarning();
     }
     
     // Update language button active state

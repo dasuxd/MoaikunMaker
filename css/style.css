@@ -259,6 +259,7 @@ body {
 
 .top-bar-brand {
     min-width: 0;
+    flex: 0 0 auto;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -309,8 +310,94 @@ body {
     white-space: nowrap;
 }
 
+.top-bar-warning {
+    min-width: 100px;
+    max-width: 920px;
+    height: 34px;
+    flex: 1 1 480px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 10px;
+    overflow: hidden;
+    color: #8a4b08;
+    background: #fff8e7;
+    border: 1px solid #f0d59b;
+    border-radius: 9px;
+    box-shadow: 0 2px 7px rgba(143, 91, 18, 0.08);
+    font-size: 11px;
+    font-weight: 650;
+    line-height: 1;
+}
+
+.top-bar-warning[hidden] {
+    display: none;
+}
+
+.top-bar-warning-icon {
+    flex: 0 0 auto;
+    font-size: 14px;
+}
+
+.top-bar-warning-viewport {
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+    mask-image: linear-gradient(
+        to right,
+        transparent 0,
+        black 10px,
+        black calc(100% - 10px),
+        transparent 100%
+    );
+}
+
+.top-bar-warning-track {
+    width: max-content;
+    display: flex;
+    align-items: center;
+    will-change: transform;
+}
+
+.top-bar-warning-copy {
+    display: block;
+    white-space: nowrap;
+}
+
+.top-bar-warning-copy[aria-hidden="true"] {
+    display: none;
+}
+
+.top-bar-warning.is-overflowing .top-bar-warning-track {
+    animation: topBarWarningMarquee var(--top-bar-warning-duration, 24s)
+        linear infinite;
+}
+
+.top-bar-warning.is-overflowing .top-bar-warning-copy {
+    padding-right: 48px;
+}
+
+.top-bar-warning.is-overflowing .top-bar-warning-copy[aria-hidden="true"] {
+    display: block;
+}
+
+.top-bar-warning:hover .top-bar-warning-track {
+    animation-play-state: paused;
+}
+
+@keyframes topBarWarningMarquee {
+    from {
+        transform: translateX(0);
+    }
+
+    to {
+        transform: translateX(-50%);
+    }
+}
+
 .top-bar-actions {
     min-width: 0;
+    flex: 0 0 auto;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -504,6 +591,7 @@ body {
 @media (max-width: 720px) {
     .top-bar {
         padding: 8px 12px;
+        gap: 10px;
     }
 
     .file-actions,
@@ -514,11 +602,41 @@ body {
     .mobile-menu-btn {
         display: flex;
     }
+
+    .top-bar-warning {
+        min-width: 72px;
+        padding: 0 8px;
+    }
 }
 
 @media (max-width: 380px) {
-    .top-bar-brand-subtitle {
+    .top-bar-brand-copy {
         display: none;
+    }
+
+    .top-bar-brand {
+        gap: 7px;
+    }
+
+    .top-bar-brand-mark {
+        width: 32px;
+        height: 32px;
+        flex-basis: 32px;
+        font-size: 18px;
+    }
+
+    .top-bar .top-bar-brand-copy h1 {
+        font-size: 14px;
+    }
+
+    .top-bar-warning {
+        min-width: 48px;
+        gap: 5px;
+        padding: 0 5px;
+    }
+
+    .top-bar-warning-icon {
+        font-size: 12px;
     }
 }
 
@@ -1492,5 +1610,9 @@ button {
     .github-footer-button,
     .github-footer-arrow {
         transition: none;
+    }
+
+    .top-bar-warning.is-overflowing .top-bar-warning-track {
+        animation-duration: 60s;
     }
 }

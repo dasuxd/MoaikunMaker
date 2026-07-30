@@ -689,11 +689,11 @@ class RomEditor {
         }
     }
 
-    getMaxCountOfLevels(){
+    getMaxCountOfLevels(romType = this.romType){
         let maxCount = 0;
-        if(this.romType === Config.ROM_TYPE_ORIGINAL){
+        if(romType === Config.ROM_TYPE_ORIGINAL){
             maxCount = (Config.LEVEL_ADDRESS_TABLE_END_ORIGINAL - Config.LEVEL_ADDRESS_TABLE_ORIGINAL) / 2;
-        }else if(this.romType === Config.ROM_TYPE_EXPANDED){
+        }else if(romType === Config.ROM_TYPE_EXPANDED){
             maxCount = (Config.LEVEL_ADDRESS_TABLE_END_EXPANDED - Config.LEVEL_ADDRESS_TABLE_EXPANDED) / 2;
         }
 
@@ -703,10 +703,10 @@ class RomEditor {
         return maxCount
     }
 
-    getLevelUsageMaxSize(){
-        if(this.romType === Config.ROM_TYPE_ORIGINAL){
+    getLevelUsageMaxSize(romType = this.romType){
+        if(romType === Config.ROM_TYPE_ORIGINAL){
             return Config.LEVEL_DATA_END_ORIGINAL - Config.LEVEL_DATA_ORIGINAL;
-        }else if(this.romType === Config.ROM_TYPE_EXPANDED){
+        }else if(romType === Config.ROM_TYPE_EXPANDED){
             return Config.LEVEL_DATA_END_EXPANDED - Config.LEVEL_DATA_EXPANDED;
         }
     }
@@ -746,12 +746,12 @@ class RomEditor {
         return [0x01];
     }
 
-    getEnemyUsageMaxSize(){
-        if(this.romType === Config.ROM_TYPE_ORIGINAL){
+    getEnemyUsageMaxSize(romType = this.romType){
+        if(romType === Config.ROM_TYPE_ORIGINAL){
             return Config.ENEMY_DATA_END_ORIGINAL - Config.ENEMY_DATA_ORIGINAL;
-        }else if(this.romType === Config.ROM_TYPE_EXPANDED){
+        }else if(romType === Config.ROM_TYPE_EXPANDED){
             return Config.ENEMY_DATA_END_EXPANDED - Config.ENEMY_DATA_EXPANDED;
-        }   
+        }
     }
 
     // only for pgr rom

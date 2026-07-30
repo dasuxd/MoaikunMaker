@@ -82,6 +82,18 @@
             </div>
         </div>
 
+        <div class="top-bar-warning" id="modifiedRomWarning" role="status" aria-live="polite" hidden>
+            <span class="top-bar-warning-icon" aria-hidden="true">⚠️</span>
+            <div class="top-bar-warning-viewport">
+                <div class="top-bar-warning-track">
+                    <span class="top-bar-warning-copy" id="modifiedRomWarningText"
+                        data-i18n="modifiedRomDesignWarning">检测到扩展 ROM。不建议使用修改后的 ROM 设计关卡，否则可能引发尚未覆盖的 Bug。建议先从关卡列表导出全部关卡，清空缓存并加载原版 ROM，然后重新导入这些关卡。</span>
+                    <span class="top-bar-warning-copy" aria-hidden="true"
+                        data-i18n="modifiedRomDesignWarning">检测到扩展 ROM。不建议使用修改后的 ROM 设计关卡，否则可能引发尚未覆盖的 Bug。建议先从关卡列表导出全部关卡，清空缓存并加载原版 ROM，然后重新导入这些关卡。</span>
+                </div>
+            </div>
+        </div>
+
         <div class="top-bar-actions">
             <!-- 移动端菜单按钮 -->
             <button class="mobile-menu-btn" id="mobileMenuBtn" onclick="toggleMobileMenu()">

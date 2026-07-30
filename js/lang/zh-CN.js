@@ -39,6 +39,8 @@ const translations_zhCN = {
     'romAlreadyExpanded': '当前 ROM 已经是扩展版本（mapper2），无需再次转换',
     'romExpansionEnabled': '🔧 ROM 拓展模式已开启，关卡容量和敌人数量上限已扩大',
     'romExpansionDisabled': '🔧 ROM 拓展模式已关闭，已恢复为原始 ROM 限制',
+    'romAutoExpandedForImportWarning': '由于导入关卡内容过多，已自动转换为拓展 ROM。',
+    'modifiedRomDesignWarning': '检测到扩展 ROM。不建议使用修改后的 ROM 设计关卡，否则可能引发尚未覆盖的 Bug。建议先从关卡列表导出全部关卡，清空缓存并加载原版 ROM，然后重新导入这些关卡。',
     'clearMap': '清空地图',
     'exportData': '导出数据',
     'applyToRom': '应用到 ROM 编辑器',

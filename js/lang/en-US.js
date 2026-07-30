@@ -39,6 +39,8 @@ const translations_enUS = {
     'romAlreadyExpanded': 'Current ROM is already expanded version (mapper2), no conversion needed',
     'romExpansionEnabled': '🔧 ROM expansion mode enabled, level capacity and enemy limits increased',
     'romExpansionDisabled': '🔧 ROM expansion mode disabled, reverted to original ROM limits',
+    'romAutoExpandedForImportWarning': 'The ROM was automatically converted to an expanded ROM because the imported level content is too large.',
+    'modifiedRomDesignWarning': 'Expanded ROM detected. Designing levels with a modified ROM is not recommended because it may cause unhandled bugs. Export all levels from the level list, clear the cache, load an original ROM, and then import those levels again.',
     'clearMap': 'Clear Map',
     'exportData': 'Export Data',
     'applyToRom': 'Apply to ROM Editor',
