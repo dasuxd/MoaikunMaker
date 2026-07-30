@@ -935,11 +935,12 @@ class LevelEditor {
     }
 
     /**
-     * Circularly shift every horizontal level element except the player.
+     * Circularly shift every horizontal level element.
      *
      * Wide levels wrap over 32 columns and single-screen levels over 16.
-     * Keeping the player fixed lets an author rotate a wide level until the
-     * desired starting area is under the original first-screen spawn point.
+     * In a single-screen level the player wraps with the map. In a wide level
+     * the player follows the map only while remaining inside the first screen
+     * (columns 0-15); the map keeps moving when the player reaches an edge.
      *
      * @param {number} delta - -1 shifts left; +1 shifts right.
      */
@@ -979,7 +980,18 @@ class LevelEditor {
             this.doorPos.x = wrapX(this.doorPos.x + delta);
         }
 
-        // Player position deliberately remains unchanged.
+        if (this.playerPos) {
+            const nextPlayerX = this.playerPos.x + delta;
+            if (this.isWideScreen) {
+                const firstScreenWidth = Config.GRID_WIDTH / 2;
+                if (nextPlayerX >= 0 && nextPlayerX < firstScreenWidth) {
+                    this.playerPos.x = nextPlayerX;
+                }
+            } else {
+                this.playerPos.x = wrapX(nextPlayerX);
+            }
+        }
+
         this.performEnd();
     }
 
