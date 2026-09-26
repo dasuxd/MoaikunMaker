@@ -789,10 +789,10 @@ class LevelEditor {
 
         let isProhibitedArea = false;
         let warningMessage = '';
-        if(y === 0 && this.currentTool.includes('tile')){
-            warningMessage = i18n.t('prohibitedTileAreaWarning');
-            isProhibitedArea = true;
-        }
+        // if(y === 0 && this.currentTool.includes('tile')){
+        //     warningMessage = i18n.t('prohibitedTileAreaWarning');
+        //     isProhibitedArea = true;
+        // }
 
         if(this.currentTool === 'player' && (x >= Config.GRID_WIDTH / 2)){
             warningMessage = i18n.t('prohibitedPlayerAreaWarning');
