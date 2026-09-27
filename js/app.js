@@ -1030,14 +1030,14 @@ class App {
             return false;
         }
 
-        return this.selectLevelNow(index);
+        return this.selectLevelNow(index, options);
     }
 
     /**
      * Select a level without prompting. Call through selectLevel() unless the
      * caller has already resolved unsaved edits.
      */
-    selectLevelNow(index) {
+    selectLevelNow(index, options = {}) {
         const level = this.romEditor.getLevel(index);
         if (!level) {
             this.showMessage('error', i18n.t('invalidLevelIndexError'));
@@ -1047,6 +1047,9 @@ class App {
             this.showMessage('warning', i18n.t('inactiveLevelHint'));
             return false;
         }
+        const preserveEditorState = options.preserveEditorState === true &&
+            this.editorSource === 'formal' &&
+            this.currentLevel === index;
         this.editorSource = 'formal';
         this.currentDraftId = null;
         this.currentLevel = index;
@@ -1079,8 +1082,14 @@ class App {
         //this.updateDataSize();
         this.validateMonsterData();
         
-        // Load data to visual editor
-        this.loadLevelToVisualEditor(level);
+        // A normal level selection loads the saved ROM data into the visual
+        // editor. After save, however, the editor already contains the source
+        // map and its optimized result. Reloading that optimized ROM data would
+        // optimize it a second time (notably shortening Tile 3 columns in
+        // backgrounds 0 and 1), so the save refresh keeps the editor state.
+        if (!preserveEditorState) {
+            this.loadLevelToVisualEditor(level);
+        }
         this.markEditorClean();
 
         this.testLevelBtn.disabled = false;;
@@ -1558,7 +1567,10 @@ class App {
             this.saveLevelDataToCache();
 
             // Refresh display
-            this.selectLevel(this.currentLevel);
+            this.selectLevel(this.currentLevel, {
+                preserveEditorState: true,
+                skipUnsavedGuard: true
+            });
             this.updateMemoryOverview();
             //this.writeRomBtn.disabled = false;
             this.downloadBtn.disabled = false;
