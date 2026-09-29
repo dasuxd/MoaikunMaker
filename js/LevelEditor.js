@@ -106,12 +106,13 @@ class LevelEditor {
             
             // Set map data (16x14)
             if (data.map && data.map.length === Config.GRID_HEIGHT) {
-                this.mapData = data.map.map(row => [...row]);
-                OptimizedMap.optimizedMap(
+                // ROM data already contains optimized tile IDs. Preserve that
+                // exact display, while rebuilding an editable source map so a
+                // later edit can optimize without eroding Tile 3 columns.
+                this.optimizedMapData = data.map.map(row => [...row]);
+                this.mapData = OptimizedMap.createEditableMap(
                     this.currentBgId,
-                    this.mapData,
-                    this.optimizedMapData,
-                    this.isWideScreen
+                    this.optimizedMapData
                 );
             }
             

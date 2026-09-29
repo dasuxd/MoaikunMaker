@@ -54,6 +54,110 @@ class OptimizedMap{
         }
     }
 
+    /**
+     * Rebuild an editable source map from tiles already stored in ROM.
+     *
+     * Backgrounds 0 and 1 are not idempotent: optimizing their saved output
+     * again shortens Tile 3 columns. For those backgrounds, find a source
+     * column whose first optimization produces the saved column exactly.
+     * Other backgrounds can use the saved tiles directly.
+     */
+    static createEditableMap(bgId, optimizedMap){
+        const editableMap = optimizedMap.map(row => [...row]);
+        const bgIdNum = parseInt(bgId, 10);
+        if(bgIdNum !== 0x00 && bgIdNum !== 0x01){
+            return editableMap;
+        }
+
+        const mapWidth = editableMap.reduce(
+            (width, row) => Math.max(width, Array.isArray(row) ? row.length : 0),
+            0
+        );
+        for(let x = 0; x < mapWidth; x++){
+            if(!editableMap.every(row => Array.isArray(row) && x < row.length)){
+                continue;
+            }
+            const savedColumn = editableMap.map(row => row[x]);
+            const sourceColumn = OptimizedMap.restoreMap00Column(savedColumn);
+            if(!sourceColumn){
+                continue;
+            }
+            for(let y = 0; y < sourceColumn.length; y++){
+                editableMap[y][x] = sourceColumn[y];
+            }
+        }
+        return editableMap;
+    }
+
+    /**
+     * Find one source column that maps to an already optimized column.
+     * The optimizer only depends on the tile above and below, so a small
+     * dynamic-programming search avoids guessing how saved cap tiles began.
+     */
+    static restoreMap00Column(savedColumn){
+        if(!Array.isArray(savedColumn) || savedColumn.length === 0){
+            return [];
+        }
+
+        const autoTiles = [1, 2, 3];
+        const candidatesFor = tile => autoTiles.includes(tile) ? autoTiles : [tile];
+        let states = candidatesFor(savedColumn[0]).map(tile => ({
+            topTile: 0,
+            tile,
+            source: [tile]
+        }));
+
+        for(let y = 0; y < savedColumn.length; y++){
+            const bottomCandidates = y < savedColumn.length - 1
+                ? candidatesFor(savedColumn[y + 1])
+                : [0];
+            const nextStates = new Map();
+
+            for(const state of states){
+                for(const bottomTile of bottomCandidates){
+                    const optimizedTile = OptimizedMap.optimizeMap00Tile(
+                        state.tile,
+                        state.topTile,
+                        bottomTile
+                    );
+                    if(optimizedTile !== savedColumn[y]){
+                        continue;
+                    }
+                    if(y === savedColumn.length - 1){
+                        return state.source;
+                    }
+
+                    const key = `${state.tile}:${bottomTile}`;
+                    if(!nextStates.has(key)){
+                        nextStates.set(key, {
+                            topTile: state.tile,
+                            tile: bottomTile,
+                            source: [...state.source, bottomTile]
+                        });
+                    }
+                }
+            }
+            states = [...nextStates.values()];
+            if(states.length === 0){
+                return null;
+            }
+        }
+        return null;
+    }
+
+    static optimizeMap00Tile(tile, topTile, bottomTile){
+        if(![1, 2, 3].includes(tile)){
+            return tile;
+        }
+        if(tile === 3){
+            if(topTile !== 3 || bottomTile !== 3){
+                return [1, 2].includes(bottomTile) ? 1 : 2;
+            }
+            return tile;
+        }
+        return [1, 2, 3].includes(bottomTile) ? 1 : 2;
+    }
+
     static optimizeMap00(mapData, optimizedMap){
         //OptimizedMap.default(mapData, optimizedMap);
         for(let y=0; y<Config.GRID_HEIGHT; y++){
@@ -62,24 +166,7 @@ class OptimizedMap{
                 if([1, 2, 3].includes(tile)){
                     const topTile = (y > 0) ? mapData[y - 1][x] : 0;
                     const bottomTile = (y < Config.GRID_HEIGHT - 1) ? mapData[y + 1][x] : 0;
-                    //如果 tile 是 3 号，则判断上下是否有 3号，如果有则保留 
-                    // 如果没有 判断 下面的 tile 是否是 1 ~ 2 号，如果有 则为 1 号
-                    if(tile === 3){
-                        if(![3].includes(topTile) || ![3].includes(bottomTile)){
-                            if([1, 2].includes(bottomTile)){
-                                tile = 1;
-                            }else{
-                                tile = 2;
-                            }
-                        }
-                    }else{
-                    //如果上面 有， 则为 1 号
-                        if([1, 2, 3].includes(bottomTile)){
-                            tile = 1;
-                        }else{
-                            tile = 2;
-                        }
-                    }
+                    tile = OptimizedMap.optimizeMap00Tile(tile, topTile, bottomTile);
                 }
 
                 optimizedMap[y][x] = tile;
@@ -95,24 +182,7 @@ class OptimizedMap{
                 if([1, 2, 3].includes(tile)){
                     const topTile = (y > 0) ? mapData[y - 1][x] : 0;
                     const bottomTile = (y < Config.GRID_HEIGHT - 1) ? mapData[y + 1][x] : 0;
-                    //如果 tile 是 3 号，则判断上下是否有 3号，如果有则保留 
-                    // 如果没有 判断 下面的 tile 是否是 1 ~ 2 号，如果有 则为 1 号
-                    if(tile === 3){
-                        if(![3].includes(topTile) || ![3].includes(bottomTile)){
-                            if([1, 2].includes(bottomTile)){
-                                tile = 1;
-                            }else{
-                                tile = 2;
-                            }
-                        }
-                    }else{
-                    //如果上面 有， 则为 1 号
-                        if([1, 2, 3].includes(bottomTile)){
-                            tile = 1;
-                        }else{
-                            tile = 2;
-                        }
-                    }
+                    tile = OptimizedMap.optimizeMap00Tile(tile, topTile, bottomTile);
                 }
 
                 optimizedMap[y][x] = tile;                
