@@ -89,8 +89,12 @@ const translations_enUS = {
     'welcomeUpload': '📤 Upload ROM to Start',
     
     // Operation Info
-    'operationSummaryLabel': 'Controls:',
-    'operationSummary': 'Move (WASD)  |  Attack (J)  |  Jump (K)|  Start (Enter) | Select (Shift)',
+    'quickSaveButton': 'Quick Save',
+    'quickLoadButton': 'Quick Load',
+    'quickSaveSlot1Title': 'Save to F1 slot (keyboard: Shift+F1)',
+    'quickLoadSlot1Title': 'Load F1 slot (keyboard: F1)',
+    'nesControlsSummary': 'Move (WASD) | Attack (J) | Jump (K) | Start (Enter) | Select (Alt)',
+    'editorShortcutsSummary': 'Test Level (F5) | Stop Emulator (F6) | Save Level (Ctrl+S) | Quick Save (Shift+F1–F4) | Quick Load (F1–F4)',
 
     // others
     'levelCount' : 'Total Levels',
@@ -111,6 +115,11 @@ const translations_enUS = {
     'loadFileSuccess': 'File loaded successfully: {fileNameStr}, {length} bytes)',
     'emulatorNotRunningWarning': 'Emulator is not running',
     'emulatorStopInfo': '✋ Emulator stopped',
+    'quickSaveSuccess': 'Saved to slot {slot}',
+    'quickLoadSuccess': 'Loaded slot {slot}',
+    'quickSaveEmpty': 'Slot {slot} is empty',
+    'quickSaveFailed': 'Could not save slot {slot}',
+    'quickLoadFailed': 'Could not load slot {slot}',
     'pleaseSelectLevelFirstWarning': 'Please select a level first',
     'copyShareLevelLinkSuccess': '🔗 Share link copied to clipboard!',
     'copyShareLevelLinkError': 'Failed to generate share link: {error}',

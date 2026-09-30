@@ -570,6 +570,40 @@ h1 {
     display: flex; /* 激活时显示为flex布局 */
 }
 
+#operationInfoItem {
+    width: 100%;
+    min-width: 0;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    text-align: center;
+}
+
+.operation-action-row {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    width: 100%;
+}
+
+.operation-action-row button {
+    min-width: 0;
+    background: #4CAF50;
+    color: white;
+    font-weight: 600;
+}
+
+.operation-action-row #quickLoadBtn {
+    background: #2196F3;
+}
+
+.operation-text-row {
+    max-width: 100%;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
 .info-item span:last-child {
     font-weight: bold;
     color: #333;
@@ -656,6 +690,8 @@ h1 {
     
     /* info-panel在移动端居中显示 */
     .info-panel {
+        position: sticky;
+        left: 0;
         width: 100%;
         max-width: 100vw;
         /* flex-direction: column; */
@@ -664,6 +700,16 @@ h1 {
         margin: 10px 0;
         padding: 10px;
         box-sizing: border-box;
+    }
+
+    .operation-action-row button {
+        flex: 1 1 0;
+        max-width: 160px;
+        padding: 10px;
+    }
+
+    #operationInfoItem .operation-text-row {
+        display: none;
     }
 
     /* .info-item {

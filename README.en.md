@@ -75,6 +75,13 @@ npx serve
 - Click "🎮 Test Level" to run current level in emulator
 - Click "🎮 Test ROM" to test the complete game
 - Click "⏹️ Stop Emulator" to return to editing
+- Shortcuts: `F5` tests the current level, `F6` stops the emulator, and `Ctrl + S` saves the level. A shortcut does nothing while its button is disabled.
+
+- While the emulator is running, press `Shift + F1` through `Shift + F4` to save to one of four temporary slots, and `F1` through `F4` to load it. Slots can be overwritten; empty slots cannot be loaded.
+- On mobile, the Quick Save and Quick Load buttons use the F1 slot.
+- Stopping the emulator or loading another ROM clears all four slots. Quick saves are not written to the ROM or browser storage.
+- F1, F3, and F4 are browser shortcuts in some browsers, so interception depends on the browser and OS.
+- The game Select key is `Alt`, separate from `Shift + F1` through `Shift + F4` quick saving. The bundled jsnes does not save audio chip state, so sound may briefly differ after loading.
 
 ### 4. Save & Share
 
@@ -132,8 +139,12 @@ moaikun-maker/
 │   │   └── ja-JP.js       # Japanese
 │   └── lib/               # Third-party libraries
 │       └── jsnes.min.js   # NES emulator core
+├── tests/                # Emulator state tests
+│   └── NesEmulator.quickSave.test.cjs
 └── README.md              # Project documentation
 ```
+
+Run `node --test tests/NesEmulator.quickSave.test.cjs` to check quick saves.
 
 ## ⚖️ Legal Notice
 

@@ -376,9 +376,14 @@
                                 <span id="mousePos">-</span>
                             </div>
                             <div class="info-item" id="operationInfoItem">
-                                <span data-i18n="operationSummaryLabel">操作简介:</span>
-                                <span data-i18n="operationSummary">移动(WASD) | 攻击(J) | 跳跃(K) | 开始(Enter) |
-                                    选择(Shift)</span>
+                                <div class="operation-action-row">
+                                    <button type="button" id="quickSaveBtn" data-i18n="quickSaveButton"
+                                        data-i18n-title="quickSaveSlot1Title">快速存档</button>
+                                    <button type="button" id="quickLoadBtn" data-i18n="quickLoadButton"
+                                        data-i18n-title="quickLoadSlot1Title">快速读档</button>
+                                </div>
+                                <div class="operation-text-row" data-i18n="nesControlsSummary">移动(WASD) | 攻击(J) | 跳跃(K) | 开始(Enter) | 选择(Alt)</div>
+                                <div class="operation-text-row" data-i18n="editorShortcutsSummary">测试关卡(F5) | 结束模拟(F6) | 保存关卡(Ctrl+S) | 快速存档(Shift+F1～F4) | 快速读档(F1～F4)</div>
                             </div>
                         </div>
                     </div>

@@ -288,6 +288,13 @@ class App {
             levelFileInput.addEventListener('change', (e) => this.handleLevelFileSelect(e));
         }
 
+        document.getElementById('quickSaveBtn').addEventListener('click', () => {
+            this.emulator?.quickSave(1);
+        });
+        document.getElementById('quickLoadBtn').addEventListener('click', () => {
+            this.emulator?.quickLoad(1);
+        });
+
         window.addEventListener('beforeunload', (event) => {
             if (this.hasUnsavedChanges()) {
                 event.preventDefault();
@@ -334,6 +341,7 @@ class App {
         });
 
         document.addEventListener('keydown', event => {
+            this.handleKeyboardShortcut(event);
             if (event.key === 'Escape') {
                 const openToggle = document.querySelector(
                     '.backup-action-toggle[aria-expanded="true"]'
@@ -415,6 +423,23 @@ class App {
                 await this.clearCache();
             });
         }
+    }
+
+    handleKeyboardShortcut(event) {
+        if (event.altKey || event.metaKey) return;
+
+        let button = null;
+        if (!event.ctrlKey && !event.shiftKey && event.key === 'F5') {
+            button = this.testLevelBtn;
+        } else if (!event.ctrlKey && !event.shiftKey && event.key === 'F6') {
+            button = this.stopEmulatorBtn;
+        } else if (event.ctrlKey && !event.shiftKey && event.key.toLowerCase() === 's') {
+            button = this.saveBtn;
+        }
+
+        if (!button) return;
+        event.preventDefault();
+        if (!event.repeat && !button.disabled) button.click();
     }
 
     /**

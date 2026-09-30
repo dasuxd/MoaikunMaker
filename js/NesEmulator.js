@@ -1,6 +1,7 @@
 class NesEmulator {
     static LOADING_WAIT_ROM_FRAME = 40;
     static LOADING_WAIT_START_FRAME = 306;
+    static QUICK_SAVE_SLOT_COUNT = 4;
     constructor(canvasId) {
         this.canvas = document.getElementById(canvasId);
         this.ctx = this.canvas.getContext('2d');
@@ -8,6 +9,8 @@ class NesEmulator {
         this.frameBuffer = null;
         this.isRunning = false;
         this.isPaused = false;
+        this.quickSaveSlots = Array(NesEmulator.QUICK_SAVE_SLOT_COUNT).fill(null);
+        this.runGeneration = 0;
 
         // 帧率控制
         this.fps = 60; // NES 标准帧率
@@ -147,12 +150,28 @@ class NesEmulator {
             'l': jsnes.Controller.BUTTON_B,        // X = B 按钮
             'j': jsnes.Controller.BUTTON_B,
             'Enter': jsnes.Controller.BUTTON_START,   // Enter = Start
-            'Shift': jsnes.Controller.BUTTON_SELECT   // Shift = Select
+            'Alt': jsnes.Controller.BUTTON_SELECT     // Alt = Select
         };
         
         // 按下按键
         this.onKeyDown = (e) => {
             if (!this.isRunning) return;
+
+            if (app.testMode && /^F[1-4]$/.test(e.key) &&
+                !e.ctrlKey && !e.altKey && !e.metaKey) {
+                e.preventDefault();
+                if (e.repeat) return;
+                const slot = Number(e.key.slice(1));
+                if (e.shiftKey) {
+                    this.quickSave(slot);
+                } else {
+                    this.quickLoad(slot);
+                }
+                return;
+            }
+
+            // Editor shortcuts must not also press a game button.
+            if (e.ctrlKey || e.metaKey) return;
             
             const button = this.keyMap[e.key];
             if (button !== undefined) {
@@ -184,6 +203,8 @@ class NesEmulator {
     }
     
     loadROM(romData) {
+        this.clearQuickSaves();
+        this.runGeneration++;
         // romData 是 Uint8Array 或 ArrayBuffer
         let uint8Array;
         
@@ -388,11 +409,13 @@ class NesEmulator {
     }
 
     async quickStart(){
+        const runGeneration = this.runGeneration;
         this.adjustUIForMobile()
         this.loadingScreenImage = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
         this.loadingProgress = 0;
         const CHUNK_SIZE = 2;
         for(let i = 0; i <  NesEmulator.LOADING_WAIT_ROM_FRAME; i++){
+            if (runGeneration !== this.runGeneration) return;
             this.nes.frame();
             this.loadingProgress++;
 
@@ -408,6 +431,7 @@ class NesEmulator {
         this.nes.buttonUp(1, 3);
 
         for(let i = 0; i <  NesEmulator.LOADING_WAIT_START_FRAME; i++){
+            if (runGeneration !== this.runGeneration) return;
             this.nes.frame();
             this.loadingProgress++;
             if (i % CHUNK_SIZE === 0) {
@@ -415,7 +439,7 @@ class NesEmulator {
             }
         }
 
-        this.start();
+        if (runGeneration === this.runGeneration) this.start();
     }
     
     start() {
@@ -451,6 +475,8 @@ class NesEmulator {
     
     stop() {
         this.isRunning = false;
+        this.runGeneration++;
+        this.clearQuickSaves();
         if (this.animationId) {
             cancelAnimationFrame(this.animationId);
             this.animationId = null;
@@ -461,6 +487,45 @@ class NesEmulator {
             this.scriptProcessor.disconnect();
         }
         this.loadingProgress = 0;
+        this.audioBuffer = [];
+    }
+
+    clearQuickSaves() {
+        this.quickSaveSlots.fill(null);
+    }
+
+    quickSave(slot) {
+        if (!this.isRunning || !app.testMode || slot < 1 || slot > NesEmulator.QUICK_SAVE_SLOT_COUNT) return;
+        try {
+            // jsnes returns references to its live state; every slot needs its own copy.
+            this.quickSaveSlots[slot - 1] = JSON.parse(JSON.stringify(this.nes.toJSON()));
+            app.showMessage('success', i18n.t('quickSaveSuccess', { slot }));
+        } catch (error) {
+            console.error('Quick save failed:', error);
+            app.showMessage('error', i18n.t('quickSaveFailed', { slot }));
+        }
+    }
+
+    quickLoad(slot) {
+        if (!this.isRunning || !app.testMode || slot < 1 || slot > NesEmulator.QUICK_SAVE_SLOT_COUNT) return;
+        const state = this.quickSaveSlots[slot - 1];
+        if (!state) {
+            app.showMessage('warning', i18n.t('quickSaveEmpty', { slot }));
+            return;
+        }
+        try {
+            // fromJSON also retains array references, so do not pass it the stored copy.
+            this.nes.fromJSON(JSON.parse(JSON.stringify(state)));
+            for (const controller of Object.values(this.nes.controllers)) {
+                controller.state.fill(64); // release keys held at the moment of loading
+            }
+            this.audioBuffer = [];
+            this.lastFrameTime = performance.now();
+            app.showMessage('success', i18n.t('quickLoadSuccess', { slot }));
+        } catch (error) {
+            console.error('Quick load failed:', error);
+            app.showMessage('error', i18n.t('quickLoadFailed', { slot }));
+        }
     }
     
     loop(currentTime) {

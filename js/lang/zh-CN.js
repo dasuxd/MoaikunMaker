@@ -89,8 +89,12 @@ const translations_zhCN = {
     'welcomeUpload': '📤 上传 ROM 开始使用',
     
     // Operation Info
-    'operationSummaryLabel': '操作简介:',
-    'operationSummary': '移动(WASD)  |  攻击(J)  | 跳跃(K) | 开始(Enter) | 选择(Shift)',
+    'quickSaveButton': '快速存档',
+    'quickLoadButton': '快速读档',
+    'quickSaveSlot1Title': '存入 F1 槽位（键盘：Shift+F1）',
+    'quickLoadSlot1Title': '读取 F1 槽位（键盘：F1）',
+    'nesControlsSummary': '移动(WASD) | 攻击(J) | 跳跃(K) | 开始(Enter) | 选择(Alt)',
+    'editorShortcutsSummary': '测试关卡(F5) | 结束模拟(F6) | 保存关卡(Ctrl+S) | 快速存档(Shift+F1～F4) | 快速读档(F1～F4)',
 
     // others
     'levelCount' : '关卡总数',
@@ -111,6 +115,11 @@ const translations_zhCN = {
     'loadFileSuccess':'文件加载成功: {fileNameStr}, 共 {length} 字节)',
     'emulatorNotRunningWarning':'模拟器未运行',
     'emulatorStopInfo':'✋ 模拟器已停止',
+    'quickSaveSuccess': '已存入槽位 {slot}',
+    'quickLoadSuccess': '已读取槽位 {slot}',
+    'quickSaveEmpty': '槽位 {slot} 还没有存档',
+    'quickSaveFailed': '槽位 {slot} 存档失败',
+    'quickLoadFailed': '槽位 {slot} 读档失败',
     'pleaseSelectLevelFirstWarning':'请先选择一个关卡',
     'copyShareLevelLinkSuccess':'🔗 分享链接已复制到剪贴板！',
     'copyShareLevelLinkError':'生成分享链接失败:{error}',

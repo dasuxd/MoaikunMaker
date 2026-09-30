@@ -89,8 +89,12 @@ const translations_jaJP = {
     'welcomeUpload': '📤 ROMをアップロードして開始',
     
     // Operation Info
-    'operationSummaryLabel': '操作方法:',
-    'operationSummary': '移動(WASD)  |  攻撃(J)  |  ジャンプ(K) | スタート(Enter) | セレクト(Shift)',
+    'quickSaveButton': 'クイックセーブ',
+    'quickLoadButton': 'クイックロード',
+    'quickSaveSlot1Title': 'F1スロットに保存（キーボード：Shift+F1）',
+    'quickLoadSlot1Title': 'F1スロットを読み込み（キーボード：F1）',
+    'nesControlsSummary': '移動(WASD) | 攻撃(J) | ジャンプ(K) | スタート(Enter) | セレクト(Alt)',
+    'editorShortcutsSummary': 'ステージテスト(F5) | エミュレータ停止(F6) | ステージ保存(Ctrl+S) | クイックセーブ(Shift+F1～F4) | クイックロード(F1～F4)',
 
     // others
     'levelCount' : '合計ステージ数',
@@ -111,6 +115,11 @@ const translations_jaJP = {
     'loadFileSuccess': 'ファイルが正常に読み込まれました: {fileNameStr}、{length}バイト)',
     'emulatorNotRunningWarning': 'エミュレータが実行されていません',
     'emulatorStopInfo': '✋ エミュレータが停止しました',
+    'quickSaveSuccess': 'スロット{slot}にセーブしました',
+    'quickLoadSuccess': 'スロット{slot}をロードしました',
+    'quickSaveEmpty': 'スロット{slot}にセーブデータがありません',
+    'quickSaveFailed': 'スロット{slot}へのセーブに失敗しました',
+    'quickLoadFailed': 'スロット{slot}のロードに失敗しました',
     'pleaseSelectLevelFirstWarning': '最初にステージを選択してください',
     'copyShareLevelLinkSuccess': '🔗 共有リンクをクリップボードにコピーしました！',
     'copyShareLevelLinkError': '共有リンクの生成に失敗しました: {error}',
