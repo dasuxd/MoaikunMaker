@@ -78,7 +78,8 @@ npx serve
 - Shortcuts: `F5` tests the current level, `F6` stops the emulator, and `Ctrl + S` saves the level. A shortcut does nothing while its button is disabled.
 
 - While the emulator is running, press `Shift + F1` through `Shift + F4` to save to one of four temporary slots, and `F1` through `F4` to load it. Slots can be overwritten; empty slots cannot be loaded.
-- On mobile, the Quick Save and Quick Load buttons use the F1 slot.
+- On mobile, expand the Emulator menu list for Quick Save, Quick Load, and Stop Emulator. The game pauses while the menu is open and resumes when it closes. Saves use the F1 slot; overwriting a save, loading, and stopping require confirmation.
+- Tap Recenter to bring the game back into view and center it horizontally without restarting it.
 - Stopping the emulator or loading another ROM clears all four slots. Quick saves are not written to the ROM or browser storage.
 - F1, F3, and F4 are browser shortcuts in some browsers, so interception depends on the browser and OS.
 - The game Select key is `Alt`, separate from `Shift + F1` through `Shift + F4` quick saving. The bundled jsnes does not save audio chip state, so sound may briefly differ after loading.

@@ -10,6 +10,32 @@ const App = new Function('document', 'navigator', `${appSource}\nreturn App;`)(
     document, { userAgent: '' }
 );
 
+test('cancelled toolbar touches remove the scroll-blocking drag listener', () => {
+    const toolbarListeners = {};
+    const listeners = new Map();
+    const toolbar = {
+        style: {}, classList: { contains: () => true },
+        addEventListener(type, listener) { toolbarListeners[type] = listener; },
+        getBoundingClientRect: () => ({ left: 10, top: 10 })
+    };
+    const doc = {
+        getElementById: () => toolbar,
+        addEventListener(type, listener) { listeners.set(type, listener); },
+        removeEventListener(type, listener) { if (listeners.get(type) === listener) listeners.delete(type); }
+    };
+    const win = { addEventListener() {} };
+    const DragApp = new Function('document', 'window', `${appSource}\nreturn App;`)(doc, win);
+    Object.create(DragApp.prototype).initToolbarDragging();
+    assert.equal(listeners.has('touchmove'), false);
+    toolbarListeners.touchstart({ type: 'touchstart', target: { closest: () => null },
+        touches: [{ clientX: 20, clientY: 30 }] });
+    assert.equal(listeners.has('touchmove'), true);
+    listeners.get('touchcancel')();
+    assert.equal(listeners.has('touchmove'), false);
+    assert.equal(listeners.has('touchcancel'), false);
+    assert.equal(toolbar.style.cursor, '');
+});
+
 function makeButton() {
     return {
         disabled: false,

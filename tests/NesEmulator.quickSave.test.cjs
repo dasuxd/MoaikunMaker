@@ -37,7 +37,12 @@ function makeEmulator(mapper = 0) {
     emulator.quickSaveSlots = Array(NesEmulator.QUICK_SAVE_SLOT_COUNT).fill(null);
     emulator.runGeneration = 0;
     emulator.isRunning = true;
-    emulator.audioBuffer = [[1, 1]];
+    emulator.audioBufferSize = 4096;
+    emulator.audioCapacity = 8192;
+    emulator.audioSamples = new Float32Array(emulator.audioCapacity * 2);
+    emulator.clearAudioBuffer();
+    emulator.audioContext = {};
+    emulator.handleAudioSample(1, 1);
     emulator.nes = new jsnes.NES({ onFrame() {}, onAudioSample() {} });
     emulator.loadROM(makeRom(mapper));
     emulator.nes.frame();
@@ -57,7 +62,7 @@ test('four slots retain independent snapshots across repeated loads', () => {
     assert.equal(emulator.nes.cpu.mem[0x10], 12);
     emulator.quickLoad(2);
     assert.equal(emulator.nes.cpu.mem[0x10], 23);
-    assert.deepEqual(emulator.audioBuffer, []);
+    assert.equal(emulator.audioCount, 0);
     assert.ok(emulator.nes.controllers[1].state.every(value => value === 64));
 });
 
@@ -138,4 +143,116 @@ test('stopping during asynchronous quick start cannot restart the emulator', asy
     emulator.stop();
     await pending;
     assert.equal(started, false);
+});
+
+test('menu pause releases keyboard input, mutes queued audio and blocks save shortcuts', () => {
+    const emulator = makeEmulator();
+    emulator.setupKeyboard();
+    emulator.audioContext = {};
+    emulator.nes.cpu.mem[0x10] = 12;
+    emulator.quickSave(1);
+    emulator.nes.cpu.mem[0x10] = 99;
+    emulator.buttonDown(1, jsnes.Controller.BUTTON_A);
+    emulator.pause();
+    assert.equal(emulator.isRunning, true);
+    assert.equal(emulator.isPaused, true);
+    assert.ok(emulator.nes.controllers[1].state.every(value => value === 64));
+    emulator.handleAudioSample(1, 1);
+    assert.equal(emulator.audioCount, 0);
+    document.listeners.keydown({ key: 'j', preventDefault() {} });
+    assert.ok(emulator.nes.controllers[1].state.every(value => value === 64));
+    document.listeners.keydown({ key: 'F1', preventDefault() {} });
+    assert.equal(emulator.nes.cpu.mem[0x10], 99);
+    // Explicit menu actions still work while paused.
+    assert.equal(emulator.quickLoad(1), true);
+    assert.equal(emulator.nes.cpu.mem[0x10], 12);
+    emulator.lastFrameTime = -1000;
+    emulator.resume();
+    assert.equal(emulator.isPaused, false);
+    assert.ok(emulator.lastFrameTime >= 0);
+    emulator.pause();
+    emulator.stop();
+    emulator.resume();
+    assert.equal(emulator.isRunning, false);
+    assert.equal(emulator.isPaused, false);
+});
+
+test('recenter restores both scroll axes without changing the game or save slots', () => {
+    const scrolling = [];
+    const mobileApp = { testMode: true };
+    const mobileWindow = {
+        scrollY: 120,
+        matchMedia: query => ({ matches: query === '(pointer: coarse)' }),
+        scrollTo: options => scrolling.push({ target: 'page', ...options })
+    };
+    const MobileEmulator = new Function('app', 'window', `${source}\nreturn NesEmulator;`)(mobileApp, mobileWindow);
+    const emulator = Object.create(MobileEmulator.prototype);
+    emulator.quickSaveSlots = [{ progress: 7 }];
+    const saved = emulator.quickSaveSlots[0];
+    emulator.canvas = {
+        offsetWidth: 1024,
+        getBoundingClientRect: () => ({ top: 80 }),
+        parentElement: { offsetWidth: 400, scrollTo: options => scrolling.push({ target: 'canvas', ...options }) }
+    };
+    emulator.recenterGameView();
+    assert.deepEqual(scrolling, [
+        { target: 'page', left: 0, top: 200, behavior: 'smooth' },
+        { target: 'canvas', left: 312, behavior: 'smooth' }
+    ]);
+    assert.equal(emulator.quickSaveSlots[0], saved);
+    mobileApp.testMode = false;
+    emulator.recenterGameView();
+    assert.equal(scrolling.length, 2);
+});
+
+test('audio remains stereo FIFO across wraparound and writes silence on underrun', () => {
+    const emulator = makeEmulator();
+    emulator.audioBufferSize = 4;
+    emulator.audioCapacity = 8;
+    emulator.audioSamples = new Float32Array(16);
+    emulator.clearAudioBuffer();
+    const read = length => {
+        const left = new Float32Array(length);
+        const right = new Float32Array(length);
+        emulator.fillAudioOutput(left, right);
+        return [Array.from(left), Array.from(right)];
+    };
+    for (let i = 1; i <= 6; i++) emulator.handleAudioSample(i, -i);
+    assert.deepEqual(read(4), [[1, 2, 3, 4], [-1, -2, -3, -4]]);
+    for (let i = 7; i <= 10; i++) emulator.handleAudioSample(i, -i);
+    assert.deepEqual(read(8), [[5, 6, 7, 8, 9, 10, 0, 0], [-5, -6, -7, -8, -9, -10, 0, 0]]);
+    assert.equal(emulator.audioCount, 0);
+    for (let i = 1; i <= 9; i++) emulator.handleAudioSample(i, -i);
+    assert.deepEqual(read(8), [[5, 6, 7, 8, 9, 0, 0, 0], [-5, -6, -7, -8, -9, 0, 0, 0]]);
+    emulator.handleAudioSample(99, -99);
+    emulator.pause();
+    assert.deepEqual(read(2), [[0, 0], [0, 0]]);
+    emulator.resume();
+    assert.deepEqual(read(2), [[0, 0], [0, 0]]);
+});
+
+test('rendered colors and scaling stay identical when reusing the frame buffer', () => {
+    let allocations = 0;
+    const uploads = [];
+    const draws = [];
+    const tempCtx = {
+        createImageData(w, h) { allocations++; return { data: new Uint8ClampedArray(w * h * 4) }; },
+        putImageData(data) { uploads.push(data); }
+    };
+    const renderDocument = { createElement: () => ({ getContext: () => tempCtx }) };
+    const RenderEmulator = new Function('document', `${source}\nreturn NesEmulator;`)(renderDocument);
+    const emulator = Object.create(RenderEmulator.prototype);
+    emulator.canvas = { width: 1024, height: 336 };
+    emulator.ctx = { fillRect() {}, drawImage(...args) { draws.push(args); } };
+    emulator.loadingProgress = 346;
+    const frame = new Uint32Array(256 * 240).fill(0x123456);
+    emulator.renderFrame(frame);
+    assert.deepEqual(Array.from(uploads[0].data.slice(0, 4)), [0x56, 0x34, 0x12, 255]);
+    frame[0] = 0xabcdef;
+    emulator.renderFrame(frame);
+    assert.deepEqual(Array.from(uploads[1].data.slice(0, 4)), [0xef, 0xcd, 0xab, 255]);
+    assert.equal(allocations, 1);
+    assert.equal(uploads[0], uploads[1]);
+    assert.deepEqual(draws[0].slice(1), [0, 0, 256, 240, 332.8, 0, 358.4, 336]);
+    assert.equal(emulator.ctx.imageSmoothingEnabled, false);
 });

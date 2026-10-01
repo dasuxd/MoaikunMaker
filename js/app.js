@@ -601,8 +601,10 @@ class App {
         
         // Touch events
         toolbar.addEventListener('touchstart', dragStart, { passive: true });
-        document.addEventListener('touchmove', drag, { passive: false });
-        document.addEventListener('touchend', dragEnd);
+        window.addEventListener('blur', dragEnd);
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) dragEnd();
+        });
         
         function dragStart(e) {
             // Only enable dragging in drag mode
@@ -629,6 +631,12 @@ class App {
             }
             
             isDragging = true;
+            if (e.type === 'touchstart') {
+                // Only request synchronous touch handling during an actual drag.
+                document.addEventListener('touchmove', drag, { passive: false });
+                document.addEventListener('touchend', dragEnd);
+                document.addEventListener('touchcancel', dragEnd);
+            }
             toolbar.style.cursor = 'grabbing';
             // Transition controlled by CSS .draggable-mode class, not set here
         }
@@ -668,6 +676,9 @@ class App {
             if (!isDragging) return;
             isDragging = false;
             toolbar.style.cursor = '';
+            document.removeEventListener('touchmove', drag);
+            document.removeEventListener('touchend', dragEnd);
+            document.removeEventListener('touchcancel', dragEnd);
         }
     }
     
@@ -1893,17 +1904,11 @@ class App {
     }
 
     vibrate(ms = 200){
-        // First check if this method exists
-        // I hate webKit
-        if (!("vibrate" in navigator)) {
-            console.log("This device/browser does not support vibration");
-            return;
-        }
-
+        if (!("vibrate" in navigator)) return;
         try {
             navigator.vibrate(ms);
         } catch (err) {
-            console.log("Vibration blocked", err);
+            // Optional feedback may be unavailable without affecting input.
         }
     }
     
@@ -3238,52 +3243,4 @@ document.addEventListener('click', (e) => {
     }
 });
 
-/**
- * Prevent iOS swipe back and rubber band effect
- */
-if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
-    // Prevent iOS edge swipe back
-    let startX = 0;
-    let startY = 0;
-    let targetElement = null;
-    
-    document.addEventListener('touchstart', (e) => {
-        startX = e.touches[0].clientX;
-        startY = e.touches[0].clientY;
-        targetElement = e.target;
-    }, { passive: true });
-    
-    document.addEventListener('touchmove', (e) => {
-        const currentX = e.touches[0].clientX;
-        const currentY = e.touches[0].clientY;
-        const deltaX = currentX - startX;
-        const deltaY = Math.abs(currentY - startY);
-        
-        // Check if in level list or sidebar
-        const isInLevelList = targetElement && (
-            targetElement.closest('.level-list') || 
-            targetElement.closest('.sidebar') ||
-            targetElement.closest('.level-item')
-        );
-        
-        // If in level list, don't block any swipe
-        if (isInLevelList) {
-            return;
-        }
-        
-        // If swiping right from left edge (iOS back gesture), and not much vertical movement, block it
-        if (startX < 30 && deltaX > 10 && deltaY < 50) {
-            e.preventDefault();
-        }
-        
-        // Block top and bottom rubber band effect
-        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-        const scrollHeight = document.documentElement.scrollHeight;
-        const clientHeight = document.documentElement.clientHeight;
-        
-        if ((scrollTop <= 0 && currentY > startY) || 
-            (scrollTop + clientHeight >= scrollHeight && currentY < startY)) {
-            e.preventDefault();
-        }
-    }, { passive: false });
-}
+// Keep page scrolling native on iOS. Only game buttons cancel gestures.

@@ -20,8 +20,10 @@ class NesEmulator {
 
         // 音频设置
         this.audioContext = null;
-        this.audioBuffer = [];
         this.audioBufferSize = 4096; // 每次处理的音频样本数
+        this.audioCapacity = this.audioBufferSize * 2;
+        this.audioSamples = new Float32Array(this.audioCapacity * 2);
+        this.clearAudioBuffer();
         
         this.initNES();
         this.initAudio();
@@ -79,25 +81,18 @@ class NesEmulator {
                 const left = e.outputBuffer.getChannelData(0);
                 const right = e.outputBuffer.getChannelData(1);
                 
-                // 从缓冲区读取音频数据
-                for (let i = 0; i < this.audioBufferSize; i++) {
-                    if (this.audioBuffer.length > 0) {
-                        const sample = this.audioBuffer.shift();
-                        left[i] = sample[0];
-                        right[i] = sample[1];
-                    } else {
-                        left[i] = 0;
-                        right[i] = 0;
-                    }
-                }
+                this.fillAudioOutput(left, right);
             };
 
             // 额外：页面获得焦点时也试一次
-            window.addEventListener('visibilitychange', () => {
-            if (this.audioContext?.state !== 'running') {
-                this.audioContext.resume();
+            if (!this.onAudioVisibilityChange) {
+                this.onAudioVisibilityChange = () => {
+                    if (!document.hidden && this.isRunning && this.audioContext?.state !== 'running') {
+                        this.audioContext?.resume().catch(() => {});
+                    }
+                };
+                document.addEventListener('visibilitychange', this.onAudioVisibilityChange);
             }
-            });
             
             console.log('音频系统初始化成功');
         } catch (error) {
@@ -109,15 +104,37 @@ class NesEmulator {
      * 处理音频采样
      */
     handleAudioSample(left, right) {
-        if (!this.audioContext || !this.isRunning) return;
-        
-        // 将音频样本添加到缓冲区
-        this.audioBuffer.push([left, right]);
-        
-        // 防止缓冲区过大
-        if (this.audioBuffer.length > this.audioBufferSize * 2) {
-            this.audioBuffer = this.audioBuffer.slice(-this.audioBufferSize);
+        if (!this.audioContext || !this.isRunning || this.isPaused) return;
+        // Fixed storage avoids a new pair array per sample and Array.shift().
+        if (this.audioCount === this.audioCapacity) {
+            // Keep recent sound if playback falls behind, with bounded latency.
+            this.audioRead = (this.audioWrite + this.audioBufferSize) % this.audioCapacity;
+            this.audioCount = this.audioBufferSize;
         }
+        const offset = this.audioWrite * 2;
+        this.audioSamples[offset] = left;
+        this.audioSamples[offset + 1] = right;
+        this.audioWrite = (this.audioWrite + 1) % this.audioCapacity;
+        this.audioCount++;
+    }
+
+    clearAudioBuffer() {
+        this.audioRead = 0;
+        this.audioWrite = 0;
+        this.audioCount = 0;
+    }
+
+    fillAudioOutput(left, right) {
+        const count = this.isRunning && !this.isPaused ? Math.min(left.length, this.audioCount) : 0;
+        for (let i = 0; i < count; i++) {
+            const offset = this.audioRead * 2;
+            left[i] = this.audioSamples[offset];
+            right[i] = this.audioSamples[offset + 1];
+            this.audioRead = (this.audioRead + 1) % this.audioCapacity;
+        }
+        this.audioCount -= count;
+        left.fill(0, count);
+        right.fill(0, count);
     }
     
     /**
@@ -156,6 +173,10 @@ class NesEmulator {
         // 按下按键
         this.onKeyDown = (e) => {
             if (!this.isRunning) return;
+            if (this.isPaused) {
+                if (/^F[1-4]$/.test(e.key)) e.preventDefault();
+                return;
+            }
 
             if (app.testMode && /^F[1-4]$/.test(e.key) &&
                 !e.ctrlKey && !e.altKey && !e.metaKey) {
@@ -183,6 +204,7 @@ class NesEmulator {
         // 释放按键
         this.onKeyUp = (e) => {
             if (!this.isRunning) return;
+            if (this.isPaused) return;
             
             const button = this.keyMap[e.key];
             if (button !== undefined) {
@@ -315,10 +337,12 @@ class NesEmulator {
             this.tempCanvas.width = nesWidth;
             this.tempCanvas.height = nesHeight;
             this.tempCtx = this.tempCanvas.getContext('2d');
+            this.frameImageData = this.tempCtx.createImageData(nesWidth, nesHeight);
         }
         
         // 将帧数据绘制到临时 canvas（完整的 256x240）
-        const imageData = this.tempCtx.createImageData(nesWidth, nesHeight);
+        // Reuse the 240 KiB pixel buffer instead of allocating it every frame.
+        const imageData = this.frameImageData;
         for (let i = 0; i < frameBuffer.length; i++) {
             const pixel = frameBuffer[i];
             imageData.data[i * 4 + 0] = pixel & 0xFF;         // R
@@ -347,7 +371,7 @@ class NesEmulator {
     /**
      * 滚动 canvas 容器到中心位置，确保 NES 模拟器可见
      */
-    scrollCanvasToCenter() {
+    scrollCanvasToCenter(behavior = 'smooth') {
         const canvasContainer = this.canvas.parentElement;
         if (!canvasContainer) return;
         
@@ -368,8 +392,21 @@ class NesEmulator {
         // 平滑滚动到计算的位置
         canvasContainer.scrollTo({
             left: scrollPosition,
-            behavior: 'smooth'
+            behavior
         });
+    }
+
+    recenterGameView() {
+        if (!app.testMode || !window.matchMedia('(pointer: coarse)').matches) return;
+        const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+        // Scroll the page separately so vertical positioning never resets the
+        // canvas container's horizontal position.
+        window.scrollTo({
+            left: 0,
+            top: Math.max(0, window.scrollY + this.canvas.getBoundingClientRect().top),
+            behavior
+        });
+        this.scrollCanvasToCenter(behavior);
     }
 
     adjustUIForMobile() {
@@ -378,20 +415,9 @@ class NesEmulator {
         if (!window.matchMedia('(pointer: coarse)').matches) {
             return;
         }
-        // 添加测试模式类，在移动端缩小显示
-        // 延迟滚动到中心位置，等待 CSS 动画完成
-        setTimeout(() => {
-            this.scrollCanvasToCenter();
-        }, 400); // 等待 CSS transition 完成（0.3s + 缓冲）
-
         const levelCanvas = document.getElementById('levelCanvas');
         if (levelCanvas) {
             levelCanvas.classList.add('test-mode');
-            levelCanvas.scrollIntoView({
-                behavior: 'smooth',    // 平滑滚动（推荐）  也可写 'auto'（瞬间跳过去）
-                block: 'start',        // 垂直方向：顶部对齐
-                inline: 'nearest'      // 水平方向：就近（一般用不到特别指定）
-            });
         }
 
         const editorLayout = document.querySelector('.editor-layout');
@@ -404,8 +430,13 @@ class NesEmulator {
         
         // 显示移动控制面板
         app.mobileController.show();
-
-
+        // Use the same positioning for startup and the manual recenter button.
+        // Ignore delayed work if this run has already ended or changed ROM.
+        const runGeneration = this.runGeneration;
+        clearTimeout(this.mobilePositionTimer);
+        this.mobilePositionTimer = setTimeout(() => {
+            if (runGeneration === this.runGeneration) this.recenterGameView();
+        }, 400);
     }
 
     async quickStart(){
@@ -451,6 +482,7 @@ class NesEmulator {
         this.loadingProgress = loadingTotal;
         
         this.isRunning = true;
+        this.isPaused = false;
         this.lastFrameTime = performance.now();
         
         // 🔧 重新初始化音频（修复iOS黑屏后音频失效）  fuck webkit
@@ -463,18 +495,21 @@ class NesEmulator {
             this.scriptProcessor.connect(this.audioContext.destination);
             
             // 恢复音频上下文（某些浏览器需要用户交互后才能播放）
-            if (this.audioContext.state === 'suspended' || this.audioContext.state !== 'interrupted') {
+            if (this.audioContext.state !== 'running') {
                 this.audioContext.resume();
             }
         }
 
         app.stopEmulatorBtn.disabled = false;
+        app.mobileController?.updateActionState?.();
         
         this.loop(this.lastFrameTime);
     }
     
     stop() {
         this.isRunning = false;
+        this.isPaused = false;
+        clearTimeout(this.mobilePositionTimer);
         this.runGeneration++;
         this.clearQuickSaves();
         if (this.animationId) {
@@ -487,44 +522,67 @@ class NesEmulator {
             this.scriptProcessor.disconnect();
         }
         this.loadingProgress = 0;
-        this.audioBuffer = [];
+        this.clearAudioBuffer();
     }
 
     clearQuickSaves() {
         this.quickSaveSlots.fill(null);
+        app.mobileController?.updateActionState?.();
+    }
+
+    pause() {
+        if (!this.isRunning) return;
+        this.isPaused = true;
+        this.clearAudioBuffer();
+        for (const controller of Object.values(this.nes.controllers)) {
+            controller.state.fill(64);
+        }
+    }
+
+    resume() {
+        if (!this.isRunning) return;
+        this.isPaused = false;
+        this.clearAudioBuffer();
+        this.lastFrameTime = performance.now();
     }
 
     quickSave(slot) {
-        if (!this.isRunning || !app.testMode || slot < 1 || slot > NesEmulator.QUICK_SAVE_SLOT_COUNT) return;
+        if (!this.isRunning || !app.testMode || slot < 1 || slot > NesEmulator.QUICK_SAVE_SLOT_COUNT) return false;
         try {
-            // jsnes returns references to its live state; every slot needs its own copy.
-            this.quickSaveSlots[slot - 1] = JSON.parse(JSON.stringify(this.nes.toJSON()));
+            // jsnes returns live references. A serialized snapshot is detached
+            // without retaining a second tree of large JavaScript arrays.
+            this.quickSaveSlots[slot - 1] = JSON.stringify(this.nes.toJSON());
             app.showMessage('success', i18n.t('quickSaveSuccess', { slot }));
+            app.mobileController?.updateActionState?.();
+            return true;
         } catch (error) {
             console.error('Quick save failed:', error);
             app.showMessage('error', i18n.t('quickSaveFailed', { slot }));
+            return false;
         }
     }
 
     quickLoad(slot) {
-        if (!this.isRunning || !app.testMode || slot < 1 || slot > NesEmulator.QUICK_SAVE_SLOT_COUNT) return;
+        if (!this.isRunning || !app.testMode || slot < 1 || slot > NesEmulator.QUICK_SAVE_SLOT_COUNT) return false;
         const state = this.quickSaveSlots[slot - 1];
         if (!state) {
             app.showMessage('warning', i18n.t('quickSaveEmpty', { slot }));
-            return;
+            return false;
         }
         try {
-            // fromJSON also retains array references, so do not pass it the stored copy.
-            this.nes.fromJSON(JSON.parse(JSON.stringify(state)));
+            // Every load gets fresh arrays; fromJSON cannot mutate the saved text.
+            this.nes.fromJSON(JSON.parse(state));
             for (const controller of Object.values(this.nes.controllers)) {
                 controller.state.fill(64); // release keys held at the moment of loading
             }
-            this.audioBuffer = [];
+            this.clearAudioBuffer();
             this.lastFrameTime = performance.now();
             app.showMessage('success', i18n.t('quickLoadSuccess', { slot }));
+            return true;
         } catch (error) {
             console.error('Quick load failed:', error);
             app.showMessage('error', i18n.t('quickLoadFailed', { slot }));
+            return false;
         }
     }
     

@@ -465,6 +465,30 @@
             </div>
             <!-- 移动端游戏控制面板 -->
             <div class="mobile-game-controls" id="mobileGameControls">
+                <div class="mobile-emulator-tools">
+                    <button type="button" id="mobileMenuToggle" aria-expanded="false" aria-controls="mobileEmulatorMenu" disabled>
+                        <span aria-hidden="true">☰</span><span data-i18n="mobileEmulatorMenu">模拟器菜单</span>
+                    </button>
+                    <button type="button" id="mobileRecenterBtn" data-i18n-title="mobileRecenterTitle">
+                        <span aria-hidden="true">◎</span><span data-i18n="mobileRecenter">画面归位</span>
+                    </button>
+                    <section class="mobile-emulator-menu" id="mobileEmulatorMenu" hidden aria-labelledby="mobileMenuToggle">
+                        <p id="mobileMenuStatus" aria-live="polite"></p>
+                        <div class="mobile-menu-actions" id="mobileMenuActions">
+                            <button type="button" id="mobileQuickSaveBtn" data-i18n="quickSaveButton">快速存档</button>
+                            <button type="button" id="mobileQuickLoadBtn" data-i18n="quickLoadButton" disabled>快速读档</button>
+                            <button type="button" id="mobileStopBtn" class="mobile-menu-danger" data-i18n="shortcutStopEmulator">结束模拟</button>
+                        </div>
+                        <div class="mobile-menu-confirmation" id="mobileMenuConfirmation" hidden>
+                            <p id="mobileConfirmMessage" role="alert"></p>
+                            <div class="mobile-confirm-buttons">
+                                <button type="button" id="mobileConfirmCancel" data-i18n="mobileCancel">取消</button>
+                                <button type="button" id="mobileConfirmAccept" data-i18n="mobileConfirm">确认</button>
+                            </div>
+                        </div>
+                        <button type="button" id="mobileMenuClose" data-i18n="mobileContinue">继续游戏</button>
+                    </section>
+                </div>
                 <!-- 左侧控制区：十字方向键 + Select/Start -->
                 <div class="controls-left">
                     <!-- Select Start 按钮（左侧底部） -->
@@ -482,13 +506,9 @@
 
                 </div>
 
-                <!-- 右侧控制区：A/B按钮 + 停止按钮 -->
+                <!-- 右侧控制区：Start 和 A/B 按钮 -->
                 <div class="controls-right">
-                    <!-- 停止按钮（右上角） -->
                     <button class="system-btn forbidden-text-select" data-key="start">START</button>
-                    <button class="control-stop-btn forbidden-text-select" id="mobileStopBtn" onclick="stopEmulator()">
-                        <div class="stop-icon">⏹</div>
-                    </button>
                     
                     <!-- A B 按钮（对角线排列） -->
                     <div class="action-buttons forbidden-text-select">

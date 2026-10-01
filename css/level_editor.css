@@ -973,27 +973,139 @@ h1 {
 
 /* 移动端游戏控制面板 - 重新设计为左右分离 */
 .mobile-game-controls {
+    --mobile-controls-bottom: max(20px, env(safe-area-inset-bottom, 0px));
     display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    width: 100vw;
-    height: 100vh;
-    pointer-events: none;
-    z-index: 10000;
+    /* Only the individual control islands cover the page. No full-screen
+       transparent ancestor is needed for Safari to hit-test their buttons. */
+    width: 0;
+    height: 0;
+    pointer-events: auto;
 }
 
-.mobile-game-controls.active {
-    pointer-events: auto;
+.mobile-emulator-tools {
+    position: fixed;
+    left: 50%;
+    bottom: calc(var(--mobile-controls-bottom) + 244px + 12px);
+    transform: translateX(-50%);
+    display: flex;
+    gap: 12px;
+    white-space: nowrap;
+    z-index: 10001;
+}
+
+.mobile-emulator-tools button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 44px;
+    padding: 8px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    background: #f8fafc;
+    color: #334155;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.4;
+    box-shadow: 0 2px 8px rgb(0 0 0 / 15%);
+    touch-action: manipulation;
+}
+
+.mobile-game-controls button:disabled {
+    opacity: .45;
+    cursor: default;
+}
+
+.mobile-emulator-menu[hidden],
+.mobile-menu-confirmation[hidden],
+.mobile-menu-actions[hidden] {
+    display: none;
+}
+
+.mobile-emulator-menu {
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 8px);
+    transform: translateX(-50%);
+    width: min(280px, calc(100vw - 24px));
+    max-height: calc(100vh - 310px);
+    max-height: calc(100dvh - 310px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 8px;
+    border: 1px solid #d5deeb;
+    border-radius: 12px;
+    background: #fff;
+    color: #334155;
+    white-space: normal;
+    box-shadow: 0 4px 16px rgb(0 0 0 / 20%);
+    z-index: 10002;
+}
+
+.mobile-emulator-menu button {
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 12px;
+    border: 1px solid #d5deeb;
+    border-radius: 9px;
+    background: #f1f5f9;
+    color: #334155;
+    font-family: inherit;
+    font-size: 14px;
+}
+
+.mobile-game-controls button:focus-visible {
+    outline: 3px solid #6386e8;
+    outline-offset: 2px;
+}
+
+#mobileMenuStatus,
+#mobileConfirmMessage {
+    margin: 4px 4px 8px;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+#mobileMenuClose { margin-top: 6px; }
+
+.mobile-menu-actions {
+    display: grid;
+    gap: 4px;
+}
+
+#mobileQuickSaveBtn {
+    color: #237352;
+    background: #eaf6f0;
+}
+
+#mobileQuickLoadBtn {
+    color: #4865b6;
+    background: #edf2ff;
+}
+
+.mobile-emulator-menu .mobile-menu-danger {
+    color: #b42318;
+    background: #fff1f0;
+    border-color: #f3c5c0;
+}
+
+.mobile-confirm-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+#mobileConfirmAccept:not(.mobile-menu-danger) {
+    background: #4865b6;
+    color: #fff;
 }
 
 /* 左侧控制器容器 */
 .controls-left {
     position: fixed;
     left: -195px;
-    bottom: 20px;
+    bottom: var(--mobile-controls-bottom);
     width: 175px;
     background: linear-gradient(135deg, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.75));
     padding: 15px;
@@ -1003,7 +1115,7 @@ h1 {
     display: flex;
     flex-direction: column;
     gap: 12px;
-    pointer-events: all;
+    pointer-events: auto;
     z-index: 10000;
 }
 
@@ -1015,7 +1127,7 @@ h1 {
 .controls-right {
     position: fixed;
     right: -195px;
-    bottom: 20px;
+    bottom: var(--mobile-controls-bottom);
     width: 175px;
     background: linear-gradient(135deg, rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.9));
     padding: 15px 10px 15px 20px;
@@ -1025,48 +1137,13 @@ h1 {
     display: flex;
     flex-direction: column;
     gap: 12px;
-    pointer-events: all;
+    pointer-events: auto;
     z-index: 10000;
 }
 
 .mobile-game-controls.active .controls-right {
     right: 0;
 }
-
-/* 停止按钮 - 放在右侧控制区右上角 */
-.control-stop-btn {
-    position: absolute;
-    top: 0;
-    right: 0;
-    width: 50px;
-    height: 50px;
-    background: linear-gradient(135deg, #ff4444, #cc0000);
-    border: 3px solid rgba(255, 255, 255, 0.3);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    user-select: none;
-    -webkit-tap-highlight-color: transparent;
-    touch-action: none;
-    transition: transform 0.1s;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-    z-index: 1;
-}
-
-.control-stop-btn:active {
-    transform: scale(0.9);
-    box-shadow: 0 2px 8px rgba(255, 68, 68, 0.8);
-}
-
-.stop-icon {
-    font-size: 28px;
-    color: white;
-    line-height: 1;
-}
-
-
 
 /* 十字键容器 */
 .dpad-container {
@@ -1190,6 +1267,14 @@ h1 {
     touch-action: manipulation;    /* 允许 tap，但禁用双击缩放等 */
 }
 
+/* Cover panel padding and button gaps as well as keys. Holding one side and
+   tapping the other must not start a browser gesture. */
+.mobile-game-controls .controls-left,
+.mobile-game-controls .controls-right,
+.mobile-game-controls [data-key] {
+    touch-action: none;
+}
+
 .system-btn:active {
     transform: scale(0.95);
     background: linear-gradient(135deg, #666, #444);
@@ -1198,14 +1283,34 @@ h1 {
 
 /* 移动端显示控制面板 */
 @media (pointer: coarse) {
-    .mobile-game-controls {
+    .mobile-game-controls.active {
         display: block;
+    }
+
+    body.test-mode .operation-action-row {
+        display: none;
+    }
+
+    body.test-mode .message-container {
+        top: max(12px, env(safe-area-inset-top, 0px));
+        bottom: auto;
+        right: 12px;
+        left: 12px;
+        align-items: center;
+        z-index: 10003;
+    }
+
+    body.test-mode .message-toast {
+        min-width: 0;
+        max-width: 100%;
+        pointer-events: none;
     }
     
     /* 测试模式下隐藏其他UI元素 */
     body.test-mode .button-group,
     body.test-mode .sidebar-toggle,
-    body.test-mode .toolbar-toggle {
+    body.test-mode .toolbar-toggle,
+    body.test-mode .toolbar {
         display: none !important;
     }
 }
@@ -1275,7 +1380,7 @@ body.ios-device .editor-layout {
 @media (orientation: portrait) and (pointer: coarse) {
     .mobile-game-controls .controls-left {
         left: -195px;
-        bottom: 20px;
+        bottom: var(--mobile-controls-bottom);
         width: 175px;
     }
     
@@ -1285,7 +1390,7 @@ body.ios-device .editor-layout {
     
     .mobile-game-controls .controls-right {
         right: -195px;
-        bottom: 20px;
+        bottom: var(--mobile-controls-bottom);
         width: 175px;
     }
     
@@ -1296,9 +1401,31 @@ body.ios-device .editor-layout {
 
 /* 横屏模式：手柄分离到左右两侧 */
 @media (orientation: landscape) and (pointer: coarse) {
+    .mobile-emulator-menu {
+        top: 0;
+        bottom: auto;
+        left: calc(100% + 8px);
+        transform: none;
+        max-height: calc(100vh - 24px);
+        max-height: calc(100dvh - 24px);
+    }
+    .mobile-emulator-tools {
+        top: max(12px, env(safe-area-inset-top, 0px));
+        left: max(12px, env(safe-area-inset-left, 0px));
+        bottom: auto;
+        transform: none;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .mobile-emulator-tools button {
+        min-height: 44px;
+        padding: 7px 10px;
+    }
+
     .mobile-game-controls .controls-left {
         left: -195px;
-        bottom: 20px;
+        bottom: var(--mobile-controls-bottom);
         width: 175px;
     }
     
@@ -1308,12 +1435,46 @@ body.ios-device .editor-layout {
     
     .mobile-game-controls .controls-right {
         right: -195px;
-        bottom: 20px;
+        bottom: var(--mobile-controls-bottom);
         width: 175px;
     }
     
     .mobile-game-controls.active .controls-right {
         right: 0;
+    }
+}
+
+/* 矮屏横屏：两个辅助按钮分别放在左右上角，避开手柄 */
+@media (orientation: landscape) and (pointer: coarse) and (max-height: 360px) {
+    .mobile-emulator-tools {
+        flex-direction: row;
+    }
+
+    #mobileRecenterBtn {
+        position: fixed;
+        top: max(12px, env(safe-area-inset-top, 0px));
+        right: max(12px, env(safe-area-inset-right, 0px));
+        left: auto;
+    }
+
+    .mobile-emulator-menu {
+        top: calc(100% + 8px);
+        left: 0;
+        max-height: calc(100vh - 80px);
+        max-height: calc(100dvh - 80px);
+    }
+
+    .mobile-emulator-tools button {
+        min-width: 44px;
+    }
+
+    .mobile-emulator-tools button span[data-i18n] {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
     }
 }
 
