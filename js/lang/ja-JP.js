@@ -90,7 +90,7 @@ const translations_jaJP = {
     
     // Operation Info
     'gameControlsLabel': 'ゲーム操作',
-    'editorShortcutsLabel': '編集ショートカット',
+    'operationShortcutsLabel': '操作ショートカット',
     'controlMove': '移動',
     'controlAttack': '攻撃',
     'controlJump': 'ジャンプ',

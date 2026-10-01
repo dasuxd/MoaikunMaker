@@ -90,7 +90,7 @@ const translations_enUS = {
     
     // Operation Info
     'gameControlsLabel': 'Game controls',
-    'editorShortcutsLabel': 'Editor shortcuts',
+    'operationShortcutsLabel': 'Operation shortcuts',
     'controlMove': 'Move',
     'controlAttack': 'Attack',
     'controlJump': 'Jump',

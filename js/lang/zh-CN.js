@@ -90,7 +90,7 @@ const translations_zhCN = {
     
     // Operation Info
     'gameControlsLabel': '游戏操作',
-    'editorShortcutsLabel': '编辑快捷键',
+    'operationShortcutsLabel': '操作快捷键',
     'controlMove': '移动',
     'controlAttack': '攻击',
     'controlJump': '跳跃',

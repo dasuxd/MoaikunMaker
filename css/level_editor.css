@@ -623,10 +623,6 @@ h1 {
     animation-delay: 150ms;
 }
 
-#operationInfoItem.active .operation-editor-shortcuts {
-    animation-delay: 240ms;
-}
-
 @keyframes operation-reveal {
     from { opacity: 0; transform: translateY(8px); }
     to { opacity: 1; transform: translateY(0); }
@@ -713,14 +709,15 @@ h1 {
     color: #526078;
 }
 
-.operation-editor-shortcuts {
+.operation-global-shortcuts {
+    grid-area: 2 / 1;
     border-top: 1px solid #e5eaf2;
     margin-top: 4px;
     color: #657086;
     font-size: 12px;
 }
 
-#operationInfoItem .operation-section-label {
+.info-panel .operation-section-label {
     color: #78849a;
     font-size: 11px;
     font-weight: 600;
@@ -741,7 +738,7 @@ h1 {
     gap: 7px;
 }
 
-#operationInfoItem kbd {
+.info-panel kbd {
     display: inline-block;
     padding: 1px 6px;
     border: 1px solid #dce3ee;
