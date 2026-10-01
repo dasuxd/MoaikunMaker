@@ -367,23 +367,51 @@
                     <div class="canvas-container">
                         <canvas id="levelCanvas" width="1024" height="448"></canvas>
                         <div class="info-panel">
-                            <div class="info-item" id="currentToolInfoItem">
-                                <span data-i18n="currentTool">当前工具:</span>
-                                <span id="currentTool" data-i18n="notSelected">未选择</span>
-                            </div>
-                            <div class="info-item" id="mousePositionInfoItem">
-                                <span data-i18n="mousePosition">鼠标位置:</span>
-                                <span id="mousePos">-</span>
-                            </div>
-                            <div class="info-item" id="operationInfoItem">
-                                <div class="operation-action-row">
-                                    <button type="button" id="quickSaveBtn" data-i18n="quickSaveButton"
-                                        data-i18n-title="quickSaveSlot1Title">快速存档</button>
-                                    <button type="button" id="quickLoadBtn" data-i18n="quickLoadButton"
-                                        data-i18n-title="quickLoadSlot1Title">快速读档</button>
+                            <div class="editor-info-row">
+                                <div class="info-item" id="currentToolInfoItem">
+                                    <span data-i18n="currentTool">当前工具:</span>
+                                    <span id="currentTool" data-i18n="notSelected">未选择</span>
                                 </div>
-                                <div class="operation-text-row" data-i18n="nesControlsSummary">移动(WASD) | 攻击(J) | 跳跃(K) | 开始(Enter) | 选择(Alt)</div>
-                                <div class="operation-text-row" data-i18n="editorShortcutsSummary">测试关卡(F5) | 结束模拟(F6) | 保存关卡(Ctrl+S) | 快速存档(Shift+F1～F4) | 快速读档(F1～F4)</div>
+                                <div class="info-item" id="mousePositionInfoItem">
+                                    <span data-i18n="mousePosition">鼠标位置:</span>
+                                    <span id="mousePos">-</span>
+                                </div>
+                            </div>
+                            <div class="info-item" id="operationInfoItem" inert aria-hidden="true">
+                                <div class="operation-content">
+                                    <div class="operation-action-row">
+                                        <button type="button" id="quickSaveBtn" data-i18n-title="quickSaveSlot1Title">
+                                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h12l4 4v14H3V3h2Zm2 0v6h10V3M7 21v-8h10v8"/></svg>
+                                            <span data-i18n="quickSaveButton">快速存档</span>
+                                            <kbd>Shift + F1</kbd>
+                                        </button>
+                                        <button type="button" id="quickLoadBtn" data-i18n-title="quickLoadSlot1Title">
+                                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10a9 9 0 1 1 2 8M3 4v6h6M12 7v5l3 2"/></svg>
+                                            <span data-i18n="quickLoadButton">快速读档</span>
+                                            <kbd>F1</kbd>
+                                        </button>
+                                    </div>
+                                    <div class="operation-text-row operation-game-controls">
+                                        <span class="operation-section-label" data-i18n="gameControlsLabel">游戏操作</span>
+                                        <div class="operation-shortcuts">
+                                            <span class="operation-shortcut"><span data-i18n="controlMove">移动</span><kbd>W A S D</kbd></span>
+                                            <span class="operation-shortcut"><span data-i18n="controlAttack">攻击</span><kbd>J</kbd></span>
+                                            <span class="operation-shortcut"><span data-i18n="controlJump">跳跃</span><kbd>K</kbd></span>
+                                            <span class="operation-shortcut"><span data-i18n="controlStart">开始</span><kbd>Enter</kbd></span>
+                                            <span class="operation-shortcut"><span data-i18n="controlSelect">选择</span><kbd>Alt</kbd></span>
+                                        </div>
+                                    </div>
+                                    <div class="operation-text-row operation-editor-shortcuts">
+                                        <span class="operation-section-label" data-i18n="editorShortcutsLabel">编辑快捷键</span>
+                                        <div class="operation-shortcuts">
+                                            <span class="operation-shortcut"><span data-i18n="shortcutTestLevel">测试关卡</span><kbd>F5</kbd></span>
+                                            <span class="operation-shortcut"><span data-i18n="shortcutStopEmulator">结束模拟</span><kbd>F6</kbd></span>
+                                            <span class="operation-shortcut"><span data-i18n="shortcutSaveLevel">保存关卡</span><kbd>Ctrl + S</kbd></span>
+                                            <span class="operation-shortcut"><span data-i18n="quickSaveButton">快速存档</span><kbd>Shift + F1–F4</kbd></span>
+                                            <span class="operation-shortcut"><span data-i18n="quickLoadButton">快速读档</span><kbd>F1–F4</kbd></span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

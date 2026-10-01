@@ -1239,6 +1239,11 @@ class App {
         const operationItem = document.getElementById('operationInfoItem');
         const toolItem = document.getElementById('currentToolInfoItem');
         const mouseItem = document.getElementById('mousePositionInfoItem');
+
+        if (operationItem) {
+            operationItem.inert = !showOperation;
+            operationItem.setAttribute('aria-hidden', String(!showOperation));
+        }
         
         if (showOperation) {
             // Test mode: show operation info, hide tool and mouse info

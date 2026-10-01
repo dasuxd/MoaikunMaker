@@ -89,6 +89,16 @@ const translations_jaJP = {
     'welcomeUpload': '📤 ROMをアップロードして開始',
     
     // Operation Info
+    'gameControlsLabel': 'ゲーム操作',
+    'editorShortcutsLabel': '編集ショートカット',
+    'controlMove': '移動',
+    'controlAttack': '攻撃',
+    'controlJump': 'ジャンプ',
+    'controlStart': 'スタート',
+    'controlSelect': 'セレクト',
+    'shortcutTestLevel': 'ステージテスト',
+    'shortcutStopEmulator': 'エミュレータ停止',
+    'shortcutSaveLevel': 'ステージ保存',
     'quickSaveButton': 'クイックセーブ',
     'quickLoadButton': 'クイックロード',
     'quickSaveSlot1Title': 'F1スロットに保存（キーボード：Shift+F1）',

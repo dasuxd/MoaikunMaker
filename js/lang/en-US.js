@@ -89,6 +89,16 @@ const translations_enUS = {
     'welcomeUpload': '📤 Upload ROM to Start',
     
     // Operation Info
+    'gameControlsLabel': 'Game controls',
+    'editorShortcutsLabel': 'Editor shortcuts',
+    'controlMove': 'Move',
+    'controlAttack': 'Attack',
+    'controlJump': 'Jump',
+    'controlStart': 'Start',
+    'controlSelect': 'Select',
+    'shortcutTestLevel': 'Test level',
+    'shortcutStopEmulator': 'Stop emulator',
+    'shortcutSaveLevel': 'Save level',
     'quickSaveButton': 'Quick Save',
     'quickLoadButton': 'Quick Load',
     'quickSaveSlot1Title': 'Save to F1 slot (keyboard: Shift+F1)',

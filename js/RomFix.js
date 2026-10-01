@@ -7,6 +7,19 @@ class Romfix{
 
         Romfix.backupUnusedImages(romData);
         Romfix.fixPlayerDeathBug(romData);
+        // Keep the reset so commenting out the next call also restores ROMs
+        // that were exported with this patch enabled.
+        Romfix.resetTile7SupportFallPatch(romData);
+        // Optional: keep Tile 7 floating until stepped on.
+        Romfix.fixTile7SupportFall(romData);
+        // 保留重置调用，注释补丁调用后，重新导出可恢复原值。
+        Romfix.resetTile13SupportFallPatch(romData);
+        // 允许这个元素下落会有更多趣味性。
+        Romfix.enableTile13SupportFall(romData);
+        // 保留重置调用，注释补丁调用后，重新导出可恢复原值。
+        Romfix.resetTile13CrushPatch(romData, isExpanded);
+        // 允许 Tile 13 下落后像 Tile 7、8、10 一样压死玩家。
+        Romfix.enableTile13Crush(romData, isExpanded);
         Romfix.fixSpecialLevelAnimations(romData, isExpanded);
         Romfix.fixWideScreenEnemy9Background(romData, isExpanded);
         //宽屏模式的时候 敌人只会重生在第一屏幕，有bug
@@ -27,6 +40,50 @@ class Romfix{
         }
         Romfix.addMoaikunMakerLabel(romData);
     }
+    static resetTile7SupportFallPatch(romData){
+        romData[0x3FA1] = 0x01;
+    }
+
+    /**
+     * CPU $BF91: Tile 7's entry in the support-removal registration table
+     * at $BF8A. Bank 0 has the same file offset in original and expanded ROMs.
+     * Exclude it from generic falling; the separate stepped-on delay/fall
+     * path and Tile 11's pass-through/overwrite rules remain unchanged.
+     */
+    static fixTile7SupportFall(romData){
+        romData[0x3FA1] = 0x00;
+    }
+
+    static resetTile13SupportFallPatch(romData){
+        romData[0x3FA7] = 0x00;
+    }
+
+    /**
+     * CPU $BF97: Tile 13's entry in the support-removal registration table.
+     * Bank 0 has the same file offset in original and expanded ROMs.
+     * Allow generic falling when support is removed; this does not add
+     * Tile 7's stepped-on delay or an initial unsupported-tile scan.
+     */
+    static enableTile13SupportFall(romData){
+        romData[0x3FA7] = 0x01;
+    }
+
+    static resetTile13CrushPatch(romData, isExpanded = false){
+        const fixedBankShift = isExpanded ? 0x4000 * 6 : 0;
+        romData[0x40C6 + fixedBankShift] = 0x00;
+    }
+
+    /**
+     * CPU $C0B6: Tile 13's entry in the player-occupied-cell action table
+     * at $C0A9, read by $9870. Action 1 kills the player, as for Tiles 7,
+     * 8 and 10. Solid collision remains unchanged; this is not restricted
+     * to the falling state. The table lives in the fixed PRG bank.
+     */
+    static enableTile13Crush(romData, isExpanded = false){
+        const fixedBankShift = isExpanded ? 0x4000 * 6 : 0;
+        romData[0x40C6 + fixedBankShift] = 0x01;
+    }
+
     // Backup unused images.
     static backupUnusedImages(romData){
         let index = 0xEA70;

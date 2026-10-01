@@ -89,6 +89,16 @@ const translations_zhCN = {
     'welcomeUpload': '📤 上传 ROM 开始使用',
     
     // Operation Info
+    'gameControlsLabel': '游戏操作',
+    'editorShortcutsLabel': '编辑快捷键',
+    'controlMove': '移动',
+    'controlAttack': '攻击',
+    'controlJump': '跳跃',
+    'controlStart': '开始',
+    'controlSelect': '选择',
+    'shortcutTestLevel': '测试关卡',
+    'shortcutStopEmulator': '结束模拟',
+    'shortcutSaveLevel': '保存关卡',
     'quickSaveButton': '快速存档',
     'quickLoadButton': '快速读档',
     'quickSaveSlot1Title': '存入 F1 槽位（键盘：Shift+F1）',
