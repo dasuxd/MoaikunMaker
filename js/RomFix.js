@@ -1187,7 +1187,7 @@ class Romfix{
         };
 
         // Fixed bank 7: relocated level storage, cleared by getROMData().
-        // $2A is reserved for this bundle: bit 0 = loop, bit 7 = transition.
+        // $2A: bit 0 = loop, bit 6 = paused return, bit 7 = transition.
         // Native gameplay has no direct reference to this byte. Title entry
         // initializes it; death/next-stage camera resets preserve the choice.
         org(0xF100, 0xF300);
@@ -1253,7 +1253,7 @@ class Romfix{
         absolute(0x4C, 'page');
         label('assignTarget');
         emit(0xA5, 0x00, 0x85, 0xFD, 0xA5, 0x01, 0x85, 0x9D,
-             0xA5, 0x2A, 0x29, 0x01, 0x85, 0x2A);
+             0xA5, 0x2A, 0x29, 0x41, 0x85, 0x2A);
         absolute(0x4C, 'page');
         label('reset');
         emit(0xA9, 0x00, 0x85, 0xFD, 0x85, 0x9D);
@@ -1261,6 +1261,8 @@ class Romfix{
         emit(0xA5, 0xFF, 0x29, 0xFE, 0x05, 0x9D, 0x85, 0xFF, 0x60);
 
         label('pause');
+        emit(0xA5, 0x2A, 0x29, 0x40);
+        branch(0xD0, 'returnCamera');
         emit(0xA5, 0x3D);             // Wide free-look is available in either view.
         branch(0xD0, 'loopPause');
         emit(0xA5, 0x2A, 0x29, 0x01);
@@ -1271,15 +1273,27 @@ class Romfix{
         label('active');
         emit(0x4C, 0x54, 0x8B);
         label('loopPause');
-        // Free-look sets $6E=0 after moving the paused camera. Arm the same
-        // transition on its first resumed frame, before active camera update.
+        // Free-look sets $6E=0. A resume request enters a paused camera return
+        // before any native player, enemy, falling-object or timer update.
         emit(0xA5, 0x32);
         branch(0xD0, 'dispatchFreeLook');
         emit(0xA5, 0x6E);
         branch(0xD0, 'dispatchFreeLook');
-        emit(0xA5, 0x2A, 0x09, 0x80, 0x85, 0x2A);
+        emit(0xA5, 0x2A, 0x09, 0xC0, 0x85, 0x2A);
+        label('returnCamera');
+        emit(0xA5, 0x2A);
+        branch(0x30, 'returnCameraTick');
+        // Arrival was displayed while still paused on the preceding frame.
+        // Restore the chosen view and let the existing helper rebuild sprites.
+        emit(0x29, 0x01, 0x85, 0x2A, 0xA9, 0x00, 0x85, 0x32);
         label('dispatchFreeLook');
         emit(0x4C, 0xD9, 0xFE);
+        label('returnCameraTick');
+        emit(0xA9, 0x01, 0x85, 0x32);
+        // Skip UP handling and free-look directions while returning. Only
+        // camera/projection/OAM run; the complete native gameplay path waits.
+        absolute(0x20, 'selectCamera');
+        emit(0x4C, 0x32, 0xFF); // Existing paused player projection/OAM builder.
 
         // Attribute initialization bypasses map lookup: normalize the byte
         // column before indexing $0700 so the repeated page has matching

@@ -298,6 +298,9 @@ test('pause free-look is always available in wide maps and only LOOP in narrow m
             assert.equal(m[0x43C], 36);
             m[0x32] = 0;
             call(nes, 0x8B4F);
+            assert.equal(m[0x32], 1, 'return begins while still paused');
+            for(let i=0;i<140&&m[0x32];i++)call(nes,0x8B4F);
+            assert.equal(m[0x32], 0, 'arrival resumes without another START press');
             assert.equal(m[0x6E], 1);
             call(nes, 0x8B4F);
             assert.equal(m[0xFE] & 0x10, 0x10);
@@ -443,7 +446,7 @@ realTest('a far-right wide spawn enters gameplay with a smooth camera instead of
     assert.equal(m[0x2A],0);assert.equal(nes.cpu.REG_SP,0x1FF);
 });
 
-realTest('resuming after pause free-look smoothly returns to the selected gameplay view', () => {
+realTest('pause stays active until the camera has reached the selected gameplay view', () => {
     for(const wide of [false,true])for(const view of [0,1]) {
         if(!wide&&!view)continue;
         const nes=start(exportStage(true,wide),view),m=nes.cpu.mem,mask=wide?511:255;
@@ -456,7 +459,10 @@ realTest('resuming after pause free-look smoothly returns to the selected gamepl
         for(let i=0;i<27;i++)nes.frame();
         nes.buttonUp(1,jsnes.Controller.BUTTON_RIGHT);nes.frame();
         assert.equal(worldX(m),player);
-        const paused=cameraX(m);let previous=paused,changes=0,settled=false;
+        const paused=cameraX(m);let previous=paused,changes=0,settled=false,activeUpdates=0;
+        const emulate=nes.cpu.emulate.bind(nes.cpu);
+        nes.cpu.emulate=()=>{if(nes.cpu.REG_PC===0x8B53)activeUpdates++;return emulate();};
+        const world=m.slice(0x480,0x600),map=m.slice(0x700,0x800),timer=m.slice(0x70,0x76);
         const target=view?(player-128)&mask:Math.max(0,Math.min(255,player-128));
         assert.notEqual(paused,target);
         nes.buttonDown(1,jsnes.Controller.BUTTON_START);
@@ -466,12 +472,58 @@ realTest('resuming after pause free-look smoothly returns to the selected gamepl
             assert.ok(Math.abs(delta)<=4,'resume must not teleport from free-look');
             if(delta)changes++;
             assert.equal(m[0xFC],vertical);assert.equal(worldX(m),player);
+            if(previous!==target) {
+                assert.equal(m[0x32],1,'keep native pause active, including the arrival frame');
+                assert.equal(activeUpdates,0,'player/enemy/falling/timer updates cannot run during return');
+                assert.deepEqual(m.slice(0x480,0x600),world);
+                assert.deepEqual(m.slice(0x700,0x800),map);
+                assert.deepEqual(m.slice(0x70,0x76),timer);
+            }
             previous=camera;
             if(m[0x32]===0&&!(m[0x2A]&128)&&camera===target){settled=true;break;}
         }
         assert.ok(settled);assert.ok(changes>1);assert.equal(m[0x2A],view);
+        assert.ok(activeUpdates>0,'gameplay resumes automatically after arrival');
         nes.frame();assert.equal(m[0x6E],1);assert.equal(m[0xFE]&0x10,0x10);
         assert.equal(nes.cpu.REG_SP,0x1FF);
+    }
+});
+
+realTest('held directions and repeated START cannot interrupt or redirect the paused return', () => {
+    for(const wide of [false,true])for(const view of [0,1]) {
+        if(!wide&&!view)continue;
+        const nes=start(exportStage(true,wide),view),m=nes.cpu.mem,mask=wide?511:255;
+        const player=worldX(m);
+        nes.buttonDown(1,jsnes.Controller.BUTTON_START);nes.frame();
+        nes.buttonUp(1,jsnes.Controller.BUTTON_START);nes.frame();
+        nes.buttonDown(1,jsnes.Controller.BUTTON_RIGHT);
+        for(let i=0;i<20;i++)nes.frame();
+        nes.buttonUp(1,jsnes.Controller.BUTTON_RIGHT);nes.frame();
+        const target=view?(player-128)&mask:Math.max(0,Math.min(255,player-128));
+        let previous=cameraX(m),resumed=false;
+        nes.buttonDown(1,jsnes.Controller.BUTTON_START);
+        nes.buttonDown(1,jsnes.Controller.BUTTON_RIGHT);
+        nes.buttonDown(1,jsnes.Controller.BUTTON_UP);
+        for(let i=0;i<100;i++) {
+            if(i===1)nes.buttonUp(1,jsnes.Controller.BUTTON_START);
+            if(i===3)nes.buttonDown(1,jsnes.Controller.BUTTON_START);
+            if(i===4) {
+                nes.buttonUp(1,jsnes.Controller.BUTTON_START);
+                nes.buttonUp(1,jsnes.Controller.BUTTON_UP);
+            }
+            nes.frame();
+            assert.equal(m[0x2A]&1,view,'UP cannot change the target during return');
+            if(m[0x32]===0) {
+                assert.equal(previous,target,'the target was reached before gameplay resumed');
+                assert.notEqual(worldX(m),player,'held movement becomes available after arrival');
+                resumed=true;break;
+            }
+            assert.equal(worldX(m),player,'held RIGHT must not move the player during return');
+            let delta=(cameraX(m)-previous)&mask;if(delta>(mask>>1))delta-=mask+1;
+            assert.ok(Math.abs(delta)<=4);previous=cameraX(m);
+        }
+        nes.buttonUp(1,jsnes.Controller.BUTTON_RIGHT);
+        assert.ok(resumed);assert.equal(nes.cpu.REG_SP,0x1FF);
     }
 });
 

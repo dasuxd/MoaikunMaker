@@ -78,6 +78,7 @@ npx serve
 - “Up to switch view” is off by default and experimental. Off keeps fixed narrow maps and looping wide maps. On starts with fixed narrow / native bounded wide views; press Up during play to toggle centered looping follow, with a transition of at most 4 pixels per frame. Wide pause free-look remains available; narrow free-look requires looping view. Horizontal bat wrapping follows this setting.
 - The original `START / CONTINUE` password menu is restored. Test Level automatically chooses `START`; change view with Up after starting.
 - With this option enabled, stage entry and returning from pause free-look also approach the target smoothly, at most 4 pixels per frame.
+- Resuming after free-look keeps gameplay and the timer paused until the camera reaches its target, then resumes automatically. Input during the return cannot unpause early.
 - Click "⏹️ Stop Emulator" to return to editing
 - Shortcuts: `F5` tests the current level, `F6` stops the emulator, and `Ctrl + S` saves the level. A shortcut does nothing while its button is disabled.
 
