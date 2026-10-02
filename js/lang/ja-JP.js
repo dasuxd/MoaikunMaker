@@ -33,6 +33,8 @@ const translations_jaJP = {
     'romExpansionTooltip': 'ゲームROMをmapper3からmapper2に変換します\nゲームコンテンツを拡張し、新機能を追加します\n注意：シーン切り替え時に一時的な画面の乱れが発生する場合がありますが、ゲームプレイには影響しません',
     'disableTimer': '⏱️ タイマーを無効化',
     'showNpcCount': '🗿 NPC数を表示',
+    'cameraFollow': '📷 単画面カメラ追従',
+    'cameraFollowHint': '単画面カメラ追従は十分にテストされていません。慎重にご使用ください。ワイド面のカメラ追従と一時停止中の左右確認は常に有効です。',
     'gameConfigHint': 'タイマーを無効にすると、NPC数は元のタイマー位置に表示されます。',
     'shiftMapLeft': 'マップを左へ',
     'shiftMapRight': 'マップを右へ',
@@ -57,6 +59,10 @@ const translations_jaJP = {
     
     // Buttons
     'testLevel': '🎮 ステージテスト',
+    'testLevelOptions': 'ステージテスト設定',
+    'testLevelOptionsNormal': 'ステージテスト設定：単画面カメラ追従はオフ',
+    'testLevelOptionsFollowing': 'ステージテスト設定：単画面カメラ追従はオン',
+    'testLevelCameraFollowHint': 'ステージテスト専用です。十分にテストされていないため、慎重にご使用ください。',
     'testRom': '🎮 ROMテスト',
     'stopEmulator': '⏹️ エミュレータ停止',
     'saveLevel': '💾 ステージ保存',

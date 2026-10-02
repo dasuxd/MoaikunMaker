@@ -33,6 +33,8 @@ const translations_zhCN = {
     'romExpansionTooltip': '把游戏 ROM 从 mapper3 转换为 mapper2\n可以扩大游戏内容, 可以添加新功能\n注意：场景切换的时候可能有瞬间的花屏，不过不影响体验',
     'disableTimer': '⏱️ 停用计时',
     'showNpcCount': '🗿 显示 NPC 数量',
+    'cameraFollow': '📷 单屏相机跟随',
+    'cameraFollowHint': '单屏相机跟随尚未经过大量测试，请谨慎使用。双屏跟随和暂停查看始终保留。',
     'gameConfigHint': '停用计时后，NPC 数量会显示在原计时器位置。',
     'shiftMapLeft': '地图左移',
     'shiftMapRight': '地图右移',
@@ -57,6 +59,10 @@ const translations_zhCN = {
     
     // Buttons
     'testLevel': '🎮 测试关卡',
+    'testLevelOptions': '测试关卡选项',
+    'testLevelOptionsNormal': '测试关卡选项：单屏相机跟随未勾选',
+    'testLevelOptionsFollowing': '测试关卡选项：单屏相机跟随已勾选',
+    'testLevelCameraFollowHint': '仅用于测试关卡；尚未经过大量测试，请谨慎使用。',
     'testRom': '🎮 测试 ROM',
     'stopEmulator': '⏹️ 结束模拟',
     'saveLevel': '💾 保存关卡',

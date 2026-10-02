@@ -439,15 +439,16 @@ class NesEmulator {
         }, 400);
     }
 
-    async quickStart(){
+    async quickStart({ loopView = false } = {}){
         const runGeneration = this.runGeneration;
+        const nes = this.nes;
         this.adjustUIForMobile()
         this.loadingScreenImage = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
         this.loadingProgress = 0;
         const CHUNK_SIZE = 2;
         for(let i = 0; i <  NesEmulator.LOADING_WAIT_ROM_FRAME; i++){
             if (runGeneration !== this.runGeneration) return;
-            this.nes.frame();
+            nes.frame();
             this.loadingProgress++;
 
             if (i % CHUNK_SIZE === 0) {
@@ -455,15 +456,30 @@ class NesEmulator {
             }
         }
 
-        this.nes.buttonDown(1, 3);
-        this.nes.frame();
-        this.nes.frame();
-        this.nes.frame();
-        this.nes.buttonUp(1, 3);
+        if (runGeneration !== this.runGeneration) return;
+        const pressButton = button => {
+            nes.buttonDown(1, button);
+            try {
+                for (let i = 0; i < 3; i++) {
+                    if (runGeneration !== this.runGeneration) return false;
+                    nes.frame();
+                }
+            } finally {
+                nes.buttonUp(1, button);
+            }
+            return runGeneration === this.runGeneration;
+        };
+        if (loopView) {
+            if (!pressButton(jsnes.Controller.BUTTON_SELECT)) return;
+            // Let the title read SELECT's release before confirming LOOP VIEW.
+            nes.frame();
+            if (runGeneration !== this.runGeneration) return;
+        }
+        if (!pressButton(jsnes.Controller.BUTTON_START)) return;
 
         for(let i = 0; i <  NesEmulator.LOADING_WAIT_START_FRAME; i++){
             if (runGeneration !== this.runGeneration) return;
-            this.nes.frame();
+            nes.frame();
             this.loadingProgress++;
             if (i % CHUNK_SIZE === 0) {
                 await new Promise(resolve => setTimeout(resolve, 0));

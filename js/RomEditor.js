@@ -24,7 +24,8 @@ class RomEditor {
         // per-level data and are applied only when a ROM is exported/tested.
         this.gameConfig = {
             disableTimer: false,
-            showRemainingRescueCount: true
+            showRemainingRescueCount: true,
+            cameraFollow: false
         };
     }
 
@@ -462,8 +463,9 @@ class RomEditor {
 
     /**
      * Get ROM data for download
+     * A temporary gameConfig override changes only this export, for previews.
      */
-    getROMData(levels = this.levels, levelCount = this.levelCount) {
+    getROMData(levels = this.levels, levelCount = this.levelCount, gameConfig = this.gameConfig) {
         // check data
         // let result = this.checkRomData()
         // if(result.success === false){
@@ -552,7 +554,7 @@ class RomEditor {
         Romfix.fixOriginalRom(
             newRomData,
             this.romType === Config.ROM_TYPE_EXPANDED,
-            this.gameConfig
+            gameConfig
         );
         return newRomData;
     }
@@ -563,7 +565,8 @@ class RomEditor {
             showRemainingRescueCount:
                 config.showRemainingRescueCount === undefined
                     ? true
-                    : Boolean(config.showRemainingRescueCount)
+                    : Boolean(config.showRemainingRescueCount),
+            cameraFollow: Boolean(config.cameraFollow)
         };
     }
 

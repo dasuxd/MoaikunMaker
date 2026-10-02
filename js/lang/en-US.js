@@ -33,6 +33,8 @@ const translations_enUS = {
     'romExpansionTooltip': 'Converts the game ROM from mapper3 to mapper2\nExpands game content and adds new features\nNote: There may be brief screen glitches during scene transitions, but it does not affect gameplay',
     'disableTimer': '⏱️ Disable Timer',
     'showNpcCount': '🗿 Show NPC Count',
+    'cameraFollow': '📷 Single-screen Camera Follow',
+    'cameraFollowHint': 'Single-screen camera follow has not been extensively tested. Please use with caution. Wide levels always retain camera follow and paused free-look.',
     'gameConfigHint': 'When the timer is disabled, the NPC count uses the timer position.',
     'shiftMapLeft': 'Shift Map Left',
     'shiftMapRight': 'Shift Map Right',
@@ -57,6 +59,10 @@ const translations_enUS = {
     
     // Buttons
     'testLevel': '🎮 Test Level',
+    'testLevelOptions': 'Test level options',
+    'testLevelOptionsNormal': 'Test level options: single-screen camera follow is off',
+    'testLevelOptionsFollowing': 'Test level options: single-screen camera follow is on',
+    'testLevelCameraFollowHint': 'For level testing only. This feature has not been extensively tested; please use with caution.',
     'testRom': '🎮 Test ROM',
     'stopEmulator': '⏹️ Stop Emulator',
     'saveLevel': '💾 Save Level',

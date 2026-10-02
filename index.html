@@ -13,7 +13,7 @@
     <meta name="format-detection" content="telephone=no, email=no">
     <title>Moai-kun Maker</title>
     <link rel="shortcut icon" href="favicon.ico" />
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/style.css?v=test-level-options">
     <link rel="stylesheet" href="css/sortable.css">
     <link rel="stylesheet" href="css/level_editor.css">
     <!-- Google tag (gtag.js) -->
@@ -355,7 +355,15 @@
                                         <input type="checkbox" id="showNpcCountCheckbox" checked>
                                         <span data-i18n="showNpcCount">🗿 显示 NPC 数量</span>
                                     </label>
+                                    <label class="game-config-option">
+                                        <input type="checkbox" id="cameraFollowCheckbox"
+                                            aria-describedby="cameraFollowHint">
+                                        <span data-i18n="cameraFollow">📷 单屏相机跟随</span>
+                                    </label>
                                 </div>
+                                <p class="game-config-hint" id="cameraFollowHint" data-i18n="cameraFollowHint">
+                                    单屏相机跟随尚未经过大量测试，请谨慎使用。双屏跟随和暂停查看始终保留。
+                                </p>
                                 <p class="game-config-hint" data-i18n="gameConfigHint">
                                     停用计时后，NPC 数量会显示在原计时器位置。
                                 </p>
@@ -420,8 +428,26 @@
             <!-- </div> -->
 
             <div class="button-group">
-                <button class="btn-test" id="testLevelBtn" onclick="testLevel()" disabled data-i18n="testLevel">🎮
-                    测试关卡</button>
+                <div class="test-level-split" id="testLevelSplitButton">
+                    <button class="btn-test" id="testLevelBtn" onclick="testLevel()" disabled data-i18n="testLevel">🎮
+                        测试关卡</button>
+                    <button class="btn-test test-level-options-btn" id="testLevelOptionsBtn" type="button"
+                        aria-expanded="false" aria-controls="testLevelOptionsMenu"
+                        aria-label="测试关卡选项：单屏相机跟随未勾选"
+                        title="测试关卡选项：单屏相机跟随未勾选" data-i18n-title="testLevelOptionsNormal">
+                        <span id="testLevelOptionsIcon" aria-hidden="true">›</span>
+                    </button>
+                    <div class="test-level-options-menu" id="testLevelOptionsMenu" role="group"
+                        aria-label="测试关卡选项" hidden>
+                        <label class="test-level-camera-option">
+                            <input type="checkbox" id="testLevelCameraFollowCheckbox"
+                                aria-describedby="testLevelCameraFollowHint">
+                            <span data-i18n="cameraFollow">📷 单屏相机跟随</span>
+                        </label>
+                        <p class="test-level-camera-hint" id="testLevelCameraFollowHint"
+                            data-i18n="testLevelCameraFollowHint">仅用于测试关卡；尚未经过大量测试，请谨慎使用。</p>
+                    </div>
+                </div>
                 <button class="btn-test" id="testBtn" onclick="testROM()" disabled data-i18n="testRom">🎮 测试
                     ROM</button>
                 <button class="btn-stop" id="stopEmulatorBtn" onclick="stopEmulator()" disabled
@@ -633,21 +659,21 @@
     <script src="js/i18n.js"></script>
     
     <script src="js/lib/jsnes.min.js"></script>
-    <script src="js/NesEmulator.js"></script>
+    <script src="js/NesEmulator.js?v=test-level-options"></script>
     <script src="js/MobileGameController.js"></script>
     <script src="js/Config.js"></script>
-    <script src="js/RomFix.js"></script>
+    <script src="js/RomFix.js?v=vertical-view-menu"></script>
     <script src="js/OptimizedMap.js"></script>
     <script src="js/Enemy.js"></script>
     <script src="js/ResourceManager.js"></script>
     <script src="js/RomCache.js"></script>
     <script src="js/Level.js"></script>
-    <script src="js/RomEditor.js"></script>
+    <script src="js/RomEditor.js?v=test-level-options"></script>
     <script src="js/DataConverter.js"></script>
     <script src="js/LevelFile.js"></script>
     <script src="js/LevelEditor.js"></script>
 
-    <script src="js/app.js"></script>
+    <script src="js/app.js?v=test-level-options"></script>
 
     <!-- 消息提示容器 -->
     <div id="messageContainer" class="message-container"></div>

@@ -16,6 +16,7 @@ class App {
         this.hasSharedLevelLoaded = false;
 
         this.testMode = false;
+        this.testLevelCameraFollow = false;
         this.romCache = RomCache.getInstance();
 
         // Message box data
@@ -59,6 +60,7 @@ class App {
         // Game expansion
         this.expansionrom = false;
         this.syncGameConfigControls();
+        this.syncTestLevelOptions();
     }
     
     /**
@@ -416,6 +418,15 @@ class App {
             });
         }
 
+        const cameraFollowCheckbox = document.getElementById('cameraFollowCheckbox');
+        if (cameraFollowCheckbox) {
+            cameraFollowCheckbox.addEventListener('change', (e) => {
+                this.updateGameConfig('cameraFollow', e.target.checked);
+            });
+        }
+
+        this.initTestLevelOptions();
+
         // Clear cache button
         const clearCacheBtn = document.getElementById('clearCacheBtn');
         if (clearCacheBtn) {
@@ -513,6 +524,8 @@ class App {
             document.getElementById('disableTimerCheckbox');
         const showNpcCountCheckbox =
             document.getElementById('showNpcCountCheckbox');
+        const cameraFollowCheckbox =
+            document.getElementById('cameraFollowCheckbox');
 
         if (disableTimerCheckbox) {
             disableTimerCheckbox.checked = gameConfig.disableTimer;
@@ -521,6 +534,93 @@ class App {
             showNpcCountCheckbox.checked =
                 gameConfig.showRemainingRescueCount;
         }
+        if (cameraFollowCheckbox) {
+            cameraFollowCheckbox.checked = gameConfig.cameraFollow;
+        }
+    }
+
+    initTestLevelOptions() {
+        const toggle = document.getElementById('testLevelOptionsBtn');
+        const checkbox = document.getElementById('testLevelCameraFollowCheckbox');
+        const splitButton = document.getElementById('testLevelSplitButton');
+        if (!toggle || !checkbox || !splitButton) return;
+
+        try {
+            this.testLevelCameraFollow =
+                localStorage.getItem('moaikunTestLevelCameraFollow') === 'true';
+        } catch (_) {
+            // The preview choice still works when browser storage is unavailable.
+        }
+        this.syncTestLevelOptions();
+        toggle.addEventListener('click', () => {
+            const open = toggle.getAttribute('aria-expanded') !== 'true';
+            this.setTestLevelOptionsOpen(open);
+            if (open) checkbox.focus();
+        });
+        for (const control of [toggle, checkbox]) {
+            control.addEventListener('keydown', event => {
+                // Keep editor shortcuts available, but don't send menu input
+                // to the game when setting the next preview during a run.
+                if (event.key === 'F5' || event.key === 'F6' ||
+                    (event.ctrlKey && event.key.toLowerCase() === 's')) return;
+                event.stopPropagation();
+                if (control === toggle && event.key === 'ArrowDown') {
+                    event.preventDefault();
+                    this.setTestLevelOptionsOpen(true);
+                    checkbox.focus();
+                } else if (event.key === 'Escape') {
+                    event.preventDefault();
+                    this.setTestLevelOptionsOpen(false);
+                    toggle.focus();
+                }
+            });
+            control.addEventListener('keyup', event => event.stopPropagation());
+        }
+        checkbox.addEventListener('change', () => {
+            this.testLevelCameraFollow = checkbox.checked;
+            this.syncTestLevelOptions();
+            try {
+                localStorage.setItem('moaikunTestLevelCameraFollow',
+                    String(this.testLevelCameraFollow));
+            } catch (_) {
+                // Storage is optional for this preview preference.
+            }
+        });
+        document.addEventListener('click', event => {
+            if (!splitButton.contains(event.target)) this.setTestLevelOptionsOpen(false);
+        });
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && toggle.getAttribute('aria-expanded') === 'true') {
+                event.preventDefault();
+                this.setTestLevelOptionsOpen(false);
+                toggle.focus();
+            }
+        });
+    }
+
+    setTestLevelOptionsOpen(open) {
+        const toggle = document.getElementById('testLevelOptionsBtn');
+        const menu = document.getElementById('testLevelOptionsMenu');
+        if (!toggle || !menu) return;
+        toggle.setAttribute('aria-expanded', String(open));
+        menu.hidden = !open;
+    }
+
+    syncTestLevelOptions() {
+        const toggle = document.getElementById('testLevelOptionsBtn');
+        const checkbox = document.getElementById('testLevelCameraFollowCheckbox');
+        const icon = document.getElementById('testLevelOptionsIcon');
+        const menu = document.getElementById('testLevelOptionsMenu');
+        if (!toggle || !checkbox || !icon) return;
+        const enabled = Boolean(this.testLevelCameraFollow);
+        checkbox.checked = enabled;
+        toggle.dataset.cameraFollow = String(enabled);
+        const key = enabled ? 'testLevelOptionsFollowing' : 'testLevelOptionsNormal';
+        toggle.setAttribute('data-i18n-title', key);
+        toggle.title = i18n.t(key);
+        toggle.setAttribute('aria-label', toggle.title);
+        if (menu) menu.setAttribute('aria-label', i18n.t('testLevelOptions'));
+        icon.textContent = enabled ? '✓' : '›';
     }
 
     async clearCache() {
@@ -1419,7 +1519,7 @@ class App {
         }
     }
 
-    createTmpRomData(levelRomData){
+    createTmpRomData(levelRomData, gameConfig = this.romEditor.getGameConfig()){
         const tmpLevel = new Level(0, 0, 0);
         tmpLevel.saveMapData(levelRomData.mapData);
         tmpLevel.saveMonsterData(levelRomData.monsterData);
@@ -1438,7 +1538,7 @@ class App {
         //const romData = new Uint8Array(this.romEditor.romData);
         // Write temporary level to copied ROM data
         //const result = RomEditor.writeToROM(romData, tmpLevels, 1);
-        const romData = this.romEditor.getROMData(tmpLevels, 1);
+        const romData = this.romEditor.getROMData(tmpLevels, 1, gameConfig);
         // if (!result.success) {
         //     console.error('Failed to create temp ROM:', result.error);
         //     return null;
@@ -1448,6 +1548,7 @@ class App {
 
     // Test current level
     async testLevel(){
+        this.setTestLevelOptionsOpen(false);
         if(this.changeMode()){
             return;
         }
@@ -1461,7 +1562,12 @@ class App {
             return;
         }
         const levelRomData = DataConverter.fromLevelEditorToROMData(tmpEditorData, this.levelEditor.isWideScreen);
-        const romData = this.createTmpRomData(levelRomData);
+        const loopView = Boolean(this.testLevelCameraFollow) && !this.levelEditor.isWideScreen;
+        const gameConfig = this.romEditor.getGameConfig();
+        const romData = this.createTmpRomData(levelRomData, {
+            ...gameConfig,
+            cameraFollow: gameConfig.cameraFollow || loopView
+        });
         
         // Check if romData creation failed (e.g., size validation error)
         if (!romData) {
@@ -1478,7 +1584,7 @@ class App {
         
         this.emulator.loadROM(romData);
         
-        this.emulator.quickStart();
+        this.emulator.quickStart({ loopView });
 
         this.testLevelBtn.disabled = true;
         this.saveBtn.disabled =  true;
@@ -3084,6 +3190,7 @@ function saveLevels() {
 function switchLanguage(lang) {
     i18n.setLanguage(lang);
     if (app) {
+        app.syncTestLevelOptions();
         app.renderBackupList();
         if (app.romEditor.romData) {
             app.createLevelList();
@@ -3157,6 +3264,7 @@ function toggleToolbarMode() {
 document.addEventListener('DOMContentLoaded', () => {
     // Initialize i18n
     const savedLang = i18n.init();
+    if (app) app.syncTestLevelOptions();
     
     // Set initial active button
     const activeBtn = document.querySelector(`.lang-btn[onclick*="${savedLang}"]`);

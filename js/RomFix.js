@@ -4,8 +4,11 @@ class Romfix{
         const disableTimer = Boolean(gameConfig.disableTimer);
         const showRemainingRescueCount =
             gameConfig.showRemainingRescueCount !== false;
+        const cameraFollow = Boolean(gameConfig.cameraFollow);
 
         Romfix.backupUnusedImages(romData);
+        // Always remove the optional bundle first, including on old exports.
+        Romfix.resetViewModesPatch(romData, isExpanded);
         Romfix.fixPlayerDeathBug(romData);
         // Keep the reset so commenting out the next call also restores ROMs
         // that were exported with this patch enabled.
@@ -22,13 +25,13 @@ class Romfix{
         Romfix.enableTile13Crush(romData, isExpanded);
         Romfix.fixSpecialLevelAnimations(romData, isExpanded);
         Romfix.fixWideScreenEnemy9Background(romData, isExpanded);
+        Romfix.fixBatHorizontalWrap(romData);
         //宽屏模式的时候 敌人只会重生在第一屏幕，有bug
         //Romfix.fixWideScreenEnemyRespawn(romData);
         Romfix.fixWideScreenRockPushBug(romData, isExpanded);
-        // Keep the reset call: it removes this optional patch when an already
-        // patched Mapper 2 ROM is loaded and exported again.
+        // Rebuild shared camera support before applying the menu-view hooks.
         Romfix.resetWideScreenLoopingCameraPatch(romData, isExpanded);
-        // Optional feature: comment only this line to disable looping wide maps.
+        // Established wide-level follow and pause free-look are always enabled.
         Romfix.fixWideScreenLoopingCamera(romData, isExpanded);
         Romfix.configureLevelTimer(romData, !disableTimer);
         if(showRemainingRescueCount){
@@ -38,6 +41,7 @@ class Romfix{
                 disableTimer
             );
         }
+        if(cameraFollow) Romfix.addViewModes(romData, isExpanded);
         Romfix.addMoaikunMakerLabel(romData);
     }
     static resetTile7SupportFallPatch(romData){
@@ -483,6 +487,18 @@ class Romfix{
         );
     }
 
+    /**
+     * CPU $AC71: enemy 5's active flight calls the shared boundary checker
+     * at $AC48, which removes it near either horizontal map edge. Enter the
+     * existing vertical-only check at $AC5C instead. The following native
+     * $AFB0 movement already wraps X by $3D (256/512 pixels), as for enemy 11.
+     * Preserve the upper/lower limits, damage states and other enemies' calls
+     * to the complete boundary checker. Bank 0 is shared by both ROM formats.
+     */
+    static fixBatHorizontalWrap(romData){
+        Romfix.fixCodeInsert(romData, 0xAC72 - 0x8000 + 0x10, [0x5C]);
+    }
+
     static addRemainingRescueCountHud(
         romData,
         isExpanded = false,
@@ -619,12 +635,62 @@ class Romfix{
     }
 
     /**
+     * Restore the original title/password UI and all addViewModes() hooks.
+     * These bytes live in bank 0 or the fixed bank, never in level storage.
+     * Shared camera/projection hooks are restored by the existing reset below;
+     * the rock, scene, timer and NPC patches rebuild their own shared helpers.
+     * Restoring the retired password bodies also makes legacy camera ROMs
+     * safe to export with the option off, without needing an original ROM.
+     */
+    static resetViewModesPatch(romData, isExpanded = false){
+        const fixedShift = isExpanded ? 6 * 0x4000 : 0;
+        const originalBytes = [
+            [0x80C5, '20B286'],
+            [0x81D0, 'A98CBC2582'],
+            [0x8225, '348C'],
+            [0x8247, 'A900851FA619D02320E782A001A521D007C8A5FAC924D00D841920B983A02220' +
+                '26D64C20CA20DB824C8582CAD0034C1FC44CCFC3'],
+            [0x86BB, 'FF861287'],
+            [0x86FF, '22281D1E0B1C1EFE'],
+            [0x8712, '22330D19181E13181F0FFE'],
+            [0x886C, 'E006B035'],
+            [0x8A3A, '202EDA'],
+            [0x8B0F, '20F9BC'],
+            [0x8B8E, 'A51EC950B0032020CA'],
+            [0x8C7E, '20B983'],
+            [0x8ECE, '6500AA'],
+            [0x90B0, '998006'],
+            [0xA507, 'A51EC920'],
+            [0xA868, 'A51EC920'],
+            [0xB867, '20A5B7'],
+            [0xBBEA, '998006'],
+            [0xBD39, 'CA10BF60'],
+            [0xC3CF, 'A550200D83DAC3E1C311C4A90185524C57C4A903205D86A200A552C90A9005E9' +
+                '0AE8D0F7A41E20DAC4888A20DAC4A039A2012096C4A9FF20C8C4A90020C8C44C' +
+                '51C4A5524820E7826820DD824C858260A550200D832AC432C45AC4A907205D86' +
+                '4C57C420E1C4A006206FC4A0102094C4A9FB20C8C4A5F42920F007A900851985' +
+                '1860A5F42910F002E650602078C5B00DA91220DA80A0008451C88450604C13C4' +
+                '840088A5F42903F01B48A90520DA80684AA900B002A9FF65513006C5009003A0' +
+                '0098855160A2008601CA8602840088A651A5F4290CF02148A90520DA80684A4A' +
+                '4AA9019002A9FE7552300AC502F006C5009003A40198955260'],
+            [0xC578, 'A9028508A9008509A904850AA608A9009500A409B9DCC5290348B9DCC54A4AAA' +
+                '68A8B5524A8810FCA6083600E609C60AD0E0C60810D2A500C501D026C502D022' +
+                'A9008508A205B5524A290318650829038508CA10F1A508D009A5000A0A186901' +
+                '386018600004080C0B0F131714100307'],
+        ];
+        for(const [cpu, hex] of originalBytes){
+            const address = cpu - 0x8000 + 0x10 + (cpu >= 0xC000 ? fixedShift : 0);
+            const bytes = hex.match(/../g).map(byte => parseInt(byte, 16));
+            Romfix.fixCodeInsert(romData, address, bytes);
+        }
+    }
+
+    /**
      * Restore every bank-0 byte owned by fixWideScreenLoopingCamera().
      *
-     * This deliberately runs before the optional looping patch. It makes the
-     * feature removable even when the source is a previously exported Mapper 2
-     * ROM: leave this reset call enabled and comment only the feature call in
-     * fixOriginalRom().
+     * This runs before shared looping-camera support so reload/export remains
+     * deterministic. addViewModes() subsequently applies its additional menu,
+     * background, and camera hooks; it requires the shared support below.
      *
      * fixWideScreenRockPushBug() runs immediately before this method and
      * restores its own $D9F8-$DA14 moving-rock helper.
@@ -737,6 +803,8 @@ class Romfix{
      * Zero is inside the current 256-pixel viewport. This parity test is
      * required at the $1FF/$000 seam, where a normal 16-bit subtraction can
      * produce $FE even though the object is visibly just to the right.
+     * addViewModes() subsequently selects the camera and visibility mask from
+     * the title choice and map width.
      */
     static fixWideScreenLoopingCamera(romData, isExpanded = false){
         const bank0RomAddr = (cpuAddr) => 0x10 + (cpuAddr - 0x8000);
@@ -1070,6 +1138,337 @@ class Romfix{
             0xA9, 0x00, 0x8D, 0x12, 0x04, 0x60,
             0xEA, 0xEA, 0xEA, 0xEA, 0xEA, 0xEA, 0xEA,
         ]);
+    }
+
+    /**
+     * NORMAL VIEW keeps a 16-column level fixed. LOOP VIEW centers the player
+     * in that width. Wide levels always retain their established looping
+     * follow and pause free-look in either view. $21 is the existing title
+     * selection and survives both
+     * $82E7 and $82EB, so no gameplay RAM or map-format bits are repurposed.
+     *
+     * The removed password-entry UI at $C3CF-$C4C7 and validator at
+     * $C578-$C5E7 hold the helpers. The retired title password dispatch at
+     * $8254-$827A holds the background/palette queue checks. The replaced camera
+     * body at $9B3B-$9B61 holds the queue finalizer. Normalizer padding at
+     * $945B-$9467 and retired START/CONTINUE strings hold initialization/setup.
+     * The password generator, digit renderer, movement/HUD tables, and ending
+     * remain intact.
+     */
+    static addViewModes(romData, isExpanded = false){
+        const fixedShift = isExpanded ? 6 * 0x4000 : 0;
+        const fileAddress = (cpu) => cpu - 0x8000 + 0x10 +
+            (cpu >= 0xC000 ? fixedShift : 0);
+        const patch = (cpu, bytes) =>
+            Romfix.fixCodeInsert(romData, fileAddress(cpu), bytes);
+
+        // Resolve local 6502 labels and verify that no helper crosses into
+        // the retained password digit renderer or the ending handler.
+        const labels = new Map();
+        const references = [];
+        const blocks = [];
+        let block;
+        const org = (base, limit) => {
+            block = { base, limit, bytes: [] };
+            blocks.push(block);
+        };
+        const emit = (...bytes) => block.bytes.push(...bytes);
+        const label = (name) => labels.set(name, block.base + block.bytes.length);
+        const absolute = (opcode, target) => {
+            emit(opcode);
+            references.push({ block, offset: block.bytes.length, target });
+            emit(0, 0);
+        };
+        const branch = (opcode, target) => {
+            emit(opcode);
+            references.push({ block, offset: block.bytes.length, target, relative: true });
+            emit(0);
+        };
+
+        org(0xC3CF, 0xC4C8);
+        label('camera');
+        emit(0xA5, 0x56, 0xC9, 0x03); // LDA stageState; CMP #live
+        branch(0xD0, 'reset');
+        emit(0xA5, 0x3D);             // Wide levels always loop-follow.
+        branch(0xD0, 'loopCamera');
+        emit(0xA5, 0x1F);             // Narrow attract demos remain fixed.
+        branch(0xD0, 'reset');
+        emit(0xA5, 0x21);             // LDA titleSelection
+        branch(0xF0, 'reset');
+        label('loopCamera');
+        emit(0x38, 0xA5, 0xC2, 0xE9, 0x80, 0x85, 0xFD,
+             0xA5, 0xC1, 0xE9, 0x00, 0x25, 0x3D, 0x85, 0x9D);
+        absolute(0x4C, 'page');
+        label('reset');
+        emit(0xA9, 0x00, 0x85, 0xFD, 0x85, 0x9D);
+        label('page');
+        emit(0xA5, 0xFF, 0x29, 0xFE, 0x05, 0x9D, 0x85, 0xFF, 0x60);
+
+        label('pause');
+        emit(0xA5, 0x3D);             // Wide free-look ignores title selection.
+        branch(0xD0, 'loopPause');
+        emit(0xA5, 0x21);
+        branch(0xD0, 'loopPause');
+        emit(0xA5, 0x32);
+        branch(0xF0, 'active');
+        emit(0x60);
+        label('active');
+        emit(0x4C, 0x54, 0x8B);
+        label('loopPause');
+        emit(0x4C, 0xD9, 0xFE);
+
+        // Attribute initialization bypasses map lookup: normalize the byte
+        // column before indexing $0700 so the repeated page has matching
+        // foreground palettes too. This applies to both single-screen views.
+        label('attributeIndex');
+        emit(0x65, 0x00, 0x48, 0xA5, 0x3D);
+        branch(0xD0, 'wideAttribute');
+        emit(0x68, 0x29, 0xF7, 0xAA, 0x60);
+        label('wideAttribute');
+        emit(0x68, 0xAA, 0x60);
+
+        // Keep the two attribute-cache halves coherent after each mutation,
+        // including multiple changes within the same frame. Preserve A/X/Y
+        // and flags because $BBA5 and $903D have different callers.
+        label('attributeStore');
+        emit(0x99, 0x80, 0x06, 0x08, 0x48, 0xA5, 0x3D);
+        branch(0xD0, 'attributeDone');
+        emit(0x8A, 0x48, 0xBA); // Save X, then use X=SP for stack lookup.
+        // Recover the original attribute value without allocating scratch RAM.
+        emit(0x98, 0x49, 0x40, 0xA8, 0xBD, 0x02, 0x01,
+             0x99, 0x80, 0x06, 0x98, 0x49, 0x40, 0xA8, 0x68, 0xAA);
+        label('attributeDone');
+        emit(0x68, 0x28, 0x60);
+
+        label('normalText');
+        emit(0x22, 0x2B, ...Array.from('NORMAL VIEW', c => c === ' ' ? 0 : c.charCodeAt(0) - 54), 0xFE);
+        label('loopText');
+        emit(0x22, 0x6B, ...Array.from('LOOP VIEW', c => c === ' ' ? 0 : c.charCodeAt(0) - 54), 0xFE);
+
+        // Prepare the opposite page AFTER the current frame's producers,
+        // outside the next NMI's VRAM-transfer window. The original PPU
+        // interpreter then consumes both pages without validation/replay work.
+        label('queueScan');
+        emit(0xC4, 0x01);
+        branch(0xF0, 'queueDone');
+        emit(0x98, 0x85, 0x03, 0xB9, 0x00, 0x03, 0xC9, 0x09);
+        branch(0xB0, 'queueSkipReset'); // 9 is the last defined command code.
+        emit(0xC9, 0x03);
+        branch(0xF0, 'queueSkipFill');
+        emit(0xC9, 0x06);
+        branch(0x90, 'queueDone');
+        absolute(0x20, 'queueNametableCommand');
+        branch(0xB0, 'queueSkipCommand');
+        // Y is the terminator index. Reserve the complete copied command AND
+        // its final zero before writing anything; $03E0 begins palette RAM.
+        emit(0x98, 0x38, 0xE5, 0x03, 0x85, 0x02,
+             0x8A, 0x38, 0x65, 0x02);
+        branch(0xB0, 'queueSkipCommand');
+        emit(0xC9, 0xE0);
+        branch(0xB0, 'queueSkipCommand');
+        emit(0xA4, 0x03, 0xC8, 0xA9, 0x06, 0x9D, 0x00, 0x03, 0xE8);
+        absolute(0x4C, 'queueMirrorAddress');
+        label('queueSkipReset');
+        emit(0xC8);
+        absolute(0x4C, 'queueScan');
+        label('queueSkipFill');
+        emit(0x98, 0x69, 0x04, 0xA8); // Matching CMP #3 left carry set.
+        absolute(0x4C, 'queueScan');
+        label('queueDone');
+        absolute(0x4C, 'queueCommit');
+        label('queueSkipCommand');
+        emit(0xC8);
+        absolute(0x4C, 'queueScan');
+        while(block.base + block.bytes.length < block.limit) emit(0xEA);
+
+        org(0xC578, 0xC5E8);
+        label('queueMirrorAddress');
+        emit(0xB9, 0x00, 0x03, 0x49, 0x04, 0x9D, 0x00, 0x03, 0xE8, 0xC8,
+             0xB9, 0x00, 0x03, 0x9D, 0x00, 0x03, 0xE8, 0xC8,
+             0xB9, 0x00, 0x03, 0x85, 0x00, 0x9D, 0x00, 0x03, 0xE8, 0xC8);
+        label('queueMirrorBytes');
+        emit(0xB9, 0x00, 0x03, 0x9D, 0x00, 0x03, 0xE8, 0xC8, 0xC6, 0x00);
+        branch(0xD0, 'queueMirrorBytes');
+        emit(0xB9, 0x00, 0x03);
+        branch(0x10, 'queueMirrorAddress');
+        emit(0x9D, 0x00, 0x03, 0xE8, 0xC8);
+        absolute(0x4C, 'queueScan');
+        label('gameOverReset');
+        emit(0x20, 0x60, 0xFF, 0x4C, 0xB9, 0x83);
+
+        // Walk every counted segment once, including rejected commands. $00
+        // records a non-6 command or an address outside $2000-$2FFF. Return
+        // Y=end marker and carry set for rejection, so skipping needs no
+        // second parser. Commands 7/8 and mixed palette packets remain intact.
+        label('queueNametableCommand');
+        emit(0xB9, 0x00, 0x03, 0x49, 0x06, 0x85, 0x00, 0xC8);
+        label('queueCheckAddress');
+        emit(0xB9, 0x00, 0x03, 0x29, 0xF0, 0xC9, 0x20);
+        branch(0xF0, 'queueNextSegment');
+        emit(0xE6, 0x00);
+        label('queueNextSegment');
+        emit(0xC8, 0xC8, 0x98, 0x38, 0x79, 0x00, 0x03, 0xA8,
+             0xB9, 0x00, 0x03);
+        branch(0x10, 'queueCheckAddress');
+        emit(0xA5, 0x00, 0xC9, 0x01, 0x60);
+
+        // State 13 opens and closes the exit using the same four-metatile
+        // renderer as stage initialization. Produce that queue first, then
+        // reuse the live palette quota: both door pages fit in vblank only
+        // when the full palette is deferred to a non-drawing animation frame.
+        label('doorAnimation');
+        emit(0x20, 0xA5, 0xB7, 0x20, 0x6D, 0xB8);
+        absolute(0x20, 'paletteQueueCheck');
+        branch(0xB0, 'doorAnimationDone');
+        emit(0x4C, 0x20, 0xCA);
+        label('doorAnimationDone');
+        emit(0x60);
+        while(block.base + block.bytes.length < block.limit) emit(0xEA);
+
+        // The old camera body is unreachable after the $9B38 jump to camera.
+        // It supplies 39 bytes without touching password/ending data.
+        org(0x9B3B, 0x9B62);
+        label('queueFinalize');
+        emit(0x20, 0xB2, 0x86, 0xA5, 0x21);
+        branch(0xF0, 'queueFinalizeDone');
+        emit(0xA5, 0x3D);
+        branch(0xD0, 'queueFinalizeDone');
+        emit(0xA5, 0x18, 0xC9, 0x04);
+        branch(0xD0, 'queueFinalizeDone');
+        emit(0xA5, 0x30, 0xE9, 0x08, 0xC9, 0x06); // Include exit animation (13).
+        branch(0xB0, 'queueFinalizeDone');
+        absolute(0x20, 'queuePrepare');
+        label('queueFinalizeDone');
+        emit(0xA9, 0x00, 0x60);
+        label('queueCommit');
+        emit(0x86, 0x1E, 0xA9, 0x00, 0x4C, 0xB2, 0x86);
+
+        // Shared camera support replaced the old normalizer with RTS/NOPs;
+        // all five former callers now use $9B8D. Keep the RTS at $945A.
+        org(0x945B, 0x9468);
+        label('initializeEnemySlot');
+        // Stage substate $31 is zero on entry to stage state 10. Retain the
+        // next native enemy slot there, and finish initialization before
+        // advancing to the original fade-in handler. An enemy-9 body draws
+        // four metatiles; initializing all eight slots at once can exceed
+        // the physical queue when a second page must also be prepared.
+        emit(0xA6, 0x31);
+        branch(0xD0, 'initializeNextEnemy');
+        emit(0xA2, 0x08);
+        label('initializeNextEnemy');
+        emit(0xCA, 0x20, 0xFB, 0xBC);
+        absolute(0x4C, 'initializeEnemyDone');
+
+        // The former START and CONTINUE strings are unreferenced after the
+        // menu pointers below are replaced. Keep the adjacent STAGE/REST text.
+        org(0x86FF, 0x8707);
+        label('initializeEnemyDone');
+        emit(0xA5, 0x31);
+        branch(0xD0, 'initializeEnemyWait');
+        emit(0x4C, 0x12, 0x8B); // Original INC $30 / RTS.
+        label('initializeEnemyWait');
+        emit(0x60);
+        org(0x8712, 0x871D);
+        label('queuePrepare');
+        // $00-$03 are the original producers' temporary scratch bytes. No
+        // producer runs after this final queue terminator, before the RTI.
+        emit(0xA6, 0x1E, 0xCA, 0x86, 0x01, 0xA0, 0x00);
+        absolute(0x4C, 'queueScan');
+
+        org(0x8254, 0x827B);
+        label('backgroundQueueCheck');
+        // Original A868 defers a rescue draw when queue length reaches $20.
+        // A816 retains $68/$69 at the unprocessed map cell, and advances $6A
+        // only after finishing the scan. Reuse that scheduler, allowing one
+        // 16-byte metatile packet instead of two when both pages are queued.
+        // Falling slots at A507 use the same check and retain their cursor $53.
+        // Both hooks return A=queue length and CMP carry without touching X/Y.
+        emit(0xA5, 0x21);
+        branch(0xF0, 'originalBackgroundQueue');
+        emit(0xA5, 0x3D);
+        branch(0xD0, 'originalBackgroundQueue');
+        emit(0xA5, 0x1E, 0xC9, 0x10, 0x60);
+        label('originalBackgroundQueue');
+        emit(0xA5, 0x1E, 0xC9, 0x20, 0x60);
+        label('paletteQueueCheck');
+        // One metatile plus its second page and 32 colors fits in vblank.
+        // A fall can enqueue 38/48 bytes on its own: defer CA20 on those
+        // frames and upload the complete current shadow on a quieter frame.
+        // CA20's palette-inhibit check and loading/death/ending fades stay intact.
+        emit(0xA5, 0x21);
+        branch(0xF0, 'originalPaletteQueue');
+        emit(0xA5, 0x3D);
+        branch(0xD0, 'originalPaletteQueue');
+        emit(0xA5, 0x1E, 0xC9, 0x11, 0x60);
+        label('originalPaletteQueue');
+        emit(0xA5, 0x1E, 0xC9, 0x50, 0x60);
+        // Erase the retired short-palette helper on load/export too.
+        while(block.base + block.bytes.length < block.limit) emit(0xEA);
+
+        for(const ref of references){
+            const address = labels.get(ref.target);
+            if(address === undefined) throw new Error(`Unknown view-patch label: ${ref.target}`);
+            if(ref.relative){
+                const delta = address - (ref.block.base + ref.offset + 1);
+                if(delta < -128 || delta > 127) throw new Error(`View-patch branch too far: ${ref.target}`);
+                ref.block.bytes[ref.offset] = delta & 0xFF;
+            }else{
+                ref.block.bytes[ref.offset] = address & 0xFF;
+                ref.block.bytes[ref.offset + 1] = address >> 8;
+            }
+        }
+        for(const part of blocks){
+            if(part.base + part.bytes.length > part.limit) throw new Error('View patch exceeds password code space');
+            patch(part.base, part.bytes);
+        }
+        const hook = (cpu, opcode, name) => {
+            const address = labels.get(name);
+            patch(cpu, [opcode, address & 0xFF, address >> 8]);
+        };
+        hook(0x9B38, 0x4C, 'camera');
+        hook(0x8B4F, 0x4C, 'pause');
+        hook(0x8ECE, 0x20, 'attributeIndex');
+        hook(0x90B0, 0x20, 'attributeStore');
+        hook(0xBBEA, 0x20, 'attributeStore');
+        patch(0x886C, [0xE0, 0x06, 0xB0, 0x35]); // Original PPU interpreter.
+        hook(0x80C5, 0x20, 'queueFinalize');
+        hook(0xB867, 0x4C, 'doorAnimation');
+        hook(0x8B0F, 0x4C, 'initializeEnemySlot');
+        patch(0xBD39, [0x86, 0x31, 0xCA, 0x60]); // Save native slot, return.
+        hook(0x8C7E, 0x20, 'gameOverReset');
+        for(const cpu of [0xA507, 0xA868]){
+            hook(cpu, 0x20, 'backgroundQueueCheck');
+            patch(cpu + 3, [0xEA]); // Replace the fourth byte of LDA/CMP.
+        }
+        patch(0x8B94, [0x20, 0x20, 0xCA]); // Restore original full palette upload.
+        hook(0x8B8E, 0x20, 'paletteQueueCheck');
+        patch(0x8B91, [0xEA]);
+        // Reset before clearing/drawing the next stage's transition screen,
+        // rather than waiting for the later STAGE/REST text entry.
+        patch(0x8A3A, [0x20, 0x6D, 0xFF]);
+
+        // Both title choices now initialize stage 1 through the START path.
+        // Retire the password-substate branch before reusing its code space.
+        patch(0x8247, [0xA9, 0x00, 0x85, 0x1F,
+                      0x20, 0xE7, 0x82, 0x20, 0xDB, 0x82, 0x4C, 0x85, 0x82]);
+        for(const [index, name] of [[0, 'normalText'], [1, 'loopText']]){
+            const address = labels.get(name);
+            patch(0x86BB + index * 2, [address & 0xFF, address >> 8]);
+        }
+        // Reuse the native cursor writer with fixed X and selection-indexed Y.
+        // LDY #$4C; LDA $8225,X has the original instruction length and timing.
+        patch(0x81D0, [0xA0, 0x4C, 0xBD, 0x25, 0x82]);
+        patch(0x8225, [0x8C, 0x9C]);
+
+        // Visibility is modulo the MAP width, independently of the view.
+        // In single-screen maps high-byte parity must never hide a sprite.
+        for(const cpu of [0x9B66, 0xA166, 0xA2B1, 0xA45C, 0xDA04]){
+            patch(cpu, [0x25, 0x3D]); // AND levelMode instead of AND #1
+        }
+        // LOOP VIEW permits pause free-look in either width. The dispatch
+        // above retains the original pause for narrow NORMAL VIEW levels.
+        patch(0xFEF7, [0xEA, 0xEA, 0xEA, 0xEA, 0xEA]);
+        for(const cpu of [0xFF14, 0xFF26, 0xFF4A]) patch(cpu, [0x25, 0x3D]);
     }
 
     // moaikun maker label
