@@ -74,6 +74,9 @@ npx serve
 
 - Click "🎮 Test Level" to run current level in emulator
 - Click "🎮 Test ROM" to test the complete game
+- All previews/downloads use expanded Mapper 2 ROMs (128 KiB PRG). The uploaded source stays intact.
+- “Up to switch view” is off by default and experimental. Off keeps fixed narrow maps and looping wide maps. On starts with fixed narrow / native bounded wide views; press Up during play to toggle centered looping follow, with a transition of at most 4 pixels per frame. Wide pause free-look remains available; narrow free-look requires looping view. Horizontal bat wrapping follows this setting.
+- The original `START / CONTINUE` password menu is restored. Test Level automatically chooses `START`; change view with Up after starting.
 - Click "⏹️ Stop Emulator" to return to editing
 - Shortcuts: `F5` tests the current level, `F6` stops the emulator, and `Ctrl + S` saves the level. A shortcut does nothing while its button is disabled.
 
@@ -85,6 +88,10 @@ npx serve
 - The game Select key is `Alt`, separate from `Shift + F1` through `Shift + F4` quick saving. The bundled jsnes does not save audio chip state, so sound may briefly differ after loading.
 
 ### 4. Save & Share
+
+- A new browser cache copies old ROM, level and draft records once without deleting the old cache. Separate cached edits take priority over embedded ROM levels.
+- Legacy editor outputs are recognized by local patch/layout features, not a whole-file hash; compatible artwork variants are accepted. A persistent red warning allows continued editing/testing/exporting.
+- Export all levels as a backup, then use “Upload clean ROM, keep levels” to replace the base while retaining level order/count, enemies, drafts, unsaved edits and settings. A failed validation or cache commit retains the old project.
 
 - **💾 Save Level** - Save changes to memory
 - **📝 Write ROM** - Write all changes to ROM data

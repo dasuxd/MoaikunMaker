@@ -57,44 +57,26 @@ test('default quick start retains the original START sequence and loading progre
     assert.equal(input.held.size, 0);
 });
 
-test('loop quick start releases SELECT for a frame before pressing START', async () => {
+test('stale preview preferences cannot select the password menu', async () => {
     const input = inputRecorder();
     const emulator = makeEmulator(input.nes);
-    await emulator.quickStart({ loopView: true });
-    assert.deepEqual(input.events, [
-        { type: 'down', button: jsnes.Controller.BUTTON_SELECT, frame: 40 },
-        { type: 'up', button: jsnes.Controller.BUTTON_SELECT, frame: 43 },
-        { type: 'down', button: jsnes.Controller.BUTTON_START, frame: 44 },
-        { type: 'up', button: jsnes.Controller.BUTTON_START, frame: 47 }
-    ]);
-    assert.equal(input.frameCount(), 353);
-    assert.equal(emulator.loadingProgress, 346);
-    assert.equal(emulator.started, true);
-    assert.equal(input.held.size, 0);
+    await emulator.quickStart({loopView:true});
+    assert.deepEqual(input.events.map(e => e.button),[jsnes.Controller.BUTTON_START,jsnes.Controller.BUTTON_START]);
 });
-
-test('cancelled quick start releases either title button and cannot start a replacement run', async () => {
-    for (const button of [jsnes.Controller.BUTTON_SELECT, jsnes.Controller.BUTTON_START]) {
-        let emulator;
-        const input = inputRecorder(held => {
-            if (held.has(button)) emulator.stop();
-        });
-        emulator = makeEmulator(input.nes);
-        await emulator.quickStart({ loopView: true });
-        assert.equal(emulator.started, undefined);
-        assert.equal(emulator.loadingProgress, 0);
-        assert.equal(input.held.size, 0);
-        if (button === jsnes.Controller.BUTTON_SELECT) {
-            assert.ok(input.events.every(event => event.button === jsnes.Controller.BUTTON_SELECT));
-        }
-    }
+test('cancelled quick start releases START and cannot start a replacement run', async () => {
+    let emulator;
+    const input = inputRecorder(held => { if(held.has(jsnes.Controller.BUTTON_START)) emulator.stop(); });
+    emulator = makeEmulator(input.nes);
+    await emulator.quickStart();
+    assert.equal(emulator.started,undefined);
+    assert.equal(input.held.size,0);
 });
 
 // Optional cartridge regressions use a supplied original ROM without embedding
 // copyrighted bytes in fixtures or changing the user's ROM on disk.
 const romPath = process.env.MOAIKUN_TEST_ROM;
 const original = romPath ? fs.readFileSync(romPath) : null;
-test('quick start chooses NORMAL or LOOP and preserves legacy START in either ROM format',
+test('quick start always chooses native START with either feature setting',
     { skip: !original }, async () => {
         const romSource = ['Config', 'Level', 'RomFix', 'RomEditor', 'DataConverter']
             .map(name => fs.readFileSync(path.join(root, 'js', `${name}.js`), 'utf8'))
@@ -129,7 +111,7 @@ test('quick start chooses NORMAL or LOOP and preserves legacy START in either RO
             const m = nes.cpu.mem;
             const description = `expanded=${expanded}, cameraFollow=${cameraFollow}, loopView=${loopView}`;
             assert.equal(emulator.started, true, description);
-            assert.equal(m[0x21], Number(loopView), `title selection: ${description}`);
+            assert.equal(m[0x21], 0, `title selection: ${description}`);
             // Existing quick-start timing hands off during the stage-title
             // transition. Continue the short transition as the normal loop does.
             for (let frame = 0; frame < 120 && (m[0x30] !== 12 || m[0x56] !== 3); frame++) nes.frame();
@@ -139,7 +121,7 @@ test('quick start chooses NORMAL or LOOP and preserves legacy START in either RO
             assert.equal(m[0x3D], 0, `narrow stage: ${description}`);
             const x = m[0xC2] | (m[0xC1] << 8);
             const camera = m[0xFD] | (m[0x9D] << 8);
-            assert.equal(camera, loopView ? (x - 128) & 255 : 0, `camera: ${description}`);
+            assert.equal(camera, 0, `camera: ${description}`);
             assert.ok(nes.controllers[1].state.every(value => value === 64), `released inputs: ${description}`);
         }
     });

@@ -15,8 +15,8 @@ class RomEditor {
         this.levelCount = 56;
 
 
-        // ROM type for editing/export (user's chosen mode, persisted in cache)
-        this.romType = Config.ROM_TYPE_ORIGINAL;
+        // Every export uses the expanded layout; source layout is separate.
+        this.romType = Config.ROM_TYPE_EXPANDED;
         // ROM's actual binary type (detected from header, never modified after parse)
         this.originalRomType = Config.ROM_TYPE_ORIGINAL;
 
@@ -34,10 +34,41 @@ class RomEditor {
      * @param {ArrayBuffer} arrayBuffer - ROM file's ArrayBuffer
      */
     loadROM(arrayBuffer) {
-        this.romData = new Uint8Array(arrayBuffer);
+        // Importing cached levels updates the editor's header. Keep the
+        // uploaded/cached source buffer intact for future patch rebuilds.
+        this.romData = new Uint8Array(new Uint8Array(arrayBuffer));
+        this.romIdentity = RomEditor.inspectROM(this.romData);
         this.parseROM();
         //Romfix.fixOriginalRom(this.romData);
         this.modified = false;
+    }
+
+    /** Identify editor output from local features, not a whole-file hash.
+     * Artwork-only variants remain valid inputs. The version record lives in
+     * reserved bank 6; its legacy-base bit survives forced old-ROM exports.
+     */
+    static inspectROM(data) {
+        const b = new Uint8Array(data);
+        const match = (at, bytes) => bytes.every((v, i) => b[at + i] === v);
+        if(!match(0, [0x4E, 0x45, 0x53, 0x1A]) || (b[6] & 4))
+            throw new Error(i18n.t('romUnsupportedStructure'));
+        const mapper = (b[6] >> 4) | (b[7] & 0xF0);
+        const expanded = mapper === 2 && b[4] === 8 && b[5] === 0;
+        const original = mapper === 3 && b[4] === 2 && b[5] === 4;
+        if((!expanded && !original) || b.length < 16 + b[4]*0x4000 + b[5]*0x2000)
+            throw new Error(i18n.t('romUnsupportedStructure'));
+        const marker = [0x4D,0x4F,0x41,0x49,0x4B,0x4D,0x32,0]; // MOAIKM2
+        if(expanded && match(0x18010, marker)) {
+            if(b[0x18018] !== 1) throw new Error(i18n.t('romUnsupportedVersion'));
+            return {kind: b[0x18019] ? 'legacy' : 'current', expanded, version: 1};
+        }
+        const maker = match(0x5D9, [0xE3,0xE2,0x17,0x0B,0x0E,0x0F,0xE3,0x21,0x13,0x1E,0x12]);
+        const backup = b.slice(0x8C50,0x8FF0).some(v => v !== 0);
+        const camera = match(0x9B38-0x8000+16,[0xA5,0x56,0xC9,0x03]) ||
+            match(0x9B38-0x8000+16,[0x4C,0xCF,0xC3]);
+        const pause = match(0x8B4F-0x8000+16,[0x4C,0xD9,0xFE]);
+        return {kind: (maker && (backup || camera || pause)) || (camera && pause)
+            ? 'legacy' : expanded ? 'unknown-expanded' : 'original', expanded};
     }
 
     /**
@@ -54,6 +85,9 @@ class RomEditor {
         
         // 0. Read total level count
         this.levelCount = this.romData[Config.LEVEL_COUNT_ADDRESS] - 1;
+        if(!Number.isInteger(this.levelCount) || this.levelCount < 1 ||
+            this.levelCount > this.getMaxCountOfLevels())
+            throw new Error(i18n.t('romUnsupportedStructure'));
 
         // 1. Read address table (little endian)
         //const addresses = this.readLevelAddressTable();
@@ -66,10 +100,17 @@ class RomEditor {
         
         for (let i = 0; i < this.levelCount; i++) {
             const startAddr = levelDataAddresses[i].romAddress;
+            const mapBegin = this.getLevelDataStart(), mapEnd = this.getLevelDataEnd();
+            if(startAddr < mapBegin || startAddr >= mapEnd)
+                throw new Error(i18n.t('romUnsupportedStructure'));
             const levelData = this.readLevelData(startAddr);
             
             // Read enemy data, and update next read position
             const enemyData = this.getEnemyDataByAddr(currentEnemyAddr);
+            if(currentEnemyAddr < this.getEnemyDataStart() ||
+                currentEnemyAddr + enemyData.length > this.getEnemyDataStart() + this.getEnemyUsageMaxSize() ||
+                enemyData.length < 1 || enemyData.length > 17 || !(enemyData.length & 1))
+                throw new Error(i18n.t('romUnsupportedStructure'));
             const enemyCpuAddress = this.getCpuAddressByRomAddress(currentEnemyAddr, Config.LEVEL_TABLE_ENEMY_BANK_INDEX);
 
             const level = new Level(
@@ -86,6 +127,8 @@ class RomEditor {
 
             this.levels.push(level);
         }
+        // Reading uses the source layout; editing and all exports use bank 4.
+        this.romType = Config.ROM_TYPE_EXPANDED;
     }
 
     /**
@@ -196,12 +239,14 @@ class RomEditor {
         for(let i = 0; i < Config.LEVEL_DATA_MAX_SIZE; i++){
             const byte = this.romData[dataStartAddr + i];
             if(byte === 0xFF){
-                break;
+                if(data.length < 4) throw new Error(i18n.t('romUnsupportedStructure'));
+                return data;
             }else{
+                if(!Number.isInteger(byte)) throw new Error(i18n.t('romUnsupportedStructure'));
                 data.push(byte);
             }
         }
-        return data;
+        throw new Error(i18n.t('romUnsupportedStructure'));
     }
 
     /**
@@ -466,6 +511,7 @@ class RomEditor {
      * A temporary gameConfig override changes only this export, for previews.
      */
     getROMData(levels = this.levels, levelCount = this.levelCount, gameConfig = this.gameConfig) {
+        this.romType = Config.ROM_TYPE_EXPANDED;
         // check data
         // let result = this.checkRomData()
         // if(result.success === false){
@@ -556,6 +602,8 @@ class RomEditor {
             this.romType === Config.ROM_TYPE_EXPANDED,
             gameConfig
         );
+        newRomData.set([0x4D,0x4F,0x41,0x49,0x4B,0x4D,0x32,0,1,
+            ['legacy','unknown-expanded'].includes(this.romIdentity?.kind) ? 1 : 0],0x18010);
         return newRomData;
     }
 

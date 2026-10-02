@@ -19,15 +19,15 @@ function machine(data) {
 }
 
 function syntheticMachine() {
-    const data = new Uint8Array(0x10010);
-    data.set([0x4E, 0x45, 0x53, 0x1A, 2, 4, 0x31]);
-    data.set([0x00, 0x80, 0x00, 0x80, 0x00, 0x80], 0x800A);
-    Romfix.fixWideScreenLoopingCamera(data);
-    Romfix.addViewModes(data);
+    const data = new Uint8Array(0x20010);
+    data.set([0x4E, 0x45, 0x53, 0x1A, 8, 0, 0x21]);
+    data.set([0x00, 0x80, 0x00, 0x80, 0x00, 0x80], 0x2000A);
+    Romfix.fixWideScreenLoopingCamera(data, true);
+    Romfix.addViewModes(data, true);
     // Native queue terminator writer, called at the very end of the NMI.
     data.set([0xA6, 0x1E, 0x9D, 0x00, 0x03, 0xE8, 0x86, 0x1E, 0x60],
         0x86B2 - 0x8000 + 16);
-    return machine(data);
+    const nes = machine(data); nes.cpu.mem[0xF4] = 0; return nes;
 }
 
 function call(nes, entry, carry = 1, stepLimit = 2000) {
@@ -51,31 +51,40 @@ function call(nes, entry, carry = 1, stepLimit = 2000) {
 
 const target = (mem, hook) => mem[hook + 1] | (mem[hook + 2] << 8);
 
-test('camera follows the selected view at every world X in both map widths', () => {
+test('occupied reserved code space fails before installing runtime hooks', () => {
+    const data = new Uint8Array(0x20010);
+    data[0x1F110] = 0xCC;
+    const before = data.slice();
+    assert.throws(() => Romfix.addViewModes(data,true), /occupied/);
+    assert.deepEqual(data,before);
+    assert.throws(() => Romfix.addViewModes(data,false), /expanded ROM/);
+});
+
+test('runtime camera follows the selected view at every world X in both map widths', () => {
     const nes = syntheticMachine(), m = nes.cpu.mem;
     m[0x56] = 3;
     m[0x1F] = 0;
     for (const wide of [0, 1]) for (const view of [0, 1]) {
         m[0x3D] = wide;
-        m[0x21] = view;
+        m[0x2A] = view;
         for (let x = 0; x < (wide ? 512 : 256); x++) {
             m[0xC1] = x >> 8;
             m[0xC2] = x & 255;
             m[0xFF] = 0xB1;
             call(nes, 0x9B38);
-            const camera = wide || view ? (x - 128) & (wide ? 511 : 255) : 0;
+            const camera = view ? (x - 128) & (wide ? 511 : 255) : wide ? Math.max(0,Math.min(255,x-128)) : 0;
             assert.equal(m[0xFD] | (m[0x9D] << 8), camera, `width=${wide}, view=${view}, x=${x}`);
             assert.equal(m[0xFF], 0xB0 | (camera >> 8));
         }
     }
-    m[0x21] = 1;
+    m[0x2A] = 1;
     m[0x3D] = 1;
     m[0xC1] = 1;
     m[0xC2] = 255;
     m[0x1F] = 1;
     call(nes, 0x9B38);
-    assert.equal(m[0xFD], 127, 'wide attract demo retains the established looping camera');
-    assert.equal(m[0x9D], 1);
+    assert.equal(m[0xFD], 255, 'wide attract demo uses native bounded camera');
+    assert.equal(m[0x9D], 0);
     m[0x3D] = 0;
     m[0xC1] = 0;
     call(nes, 0x9B38);
@@ -160,7 +169,7 @@ test('attribute initialization and mutations repeat without duplicating map obje
 
 test('frame finalizer prepares both pages without accessing the PPU', () => {
     const nes = syntheticMachine(), cpu = nes.cpu, m = cpu.mem;
-    m[0x21] = 1;
+    m[0x2A] = 1;
     m[0x3D] = 0;
     m[0x18] = 4;
     m[0x30] = 12;
@@ -197,7 +206,7 @@ test('frame finalizer never mirrors palette, pattern, or mixed-address commands'
     ];
     for (const queue of commands) {
         const nes = syntheticMachine(), cpu = nes.cpu, m = cpu.mem;
-        m[0x21] = 1;
+        m[0x2A] = 1;
         m[0x3D] = 0;
         m[0x18] = 4;
         m[0x30] = 12;
@@ -214,7 +223,7 @@ test('frame finalizer handles fills and resets, bounds whole copies, and preserv
         0x21, 0x68, 2, 0x33, 0x34, 0xFF];
     for (const count of [1, 8, 10, 13]) {
         const nes = syntheticMachine(), m = nes.cpu.mem;
-        m[0x21] = 1; m[0x3D] = 0; m[0x18] = 4; m[0x30] = 12;
+        m[0x2A] = 1; m[0x3D] = 0; m[0x18] = 4; m[0x30] = 12;
         const prefix = [9, 3, 0x20, 0, 4, 0x50];
         const input = prefix.concat(...Array.from({ length: count }, () => packet));
         m.splice(0x300, input.length, ...input);
@@ -236,31 +245,31 @@ test('frame finalizer handles fills and resets, bounds whole copies, and preserv
     }
 });
 
-test('frame finalizer retains original queues outside narrow LOOP gameplay', () => {
+test('frame finalizer retains original queues outside live narrow gameplay', () => {
     for (const view of [0, 1]) for (const wide of [0, 1]) {
         for (const parent of [0, 4]) for (const state of [0, 7, 8, 11, 12, 13, 14, 255]) {
             const nes = syntheticMachine(), m = nes.cpu.mem;
-            m[0x21] = view; m[0x3D] = wide; m[0x18] = parent; m[0x30] = state;
+            m[0x2A] = view; m[0x3D] = wide; m[0x18] = parent; m[0x30] = state;
             const packet = [6, 0x23, 0xC0, 1, 0xE4, 0xFF];
             m.splice(0x300, packet.length, ...packet);
             m[0x1E] = packet.length;
             call(nes, target(m, 0x80C5));
-            const repeated = view && !wide && parent === 4 && state >= 8 && state <= 13;
+            const repeated = !wide && parent === 4 && state >= 8 && state <= 13;
             assert.equal(m[0x1E], repeated ? 13 : 7);
             assert.deepEqual(m.slice(0x300, 0x306), packet);
         }
     }
 });
 
-test('palette admission defers full uploads only on busy narrow LOOP frames', () => {
+test('palette admission defers full uploads only on busy narrow frames', () => {
     const nes = syntheticMachine(), m = nes.cpu.mem;
     for (const view of [0, 1]) for (const wide of [0, 1]) {
-        m[0x21] = view; m[0x3D] = wide;
+        m[0x2A] = view; m[0x3D] = wide;
         for (let length = 0; length < 256; length++) {
             m[0x1E] = length;
             call(nes, target(m, 0x8B8E));
             assert.equal(nes.cpu.REG_ACC, length);
-            assert.equal(nes.cpu.F_CARRY, Number(length >= (view && !wide ? 17 : 80)));
+            assert.equal(nes.cpu.F_CARRY, Number(length >= (!wide ? 17 : 80)));
         }
     }
 });
@@ -271,7 +280,7 @@ test('pause free-look is always available in wide maps and only LOOP in narrow m
     m[0x88D3] = 0x60;
     for (const wide of [0, 1]) for (const view of [0, 1]) {
         m[0x3D] = wide;
-        m[0x21] = view;
+        m[0x2A] = view;
         m[0x32] = 1;
         m[0xFD] = 2;
         m[0x9D] = 0;
@@ -296,12 +305,12 @@ test('pause free-look is always available in wide maps and only LOOP in narrow m
     }
 });
 
-test('native background queue checks preserve registers and reduce only narrow LOOP capacity', () => {
+test('native background queue checks preserve registers and reduce narrow mirrored capacity', () => {
     const nes = syntheticMachine(), cpu = nes.cpu, m = cpu.mem;
     for (const wide of [0, 1]) for (const view of [0, 1]) {
         m[0x3D] = wide;
-        m[0x21] = view;
-        const limit = view && !wide ? 16 : 32;
+        m[0x2A] = view;
+        const limit = !wide ? 16 : 32;
         for (const hook of [0xA507, 0xA868]) for (let length = 0; length < 256; length++) {
             m[0x1E] = length;
             cpu.REG_X = 0x5A;
@@ -388,111 +397,35 @@ function exportFallingStage(expanded, wide, scene, tile, count) {
 
 function start(data, view) {
     const nes = machine(data);
-    for (let f = 0; f < 160; f++) nes.frame();
-    if (view) {
-        nes.buttonDown(1, jsnes.Controller.BUTTON_SELECT);
+    for(let f=0;f<160;f++) nes.frame();
+    nes.buttonDown(1,jsnes.Controller.BUTTON_START); nes.frame();
+    nes.buttonUp(1,jsnes.Controller.BUTTON_START);
+    for(let f=0;f<500;f++) {
         nes.frame();
-        nes.buttonUp(1, jsnes.Controller.BUTTON_SELECT);
-        nes.frame();
-    }
-    nes.buttonDown(1, jsnes.Controller.BUTTON_START);
-    nes.frame();
-    nes.buttonUp(1, jsnes.Controller.BUTTON_START);
-    for (let f = 0; f < 500; f++) {
-        nes.frame();
-        if (nes.cpu.mem[0x30] === 12 && nes.cpu.mem[0x56] === 3) {
+        if(nes.cpu.mem[0x30]===12 && nes.cpu.mem[0x56]===3) {
             nes.frame();
+            if(view) {
+                nes.buttonDown(1,jsnes.Controller.BUTTON_UP); nes.frame();
+                nes.buttonUp(1,jsnes.Controller.BUTTON_UP);
+                for(let i=0;i<80;i++) nes.frame();
+            }
             return nes;
         }
     }
-    assert.fail('title choice did not start a live stage');
+    assert.fail('START did not reach live gameplay');
 }
 
 const worldX = m => (m[0xC1] << 8) | m[0xC2];
 const cameraX = m => (m[0x9D] << 8) | m[0xFD];
 
-realTest('single-screen view modes are opt-in and reversible while wide camera and bat patches remain', () => {
-    for (const expanded of [false, true]) for (const disableTimer of [false, true]) {
-        for (const showRemainingRescueCount of [false, true]) {
-            const editor = new RomEditor();
-            editor.loadROM(original);
-            if (expanded) editor.romType = Config.ROM_TYPE_EXPANDED;
-            editor.setGameConfig({ disableTimer, showRemainingRescueCount });
-            assert.equal(editor.getGameConfig().cameraFollow, false, 'old projects default to off');
-            const plain = editor.getROMData(), shift = expanded ? 6 * 0x4000 : 0;
-            for (const [cpu, length] of [[0x81D0, 5], [0x8247, 52], [0x86BB, 4], [0x86FF, 8],
-                [0x8712, 11], [0x80C5, 3], [0x886C, 4], [0x8B0F, 3], [0x8B8E, 9], [0x8ECE, 3],
-                [0x90B0, 3], [0xA507, 4], [0xA868, 4], [0xB867, 3],
-                [0xBBEA, 3], [0xBD39, 4], [0xC3CF, 249], [0xC578, 112]]) {
-                const offset = cpu - 0x8000 + 16;
-                const targetOffset = offset + (cpu >= 0xC000 ? shift : 0);
-                assert.deepEqual(plain.slice(targetOffset, targetOffset + length),
-                    new Uint8Array(original.subarray(offset, offset + length)),
-                    `disabled bundle restores native code at $${cpu.toString(16)}`);
-            }
-            editor.setGameConfig({ ...editor.getGameConfig(), cameraFollow: true });
-            const enabled = editor.getROMData();
-            assert.notDeepEqual(enabled, plain);
-            for (const data of [plain, enabled]) {
-                assert.equal(data[0xAC72 - 0x8000 + 16], 0x5C, 'bat fix is permanent');
-                const pause = machine(data);
-                assert.equal(target(pause.cpu.mem, 0x8B4F) >= 0xC000, true,
-                    'both settings install a pause-camera dispatch');
-            }
-            assert.notDeepEqual(plain.slice(0x9B38 - 0x8000 + 16, 0x9B62 - 0x8000 + 16),
-                new Uint8Array(original.subarray(0x9B38 - 0x8000 + 16, 0x9B62 - 0x8000 + 16)),
-                'disabled optional modes retain the established wide-camera support');
-            const reloaded = new RomEditor();
-            const legacy = new Uint8Array(enabled);
-            legacy.set([0x4C, 0xCF, 0xC3, 0xEA], 0x886C - 0x8000 + 16);
-            reloaded.loadROM(legacy);
-            reloaded.setGameConfig({ disableTimer, showRemainingRescueCount });
-            assert.deepEqual(reloaded.getROMData(), plain,
-                'loading an enabled ROM then disabling removes optional patches and retains permanent support');
-            reloaded.setGameConfig({ ...reloaded.getGameConfig(), cameraFollow: true });
-            assert.deepEqual(reloaded.getROMData(), enabled, 'turning the option back on reconstructs the whole bundle');
-        }
-    }
-});
-
-realTest('vertical view labels and cursor are optional and Select moves between both rows', () => {
-    const tiles = text => Array.from(text, c => c === ' ' ? 0 : c.charCodeAt(0) - 54);
-    for (const expanded of [false, true]) for (const enabled of [false, true]) {
+realTest('both feature settings retain native START and working password entry', () => {
+    for (const expanded of [true]) for(const enabled of [false,true]) {
         const editor = new RomEditor();
         editor.loadROM(original);
-        if (expanded) editor.romType = Config.ROM_TYPE_EXPANDED;
         editor.gameConfig.cameraFollow = enabled;
-        const nes = machine(editor.getROMData()), m = nes.cpu.mem;
-        for (let frame = 0; frame < 160; frame++) nes.frame();
-        for (const [address, text] of enabled
-            ? [[0x222B, 'NORMAL VIEW'], [0x226B, 'LOOP VIEW']]
-            : [[0x2228, 'START'], [0x2233, 'CONTINUE']]) {
-            assert.deepEqual(nes.ppu.vramMem.slice(address, address + text.length), tiles(text),
-                'title text reaches the intended nametable rows');
-        }
-        assert.equal(m[0x21], 0);
-        assert.equal(m[0x43C], enabled ? 0x4C : 0x34);
-        assert.equal(m[0x41E], 0x8C);
-        for (const selection of [1, 0]) {
-            nes.buttonDown(1, jsnes.Controller.BUTTON_SELECT);
-            nes.frame();
-            nes.buttonUp(1, jsnes.Controller.BUTTON_SELECT);
-            nes.frame();
-            assert.equal(m[0x21], selection);
-            assert.equal(m[0x43C], enabled ? 0x4C : selection ? 0x8C : 0x34);
-            assert.equal(m[0x41E], enabled && selection ? 0x9C : 0x8C);
-            assert.equal(nes.cpu.REG_SP, 0x1FF);
-        }
-    }
-});
-
-realTest('disabled camera bundle retains the native start and working password entry', () => {
-    for (const expanded of [false, true]) {
-        const editor = new RomEditor();
-        editor.loadROM(original);
         if (expanded) editor.romType = Config.ROM_TYPE_EXPANDED;
         const data = editor.getROMData(), gameplay = start(data, 0);
-        assert.equal(gameplay.cpu.mem[0x21], 0);
+        assert.equal(gameplay.cpu.mem[0x2A], 0);
         assert.equal(cameraX(gameplay.cpu.mem), 0, 'native narrow level starts with a fixed camera');
         const password = machine(data);
         for (let f = 0; f < 160; f++) password.frame();
@@ -516,14 +449,14 @@ realTest('disabled camera bundle retains the native start and working password e
 });
 
 realTest('disabled single-screen modes keep narrow camera fixed and wide camera looping at every world X', () => {
-    for (const expanded of [false, true]) for (const wide of [false, true]) {
+    for (const expanded of [true]) for (const wide of [false, true]) {
         const nes = machine(exportStage(expanded, wide, 0, false, 11, false)), m = nes.cpu.mem;
         m[0x56] = 3;
         m[0x3D] = Number(wide);
         // The legacy title selection also selects password input. It must
         // never become a gameplay view flag when optional modes are disabled.
         for (const selection of [0, 1]) for (let x = 0; x < (wide ? 512 : 256); x++) {
-            m[0x21] = selection;
+            m[0x2A] = selection;
             m[0xC1] = x >> 8;
             m[0xC2] = x & 255;
             m[0xFF] = 0xB1;
@@ -537,7 +470,7 @@ realTest('disabled single-screen modes keep narrow camera fixed and wide camera 
 });
 
 realTest('disabled single-screen modes retain wide pause free-look in both directions and normal resume', () => {
-    for (const expanded of [false, true]) for (const wide of [false, true]) {
+    for (const expanded of [true]) for (const wide of [false, true]) {
         const nes = start(exportStage(expanded, wide, 0, false, 11, false), 0), m = nes.cpu.mem;
         const initialWorld = worldX(m);
         nes.buttonDown(1, jsnes.Controller.BUTTON_START);
@@ -575,11 +508,11 @@ realTest('disabled single-screen modes retain wide pause free-look in both direc
 });
 
 realTest('native bat flight wraps both horizontal edges and retains vertical removal', () => {
-    for (const expanded of [false, true]) for (const cameraFollow of [false, true]) {
+    for (const expanded of [true]) for (const cameraFollow of [true]) {
         const nes = machine(exportStage(expanded, false, 0, false, 11, cameraFollow)), m = nes.cpu.mem;
         for (const wide of [0, 1]) for (const view of [0, 1]) {
             m[0x3D] = wide;
-            m[0x21] = view;
+            m[0x2A] = view;
             const mask = wide ? 511 : 255;
             const prepare = (x, y, dx, dy) => {
                 nes.cpu.REG_X = 0;
@@ -630,7 +563,7 @@ realTest('native bat flight wraps both horizontal edges and retains vertical rem
 });
 
 realTest('enemy 3/8 bat volleys leave vertically and release slots for the next native volley', () => {
-    for (const expanded of [false, true]) for (const cameraFollow of [false, true]) {
+    for (const expanded of [true]) for (const cameraFollow of [true]) {
         const nes = machine(exportStage(expanded, false, 0, false, 11, cameraFollow)), m = nes.cpu.mem;
         for (const wide of [0, 1]) for (const shooter of [3, 8]) for (const facing of [3, 4]) {
             m.fill(0, 0x4FE, 0x586);
@@ -676,7 +609,7 @@ realTest('enemy 3/8 bat volleys leave vertically and release slots for the next 
 });
 
 realTest('exit opens and closes both LOOP pages in every region without late PPU writes', () => {
-    for (const expanded of [false, true]) for (const wide of [false, true]) {
+    for (const expanded of [true]) for (const wide of [false, true]) {
         for (const view of [0, 1]) for (const scene of [3, 8]) {
             for (const doorX of wide ? [2, 28] : [2, 14]) {
                 const nes = start(exportStage(expanded, wide, scene, false, doorX), view);
@@ -704,7 +637,7 @@ realTest('exit opens and closes both LOOP pages in every region without late PPU
                     if (m[0x30] !== 13) break;
                     if (phases.at(-1) !== m[0x62]) phases.push(m[0x62]);
                     assert.equal(m[0xFC], verticalScroll);
-                    if (view && !wide) {
+                    if (!wide) {
                         assert.deepEqual(nes.ppu.vramMem.slice(0x2000, 0x23F8),
                             nes.ppu.vramMem.slice(0x2400, 0x27F8),
                             'opening, fully open and closing exit stay identical on both pages');
@@ -720,7 +653,7 @@ realTest('exit opens and closes both LOOP pages in every region without late PPU
 });
 
 realTest('falling half-steps with rescues and scene animation restore scroll before pre-render', () => {
-    for (const expanded of [false, true]) for (const wide of [false, true]) {
+    for (const expanded of [true]) for (const wide of [false, true]) {
         for (const view of [0, 1]) for (const scene of [3, 8]) {
             for (const [tile, count] of [[7, 10], [13, 1]]) {
                 const nes = start(exportFallingStage(expanded, wide, scene, tile, count), view);
@@ -752,7 +685,7 @@ realTest('falling half-steps with rescues and scene animation restore scroll bef
                     assert.equal(m[0x30], 12, 'falling checkpoint remains in gameplay');
                     assert.equal(m[0xFC], verticalScroll, 'camera never intentionally moves vertically');
                     positions.add(m[0x4DE]);
-                    if (view && !wide) {
+                    if (!wide) {
                         assert.deepEqual(nes.ppu.vramMem.slice(0x2000, 0x23F8),
                             nes.ppu.vramMem.slice(0x2400, 0x27F8),
                             'both pages receive the complete falling update in the same frame');
@@ -769,7 +702,7 @@ realTest('falling half-steps with rescues and scene animation restore scroll bef
 });
 
 realTest('64 rescues use native scan continuation, animate every head, and restore scroll during vblank', () => {
-    for (const expanded of [false, true]) for (const wide of [false, true]) for (const view of [0, 1]) {
+    for (const expanded of [true]) for (const wide of [false, true]) for (const view of [0, 1]) {
         const nes = start(exportRescueStage(expanded, wide), view), m = nes.cpu.mem;
         let maximumUpdates = 0, scrollRestores = 0, frame = 0;
         const visited = new Set(), phases = new Set();
@@ -813,7 +746,7 @@ realTest('64 rescues use native scan continuation, animate every head, and resto
             assert.equal(m[0x30], 12, `stress fixture gameplay: expanded=${expanded} wide=${wide} view=${view} frame=${frame} playerY=${m[0x41E]}`);
             phases.add(m[0x6A]);
         }
-        assert.equal(maximumUpdates, view && !wide ? 1 : 2);
+        assert.equal(maximumUpdates, !wide ? 1 : 2);
         const expected = [];
         for (let y = 1; y <= 8; y++) for (let x = 0; x < 8; x++) {
             expected.push(0x2000 + y * 64 + x * 2);
@@ -827,7 +760,7 @@ realTest('64 rescues use native scan continuation, animate every head, and resto
 });
 
 realTest('full original palette uploads are restored and honor palette inhibition', () => {
-    for (const expanded of [false, true]) {
+    for (const expanded of [true]) {
         const editor = new RomEditor();
         editor.loadROM(original);
         editor.gameConfig.cameraFollow = true;
@@ -856,13 +789,13 @@ realTest('full original palette uploads are restored and honor palette inhibitio
 });
 
 realTest('native rescue scanner pauses before mutation and resumes at the next unprocessed nibble', () => {
-    for (const expanded of [false, true]) {
+    for (const expanded of [true]) {
         const editor = new RomEditor();
         editor.loadROM(original);
         editor.gameConfig.cameraFollow = true;
         if (expanded) editor.romType = Config.ROM_TYPE_EXPANDED;
         const nes = machine(editor.getROMData()), m = nes.cpu.mem;
-        m[0x21] = 1;
+        m[0x2A] = 1;
         m[0x3D] = 0;
         m[0x3E] = 3;
         m.splice(0x700, 224, ...Array(224).fill(0));
@@ -895,10 +828,10 @@ realTest('native rescue scanner pauses before mutation and resumes at the next u
     }
 });
 
-realTest('stage 1 palette updates preserve the original ground tiles in both ROM formats and views', () => {
+realTest('stage 1 palette updates preserve the original ground tiles in both runtime views', () => {
     const ground = nes => nes.ppu.nameTable[0].tile.slice(768, 800);
     const baseline = ground(start(original, 0));
-    for (const expanded of [false, true]) for (const view of [0, 1]) {
+    for (const expanded of [true]) for (const view of [0, 1]) {
         const editor = new RomEditor();
         editor.loadROM(original);
         editor.gameConfig.cameraFollow = true;
@@ -928,7 +861,7 @@ realTest('stage 1 palette updates preserve the original ground tiles in both ROM
 });
 
 realTest('large enemy-9 initialization completes both pages before scene-7 fade-in', () => {
-    for (const expanded of [false, true]) for (const index of [52, 54, 55]) {
+    for (const expanded of [true]) for (const index of [52, 54, 55]) {
         const editor = new RomEditor();
         editor.loadROM(original);
         editor.gameConfig.cameraFollow = true;
@@ -962,10 +895,10 @@ realTest('large enemy-9 initialization completes both pages before scene-7 fade-
     }
 });
 
-realTest('both menu choices run original and Mapper 2 ROMs, cross both seams, and keep live pages synchronized', () => {
-    for (const expanded of [false, true]) for (const wide of [false, true]) for (const view of [0, 1]) {
+realTest('both runtime views cross both seams and keep live pages synchronized in expanded exports', () => {
+    for (const expanded of [true]) for (const wide of [false, true]) for (const view of [0, 1]) {
         const nes = start(exportStage(expanded, wide, 8), view), m = nes.cpu.mem;
-        assert.equal(m[0x21], view);
+        assert.equal(m[0x2A], view);
         assert.equal(m[0x3D], Number(wide));
         assert.equal(m[0x3C], 1);
         const circumference = wide ? 512 : 256;
@@ -989,8 +922,8 @@ realTest('both menu choices run original and Mapper 2 ROMs, cross both seams, an
                 previous = x;
                 assert.equal(m[0x30], 12, 'gameplay continues');
                 assert.equal(m[0x41E], initialY, 'player stays supported at the seam');
-                assert.equal(cameraX(m), wide || view ? (x - 128) & (circumference - 1) : 0);
-                if (wide || view) assert.equal(m[0x43C], 128);
+                assert.equal(cameraX(m), view ? (x - 128) & (circumference - 1) : wide ? Math.max(0,Math.min(255,x-128)) : 0);
+                if (view) assert.equal(m[0x43C], 128);
             }
             nes.buttonUp(1, button);
             assert.equal(crossed, true, 'crossed the world boundary');
@@ -1005,10 +938,11 @@ realTest('both menu choices run original and Mapper 2 ROMs, cross both seams, an
 });
 
 realTest('retry, stage transition, game over, title return, and ending reset the viewport and retain the view', () => {
-    for (const expanded of [false, true]) for (const view of [0, 1]) {
+    for (const expanded of [true]) for (const view of [0, 1]) {
         const nes = start(exportStage(expanded, true), view), m = nes.cpu.mem;
         const savedPC = nes.cpu.REG_PC;
         for (const hook of [0x8A60, 0x8A3A, 0x8C7E, 0x838E]) {
+            m[0x2A] = view;
             m[0xFD] = 0xA6;
             m[0x9D] = 1;
             m[0xFF] = 0xB1;
@@ -1030,9 +964,10 @@ realTest('retry, stage transition, game over, title return, and ending reset the
             }
             assert.equal(reached, true, `reset hook $${hook.toString(16)}`);
             assert.equal(m[0xFD] | m[0x9D] | (m[0xFF] & 1), 0);
-            assert.equal(m[0x21], view);
+            assert.equal(m[0x2A], hook === 0x838E ? 0 : view);
         }
         // Ending wrapper must preserve the graphics bank chosen by ending.
+        m[0x2A] = view;
         m[0xFD] = 0xA6;
         m[0x9D] = 1;
         m[0xFF] = 0xB1;
@@ -1043,7 +978,7 @@ realTest('retry, stage transition, game over, title return, and ending reset the
         assert.equal(nes.cpu.REG_PC, 0xC5E7);
         assert.equal(m[0xFD] | m[0x9D] | (m[0xFF] & 1), 0);
         assert.equal(m[0x2F], 5);
-        assert.equal(m[0x21], view);
+        assert.equal(m[0x2A], view);
 
         nes.cpu.REG_SP = 0x1FF;
         nes.cpu.REG_PC = savedPC;
@@ -1056,14 +991,14 @@ realTest('retry, stage transition, game over, title return, and ending reset the
         }
         assert.equal(resumed, true);
         nes.frame();
-        assert.equal(m[0x21], view);
+        assert.equal(m[0x2A], view);
         assert.equal(cameraX(m), (worldX(m) - 128) & 511);
         assert.equal(nes.cpu.REG_SP, 0x1FF);
     }
 });
 
 realTest('single-screen rock pushes update both backgrounds across either edge in LOOP VIEW', () => {
-    for (const expanded of [false, true]) for (const right of [false, true]) {
+    for (const expanded of [true]) for (const right of [false, true]) {
         const nes = start(exportStage(expanded, false, 0, right ? 'right' : true), 1), m = nes.cpu.mem;
         const write = nes.mmap.write.bind(nes.mmap);
         nes.mmap.write = (address, value) => {
@@ -1091,7 +1026,7 @@ realTest('single-screen rock pushes update both backgrounds across either edge i
 });
 
 realTest('re-export is byte-stable and original password digits and ending remain intact', () => {
-    for (const expanded of [false, true]) {
+    for (const expanded of [true]) {
         const editor = new RomEditor();
         editor.loadROM(original);
         editor.gameConfig.cameraFollow = true;
@@ -1125,5 +1060,69 @@ realTest('re-export is byte-stable and original password digits and ending remai
             assert.deepEqual(data.slice(begin - 0x8000 + 16 + shift, end - 0x8000 + 16 + shift),
                 new Uint8Array(original.subarray(begin - 0x8000 + 16, end - 0x8000 + 16)));
         }
+    }
+});
+
+// Runtime transitions are tested against the ring, independently of rendering.
+test('Up transitions take the shortest route, settle, and preserve vertical scroll', () => {
+    const nes = syntheticMachine(),m=nes.cpu.mem;
+    m[0x56]=3; m[0x1F]=0; m[0xFC]=17;
+    for(const wide of [0,1]) for(const mode of [0,1]) {
+        const mask=wide?511:255;
+        for(const current of [0,1,4,127,128,250,252,255,256,383,511].filter(x=>x<=mask)) {
+            for(const world of [0,1,127,128,255,256,383,511].filter(x=>x<=mask)) {
+                m[0x3D]=wide;m[0x2A]=mode^1;m[0xFD]=current&255;m[0x9D]=current>>8;
+                m[0xC2]=world&255;m[0xC1]=world>>8;m[0xF4]=8;
+                const target=mode?(world-128)&mask:wide?Math.max(0,Math.min(255,world-128)):0;
+                let previous=current;
+                for(let frame=0;frame<140;frame++) {
+                    call(nes,0x9B38);m[0xF4]=0;
+                    const camera=m[0xFD]|m[0x9D]<<8;
+                    let delta=(camera-previous)&mask;if(delta>(mask>>1))delta-=mask+1;
+                    assert.ok(Math.abs(delta)<=4,'transition never teleports');
+                    assert.equal(m[0xFC],17,'horizontal change cannot alter Y scroll');
+                    previous=camera;
+                    if(!(m[0x2A]&128))break;
+                }
+                assert.equal(previous,target);assert.equal(m[0x2A],mode);
+            }
+        }
+    }
+});
+realTest('held Up toggles once; a second press restores fixed view with synchronized backgrounds',()=>{
+    const nes=start(exportRescueStage(true,false),0),m=nes.cpu.mem;
+    m[0xC2]=32; m[0xC1]=0;
+    for(let i=0;i<100;i++)nes.frame();
+    const checkPages=()=>assert.deepEqual(nes.ppu.vramMem.slice(0x2000,0x23F8),nes.ppu.vramMem.slice(0x2400,0x27F8));
+    checkPages();
+    const initialY=m[0xFC];let late=0;const write=nes.mmap.write.bind(nes.mmap);
+    nes.mmap.write=(addr,value)=>{if((addr===0x2005||addr===0x2007)&&nes.ppu.scanline>=20&&nes.ppu.scanline<261)late++;return write(addr,value);};
+    for(const mode of [1,0]) {
+        nes.buttonDown(1,jsnes.Controller.BUTTON_UP);
+        for(let i=0;i<100;i++){nes.frame();checkPages();assert.equal(m[0x2A]&1,mode);assert.equal(m[0xFC],initialY);}
+        nes.buttonUp(1,jsnes.Controller.BUTTON_UP);nes.frame();
+        assert.equal(m[0x2A],mode);
+        assert.equal(cameraX(m),mode?(worldX(m)-128)&255:0);
+    }
+    assert.equal(late,0);assert.equal(nes.cpu.REG_SP,0x1FF);
+});
+realTest('exports share one layout, keep native password code, and recognize skins without a whole-ROM hash',()=>{
+    const e=new RomEditor();e.loadROM(original);
+    assert.equal(e.romType,Config.ROM_TYPE_EXPANDED);
+    const skin=new Uint8Array(original);skin[0xAA70]^=0x55;
+    assert.equal(RomEditor.inspectROM(skin).kind,'original');
+    for(const enabled of [false,true]) {
+        e.gameConfig.cameraFollow=enabled;const data=e.getROMData();
+        assert.equal(data.length,0x20010);assert.equal(data[4],8);assert.equal(data[5],0);
+        assert.equal(RomEditor.inspectROM(data).kind,'current');
+        assert.equal(data[0xAC72-0x8000+16],enabled?0x5C:0x48);
+        for(const [a,b] of [[0xC3CF,0xC4C8],[0xC578,0xC5E8]])
+            assert.deepEqual(data.slice(a-0x8000+16+0x18000,b-0x8000+16+0x18000),new Uint8Array(original.subarray(a-0x8000+16,b-0x8000+16)));
+        const legacy=data.slice();legacy.fill(0,0x18010,0x1801A);
+        assert.equal(RomEditor.inspectROM(legacy).kind,'legacy');
+        legacy[0xAA70]^=0xAA;
+        assert.equal(RomEditor.inspectROM(legacy).kind,'legacy');
+        const forced=new RomEditor();forced.loadROM(legacy);
+        assert.equal(RomEditor.inspectROM(forced.getROMData()).kind,'legacy','unsafe base remains marked after export');
     }
 });

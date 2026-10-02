@@ -1,298 +1,125 @@
-/**
- * ROM 文件缓存管理器（使用 IndexedDB）
- * 
- * 存储结构：
- * - 'originalRom': 原始 ROM 数据（未修改的）
- * - 'levelData': 所有关卡数据（独立于 ROM 存储）
- * - 'backupLevels': 未保存的关卡备份列表
+/** Versioned project cache. Legacy data is copied once, never deleted.
+ * ROM, levels and drafts remain independent; project replacement is atomic.
  */
 class RomCache {
     static instance = null;
-    
     constructor() {
-        this.dbName = 'MoaikunRomCache';
+        this.dbName = 'MoaikunRomCacheV3';
         this.storeName = 'roms';
         this.db = null;
         this.cacheKey = 'lastRom';
         this.levelDataKey = 'levelData';
         this.backupKey = 'backupLevels';
+        this.initializing = null;
     }
-    
-    static getInstance() {
-        if (!RomCache.instance) {
-            RomCache.instance = new RomCache();
-        }
-        return RomCache.instance;
-    }
-    
-    /**
-     * 初始化 IndexedDB
-     */
+    static getInstance() { return this.instance ||= new RomCache(); }
     async init() {
-        return new Promise((resolve, reject) => {
-            const request = indexedDB.open(this.dbName, 2);
-            
-            request.onerror = () => {
-                console.error('无法打开 IndexedDB:', request.error);
-                reject(request.error);
-            };
-            
-            request.onsuccess = () => {
-                this.db = request.result;
-                console.log('IndexedDB 已初始化');
-                resolve();
-            };
-            
-            request.onupgradeneeded = (event) => {
-                const db = event.target.result;
-                if (!db.objectStoreNames.contains(this.storeName)) {
-                    db.createObjectStore(this.storeName);
-                    console.log('创建 ObjectStore:', this.storeName);
-                }
-            };
+        if(this.initializing) return this.initializing;
+        this.initializing = (async () => {
+            this.db = await new Promise((resolve,reject) => {
+                const request = indexedDB.open(this.dbName,1);
+                request.onupgradeneeded = () => request.result.createObjectStore(this.storeName);
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+                request.onblocked = () => reject(new Error('Cache upgrade blocked by another tab'));
+            });
+            await this.migrateLegacy();
+        })();
+        try { await this.initializing; }
+        catch(error) { this.initializing = null; this.db?.close(); this.db = null; throw error; }
+    }
+    read(db,key) {
+        return this.readMany(db,[key]).then(values => values[0]);
+    }
+    readMany(db,keys) {
+        return new Promise((resolve,reject) => {
+            const tx = db.transaction(this.storeName,'readonly');
+            const values = [];
+            keys.forEach((key,index) => {
+                const request = tx.objectStore(this.storeName).get(key);
+                request.onsuccess = () => { values[index] = request.result ?? null; };
+            });
+            tx.oncomplete = () => resolve(values);
+            tx.onabort = tx.onerror = () => reject(tx.error || new Error('Cache read aborted'));
         });
     }
-    
-    /**
-     * 保存原始 ROM 文件到缓存（玩家上传时调用，只保存原始未修改的 ROM）
-     * @param {ArrayBuffer} data - 原始 ROM 数据
-     * @param {string} fileName - 文件名
-     */
-    async saveRom(data, fileName) {
-        if (!this.db) {
-            await this.init();
-        }
-        
-        return new Promise((resolve, reject) => {
-            const transaction = this.db.transaction([this.storeName], 'readwrite');
-            const store = transaction.objectStore(this.storeName);
-            
-            const romData = {
-                data: data,
-                fileName: fileName,
-                timestamp: Date.now(),
-                size: data.byteLength || data.length
-            };
-            
-            const request = store.put(romData, this.cacheKey);
-            
-            request.onsuccess = () => {
-                console.log(`ROM 已缓存: ${fileName} (${romData.size} 字节)`);
-                resolve();
-            };
-            
-            request.onerror = () => {
-                console.error('缓存 ROM 失败:', request.error);
-                reject(request.error);
-            };
+    write(entries, deletions = []) {
+        return new Promise((resolve,reject) => {
+            const tx = this.db.transaction(this.storeName,'readwrite');
+            const store = tx.objectStore(this.storeName);
+            tx.oncomplete = () => resolve();
+            tx.onabort = tx.onerror = () => reject(tx.error || new Error('Cache transaction aborted'));
+            for(const [key,value] of entries) store.put(value,key);
+            for(const key of deletions) store.delete(key);
         });
     }
-    
-    /**
-     * 保存关卡数据到缓存（独立于 ROM 保存）
-     * @param {Array} levelsData - 序列化的关卡数据数组
-     * @param {number} levelCount - 关卡总数
-     * @param {number} romType - ROM 类型（0=原始，1=扩展）
-     * @param {object} gameConfig - 可选游戏功能配置
-     */
-    async saveLevelData(levelsData, levelCount, romType, gameConfig = {}) {
-        if (!this.db) {
-            await this.init();
-        }
-        
-        return new Promise((resolve, reject) => {
-            const transaction = this.db.transaction([this.storeName], 'readwrite');
-            const store = transaction.objectStore(this.storeName);
-            
-            const data = {
-                levels: levelsData,
-                levelCount: levelCount,
-                romType: romType,
-                gameConfig: { ...gameConfig },
-                timestamp: Date.now()
-            };
-            
-            const request = store.put(data, this.levelDataKey);
-            
-            request.onsuccess = () => {
-                console.log(`关卡数据已缓存: ${levelsData.length} 个关卡`);
-                resolve();
-            };
-            
-            request.onerror = () => {
-                console.error('缓存关卡数据失败:', request.error);
-                reject(request.error);
-            };
-        });
+    async migrateLegacy() {
+        if(await this.read(this.db,'migrationInfo')) return;
+        let legacy = null;
+        try {
+            // Never create an empty legacy DB when this is a new user.
+            legacy = await new Promise((resolve,reject) => {
+                const request = indexedDB.open('MoaikunRomCache');
+                let absent = false;
+                request.onupgradeneeded = () => { absent = true; request.transaction.abort(); };
+                request.onerror = () => absent ? resolve(null) : reject(request.error);
+                request.onsuccess = () => resolve(request.result);
+                request.onblocked = () => reject(new Error('Legacy cache is busy'));
+            });
+            const keys = [this.cacheKey,this.levelDataKey,this.backupKey];
+            let values = [];
+            if(legacy?.objectStoreNames.contains(this.storeName)) {
+                values = await this.readMany(legacy,keys);
+            }
+            // Check and copy within one transaction, so another new-version
+            // tab cannot save a project between the check and the copy.
+            await new Promise((resolve,reject) => {
+                const tx = this.db.transaction(this.storeName,'readwrite');
+                const store = tx.objectStore(this.storeName);
+                tx.oncomplete = () => resolve();
+                tx.onabort = tx.onerror = () => reject(tx.error || new Error('Cache migration aborted'));
+                keys.forEach((key,index) => {
+                    const request = store.get(key);
+                    request.onsuccess = () => {
+                        if(values[index] && request.result === undefined) store.put(values[index],key);
+                    };
+                });
+                store.put({version:3,completedAt:Date.now()},'migrationInfo');
+            });
+        } finally { legacy?.close(); }
     }
-    
-    /**
-     * 从缓存加载关卡数据
-     * @returns {Promise<{levels: Array, levelCount: number}|null>}
-     */
-    async loadLevelData() {
-        if (!this.db) {
-            await this.init();
-        }
-        
-        return new Promise((resolve, reject) => {
-            const transaction = this.db.transaction([this.storeName], 'readonly');
-            const store = transaction.objectStore(this.storeName);
-            const request = store.get(this.levelDataKey);
-            
-            request.onsuccess = () => {
-                const result = request.result;
-                if (result) {
-                    console.log(`从缓存加载关卡数据: ${result.levels.length} 个关卡`);
-                    resolve(result);
-                } else {
-                    console.log('缓存中没有关卡数据');
-                    resolve(null);
-                }
-            };
-            
-            request.onerror = () => {
-                console.error('读取关卡缓存失败:', request.error);
-                reject(request.error);
-            };
-        });
+    async saveRom(data,fileName) {
+        await this.init();
+        await this.write([[this.cacheKey,{data,fileName,timestamp:Date.now(),size:data.byteLength || data.length}]]);
     }
-    
-    /**
-     * 保存备份关卡到缓存
-     * @param {Array} backupLevels - 序列化的备份关卡数组
-     */
-    async saveBackupLevels(backupLevels) {
-        if (!this.db) {
-            await this.init();
-        }
-        
-        return new Promise((resolve, reject) => {
-            const transaction = this.db.transaction([this.storeName], 'readwrite');
-            const store = transaction.objectStore(this.storeName);
-            
-            const data = {
-                backups: backupLevels,
-                timestamp: Date.now()
-            };
-            
-            const request = store.put(data, this.backupKey);
-            
-            request.onsuccess = () => {
-                console.log(`备份关卡已缓存: ${backupLevels.length} 个`);
-                resolve();
-            };
-            
-            request.onerror = () => {
-                console.error('缓存备份关卡失败:', request.error);
-                reject(request.error);
-            };
-        });
+    async saveLevelData(levels,levelCount,romType,gameConfig = {}) {
+        await this.init();
+        await this.write([[this.levelDataKey,{levels,levelCount,romType,gameConfig:{...gameConfig},timestamp:Date.now()}]]);
     }
-    
-    /**
-     * 从缓存加载备份关卡
-     * @returns {Promise<Array|null>}
-     */
-    async loadBackupLevels() {
-        if (!this.db) {
-            await this.init();
-        }
-        
-        return new Promise((resolve, reject) => {
-            const transaction = this.db.transaction([this.storeName], 'readonly');
-            const store = transaction.objectStore(this.storeName);
-            const request = store.get(this.backupKey);
-            
-            request.onsuccess = () => {
-                const result = request.result;
-                if (result && result.backups) {
-                    console.log(`从缓存加载备份关卡: ${result.backups.length} 个`);
-                    resolve(result.backups);
-                } else {
-                    resolve([]);
-                }
-            };
-            
-            request.onerror = () => {
-                console.error('读取备份缓存失败:', request.error);
-                reject(request.error);
-            };
-        });
+    async saveBackupLevels(backups) {
+        await this.init();
+        await this.write([[this.backupKey,{backups,timestamp:Date.now()}]]);
     }
-    
-    /**
-     * 从缓存加载 ROM 文件
-     * @returns {Promise<{data: ArrayBuffer, fileName: string}|null>}
-     */
-    async loadRom() {
-        if (!this.db) {
-            await this.init();
-        }
-        
-        return new Promise((resolve, reject) => {
-            const transaction = this.db.transaction([this.storeName], 'readonly');
-            const store = transaction.objectStore(this.storeName);
-            const request = store.get(this.cacheKey);
-            
-            request.onsuccess = () => {
-                const result = request.result;
-                if (result) {
-                    console.log(`从缓存加载 ROM: ${result.fileName} (${result.size} 字节)`);
-                    console.log(`缓存时间: ${new Date(result.timestamp).toLocaleString()}`);
-                    resolve({
-                        data: result.data,
-                        fileName: result.fileName,
-                        timestamp: result.timestamp,
-                        size: result.size
-                    });
-                } else {
-                    console.log('缓存中没有 ROM 文件');
-                    resolve(null);
-                }
-            };
-            
-            request.onerror = () => {
-                console.error('读取缓存失败:', request.error);
-                reject(request.error);
-            };
-        });
+    async loadRom() { await this.init(); return this.read(this.db,this.cacheKey); }
+    async loadLevelData() { await this.init(); return this.read(this.db,this.levelDataKey); }
+    async loadBackupLevels() { await this.init(); return (await this.read(this.db,this.backupKey))?.backups || []; }
+    async loadPolicy() { await this.init(); return this.read(this.db,'romPolicy'); }
+    async savePolicy(policy) { await this.init(); await this.write([['romPolicy',policy]]); }
+    async saveProject(data,fileName,project,backups,policy) {
+        await this.init();
+        const now = Date.now();
+        await this.write([
+            [this.cacheKey,{data,fileName,timestamp:now,size:data.byteLength || data.length}],
+            [this.levelDataKey,{...project,timestamp:now}],
+            [this.backupKey,{backups,timestamp:now}],
+            ['romPolicy',policy]
+        ]);
     }
-    
-    /**
-     * 清除缓存
-     */
     async clearCache() {
-        if (!this.db) {
-            await this.init();
-        }
-        
-        return new Promise((resolve, reject) => {
-            const transaction = this.db.transaction([this.storeName], 'readwrite');
-            const store = transaction.objectStore(this.storeName);
-            const request = store.clear();
-            
-            request.onsuccess = () => {
-                console.log('所有缓存已清除');
-                resolve();
-            };
-            
-            request.onerror = () => {
-                console.error('清除缓存失败:', request.error);
-                reject(request.error);
-            };
-        });
+        await this.init();
+        // Keep the migration marker so clearing a new project cannot reimport
+        // the untouched legacy database on the next page load.
+        await this.write([], [this.cacheKey,this.levelDataKey,this.backupKey,'romPolicy']);
     }
-    
-    /**
-     * 检查是否有缓存
-     */
-    async hasCache() {
-        if (!this.db) {
-            await this.init();
-        }
-        
-        const rom = await this.loadRom();
-        return rom !== null;
-    }
+    async hasCache() { return (await this.loadRom()) !== null; }
 }

@@ -13,9 +13,9 @@
     <meta name="format-detection" content="telephone=no, email=no">
     <title>Moai-kun Maker</title>
     <link rel="shortcut icon" href="favicon.ico" />
-    <link rel="stylesheet" href="css/style.css?v=test-level-options">
-    <link rel="stylesheet" href="css/sortable.css">
-    <link rel="stylesheet" href="css/level_editor.css">
+    <link rel="stylesheet" href="css/style.css?v=up-view-cache-v3">
+    <link rel="stylesheet" href="css/sortable.css?v=up-view-cache-v3">
+    <link rel="stylesheet" href="css/level_editor.css?v=up-view-cache-v3">
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-096V7R6G3R"></script>
     <script>
@@ -84,13 +84,11 @@
 
         <div class="top-bar-warning" id="modifiedRomWarning" role="status" aria-live="polite" hidden>
             <span class="top-bar-warning-icon" aria-hidden="true">⚠️</span>
-            <div class="top-bar-warning-viewport">
-                <div class="top-bar-warning-track">
-                    <span class="top-bar-warning-copy" id="modifiedRomWarningText"
-                        data-i18n="modifiedRomDesignWarning">检测到扩展 ROM。不建议使用修改后的 ROM 设计关卡，否则可能引发尚未覆盖的 Bug。建议先从关卡列表导出全部关卡，清空缓存并加载原版 ROM，然后重新导入这些关卡。</span>
-                    <span class="top-bar-warning-copy" aria-hidden="true"
-                        data-i18n="modifiedRomDesignWarning">检测到扩展 ROM。不建议使用修改后的 ROM 设计关卡，否则可能引发尚未覆盖的 Bug。建议先从关卡列表导出全部关卡，清空缓存并加载原版 ROM，然后重新导入这些关卡。</span>
-                </div>
+            <span id="modifiedRomWarningText" data-i18n="modifiedRomDesignWarning">旧版编辑器 ROM 可能产生异常或损坏游戏机制。上传原版后将保留关卡；建议立即导出全部关卡备份。</span>
+            <div class="rom-migration-actions">
+                <button type="button" onclick="app.requestOriginalRom()" data-i18n="romUploadOriginal">上传原版并保留关卡</button>
+                <button type="button" id="continueLegacyRomBtn" onclick="app.continueLegacyRom()" data-i18n="romContinueLegacy">继续使用旧 ROM</button>
+                <button type="button" onclick="exportLevelPack()" data-i18n="exportLevelPack">导出全部关卡</button>
             </div>
         </div>
 
@@ -341,12 +339,7 @@
                             <section class="toolbar-section-panel" id="gameConfigPanel"
                                 role="tabpanel" hidden>
                                 <div class="game-config-list">
-                                    <label class="game-config-option">
-                                        <input type="checkbox" id="romExpansionCheckbox" disabled>
-                                        <span data-i18n="romExpansion">🔧 拓展 ROM</span>
-                                        <span class="help-icon" data-i18n-title="romExpansionTooltip"
-                                            title="">❓</span>
-                                    </label>
+
                                     <label class="game-config-option">
                                         <input type="checkbox" id="disableTimerCheckbox">
                                         <span data-i18n="disableTimer">⏱️ 停用计时</span>
@@ -358,11 +351,11 @@
                                     <label class="game-config-option">
                                         <input type="checkbox" id="cameraFollowCheckbox"
                                             aria-describedby="cameraFollowHint">
-                                        <span data-i18n="cameraFollow">📷 单屏相机跟随</span>
+                                        <span data-i18n="cameraFollow">📷 上键切换视角</span>
                                     </label>
                                 </div>
                                 <p class="game-config-hint" id="cameraFollowHint" data-i18n="cameraFollowHint">
-                                    单屏相机跟随尚未经过大量测试，请谨慎使用。双屏跟随和暂停查看始终保留。
+                                    按上键平滑切换视角，支持单屏和双屏；蝙蝠横向循环。尚未经过大量测试，请谨慎使用。
                                 </p>
                                 <p class="game-config-hint" data-i18n="gameConfigHint">
                                     停用计时后，NPC 数量会显示在原计时器位置。
@@ -428,26 +421,7 @@
             <!-- </div> -->
 
             <div class="button-group">
-                <div class="test-level-split" id="testLevelSplitButton">
-                    <button class="btn-test" id="testLevelBtn" onclick="testLevel()" disabled data-i18n="testLevel">🎮
-                        测试关卡</button>
-                    <button class="btn-test test-level-options-btn" id="testLevelOptionsBtn" type="button"
-                        aria-expanded="false" aria-controls="testLevelOptionsMenu"
-                        aria-label="测试关卡选项：单屏相机跟随未勾选"
-                        title="测试关卡选项：单屏相机跟随未勾选" data-i18n-title="testLevelOptionsNormal">
-                        <span id="testLevelOptionsIcon" aria-hidden="true">›</span>
-                    </button>
-                    <div class="test-level-options-menu" id="testLevelOptionsMenu" role="group"
-                        aria-label="测试关卡选项" hidden>
-                        <label class="test-level-camera-option">
-                            <input type="checkbox" id="testLevelCameraFollowCheckbox"
-                                aria-describedby="testLevelCameraFollowHint">
-                            <span data-i18n="cameraFollow">📷 单屏相机跟随</span>
-                        </label>
-                        <p class="test-level-camera-hint" id="testLevelCameraFollowHint"
-                            data-i18n="testLevelCameraFollowHint">仅用于测试关卡；尚未经过大量测试，请谨慎使用。</p>
-                    </div>
-                </div>
+                <button class="btn-test" id="testLevelBtn" onclick="testLevel()" disabled data-i18n="testLevel">🎮 测试关卡</button>
                 <button class="btn-test" id="testBtn" onclick="testROM()" disabled data-i18n="testRom">🎮 测试
                     ROM</button>
                 <button class="btn-stop" id="stopEmulatorBtn" onclick="stopEmulator()" disabled
@@ -648,32 +622,32 @@
     <!-- JavaScript 模块 -->
 
     <!-- 引入 SortableJS v1.15.0 -->
-    <script src="js/lib/Sortable-1.15.0.min.js"></script>
+    <script src="js/lib/Sortable-1.15.0.min.js?v=up-view-cache-v3"></script>
     
     <!-- 语言文件 -->
-    <script src="js/lang/zh-CN.js"></script>
-    <script src="js/lang/en-US.js"></script>
-    <script src="js/lang/ja-JP.js"></script>
+    <script src="js/lang/zh-CN.js?v=up-view-cache-v3"></script>
+    <script src="js/lang/en-US.js?v=up-view-cache-v3"></script>
+    <script src="js/lang/ja-JP.js?v=up-view-cache-v3"></script>
     
     <!-- 国际化核心 -->
-    <script src="js/i18n.js"></script>
+    <script src="js/i18n.js?v=up-view-cache-v3"></script>
     
-    <script src="js/lib/jsnes.min.js"></script>
-    <script src="js/NesEmulator.js?v=test-level-options"></script>
-    <script src="js/MobileGameController.js"></script>
-    <script src="js/Config.js"></script>
-    <script src="js/RomFix.js?v=vertical-view-menu"></script>
-    <script src="js/OptimizedMap.js"></script>
-    <script src="js/Enemy.js"></script>
-    <script src="js/ResourceManager.js"></script>
-    <script src="js/RomCache.js"></script>
-    <script src="js/Level.js"></script>
-    <script src="js/RomEditor.js?v=test-level-options"></script>
-    <script src="js/DataConverter.js"></script>
-    <script src="js/LevelFile.js"></script>
-    <script src="js/LevelEditor.js"></script>
+    <script src="js/lib/jsnes.min.js?v=up-view-cache-v3"></script>
+    <script src="js/NesEmulator.js?v=up-view-cache-v3"></script>
+    <script src="js/MobileGameController.js?v=up-view-cache-v3"></script>
+    <script src="js/Config.js?v=up-view-cache-v3"></script>
+    <script src="js/RomFix.js?v=up-view-cache-v3"></script>
+    <script src="js/OptimizedMap.js?v=up-view-cache-v3"></script>
+    <script src="js/Enemy.js?v=up-view-cache-v3"></script>
+    <script src="js/ResourceManager.js?v=up-view-cache-v3"></script>
+    <script src="js/RomCache.js?v=up-view-cache-v3"></script>
+    <script src="js/Level.js?v=up-view-cache-v3"></script>
+    <script src="js/RomEditor.js?v=up-view-cache-v3"></script>
+    <script src="js/DataConverter.js?v=up-view-cache-v3"></script>
+    <script src="js/LevelFile.js?v=up-view-cache-v3"></script>
+    <script src="js/LevelEditor.js?v=up-view-cache-v3"></script>
 
-    <script src="js/app.js?v=test-level-options"></script>
+    <script src="js/app.js?v=up-view-cache-v3"></script>
 
     <!-- 消息提示容器 -->
     <div id="messageContainer" class="message-container"></div>

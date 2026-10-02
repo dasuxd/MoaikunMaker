@@ -16,7 +16,6 @@ class App {
         this.hasSharedLevelLoaded = false;
 
         this.testMode = false;
-        this.testLevelCameraFollow = false;
         this.romCache = RomCache.getInstance();
 
         // Message box data
@@ -60,7 +59,8 @@ class App {
         // Game expansion
         this.expansionrom = false;
         this.syncGameConfigControls();
-        this.syncTestLevelOptions();
+        this.initTopBarLayout();
+
     }
     
     /**
@@ -79,6 +79,16 @@ class App {
                 window.dispatchEvent(new Event('resize'));
             }, 100);
         }
+    }
+
+    initTopBarLayout() {
+        const bar = document.querySelector('.top-bar');
+        if(!bar || typeof ResizeObserver === 'undefined') return;
+        this.topBarObserver = new ResizeObserver(() => {
+            document.documentElement.style.setProperty('--top-bar-offset',
+                `${Math.ceil(bar.getBoundingClientRect().height) + 10}px`);
+        });
+        this.topBarObserver.observe(bar);
     }
 
     /**
@@ -114,12 +124,18 @@ class App {
                 this.updateRecoveryExportVisibility();
             }
 
+            this.romPolicy = await this.romCache.loadPolicy();
             const cachedRom = await this.romCache.loadRom();
             
             if (cachedRom) {
-                // Load original ROM (will go through loadROM which applies patches)
+                // Validate the source and independent level cache before
+                // changing visible state. Cached edits take priority over
+                // the older level bytes embedded in the ROM.
                 try {
-                    this.loadRomData(cachedRom.data, cachedRom.fileName, true);
+                    const candidate = new RomEditor();
+                    candidate.loadROM(cachedRom.data);
+                    if(cachedLevelData?.levels) this.restoreProject(candidate,cachedLevelData);
+                    this.loadRomData(cachedRom.data,cachedRom.fileName,true,candidate);
                 } catch (error) {
                     console.error('Failed to parse cached ROM:', error);
                     this.updateRecoveryExportVisibility();
@@ -128,43 +144,6 @@ class App {
                     return;
                 }
 
-                // Load saved level data and apply on top of patched ROM
-                if (cachedLevelData && cachedLevelData.levels) {
-                    // Restore romType from cache
-                    if (cachedLevelData.romType !== undefined) {
-                        this.romEditor.romType = cachedLevelData.romType;
-                    }
-                    if (cachedLevelData.gameConfig) {
-                        this.romEditor.setGameConfig(cachedLevelData.gameConfig);
-                        this.syncGameConfigControls();
-                    }
-                    
-                    const imported = this.romEditor.importLevelsData(
-                        cachedLevelData.levels, 
-                        cachedLevelData.levelCount
-                    );
-                    if (imported) {
-                        // Recreate level list with imported data
-                        levelCountInput.value = this.romEditor.getLevelCount();
-                        
-                        // Sync ROM expansion checkbox with cached romType
-                        const romExpansionCheckbox = document.getElementById('romExpansionCheckbox');
-                        const isExpanded = this.romEditor.romType === Config.ROM_TYPE_EXPANDED;
-                        // Check if ROM file itself is already mapper2
-                        const isRomAlreadyMapper2 = this.romEditor.romData && this.romEditor.romData[0x06] === 0x21;
-                        
-                        if (romExpansionCheckbox) {
-                            romExpansionCheckbox.checked = isExpanded;
-                            // Disable checkbox if ROM file is already mapper2
-                            romExpansionCheckbox.disabled = isRomAlreadyMapper2;
-                        }
-                        
-                        this.createLevelList();
-                        this.updateMemoryOverview();
-                        console.log('关卡数据已从缓存恢复');
-                    }
-                }
-                
                 this.showMessage('info', i18n.t('loadedFromCacheMessage', {fileName: cachedRom.fileName}));
             }else{
                 // Parse and preserve a shared level even before a ROM is loaded.
@@ -393,14 +372,6 @@ class App {
             });
         }
         
-        // ROM expansion checkbox
-        const romExpansionCheckbox = document.getElementById('romExpansionCheckbox');
-        if (romExpansionCheckbox) {
-            romExpansionCheckbox.addEventListener('change', (e) => {
-                this.toggleRomExpansion(e.target.checked);
-            });
-        }
-
         const disableTimerCheckbox = document.getElementById('disableTimerCheckbox');
         if (disableTimerCheckbox) {
             disableTimerCheckbox.addEventListener('change', (e) => {
@@ -425,7 +396,7 @@ class App {
             });
         }
 
-        this.initTestLevelOptions();
+
 
         // Clear cache button
         const clearCacheBtn = document.getElementById('clearCacheBtn');
@@ -461,13 +432,8 @@ class App {
     toggleRomExpansion(expanded, { notify = true, persist = true } = {}) {
         if (!this.romEditor.romData) return;
 
-        const newRomType = expanded ? Config.ROM_TYPE_EXPANDED : Config.ROM_TYPE_ORIGINAL;
+        const newRomType = Config.ROM_TYPE_EXPANDED;
         this.romEditor.romType = newRomType;
-
-        const romExpansionCheckbox = document.getElementById('romExpansionCheckbox');
-        if (romExpansionCheckbox && romExpansionCheckbox.checked !== expanded) {
-            romExpansionCheckbox.checked = expanded;
-        }
 
         // Update level count input max
         const levelCountInput = document.getElementById('levelCountInput');
@@ -484,7 +450,7 @@ class App {
         }
 
         if (notify) {
-            this.showMessage('info', i18n.t(expanded ? 'romExpansionEnabled' : 'romExpansionDisabled'));
+            this.showMessage('info', i18n.t('romExpansionEnabled'));
         }
     }
 
@@ -539,90 +505,6 @@ class App {
         }
     }
 
-    initTestLevelOptions() {
-        const toggle = document.getElementById('testLevelOptionsBtn');
-        const checkbox = document.getElementById('testLevelCameraFollowCheckbox');
-        const splitButton = document.getElementById('testLevelSplitButton');
-        if (!toggle || !checkbox || !splitButton) return;
-
-        try {
-            this.testLevelCameraFollow =
-                localStorage.getItem('moaikunTestLevelCameraFollow') === 'true';
-        } catch (_) {
-            // The preview choice still works when browser storage is unavailable.
-        }
-        this.syncTestLevelOptions();
-        toggle.addEventListener('click', () => {
-            const open = toggle.getAttribute('aria-expanded') !== 'true';
-            this.setTestLevelOptionsOpen(open);
-            if (open) checkbox.focus();
-        });
-        for (const control of [toggle, checkbox]) {
-            control.addEventListener('keydown', event => {
-                // Keep editor shortcuts available, but don't send menu input
-                // to the game when setting the next preview during a run.
-                if (event.key === 'F5' || event.key === 'F6' ||
-                    (event.ctrlKey && event.key.toLowerCase() === 's')) return;
-                event.stopPropagation();
-                if (control === toggle && event.key === 'ArrowDown') {
-                    event.preventDefault();
-                    this.setTestLevelOptionsOpen(true);
-                    checkbox.focus();
-                } else if (event.key === 'Escape') {
-                    event.preventDefault();
-                    this.setTestLevelOptionsOpen(false);
-                    toggle.focus();
-                }
-            });
-            control.addEventListener('keyup', event => event.stopPropagation());
-        }
-        checkbox.addEventListener('change', () => {
-            this.testLevelCameraFollow = checkbox.checked;
-            this.syncTestLevelOptions();
-            try {
-                localStorage.setItem('moaikunTestLevelCameraFollow',
-                    String(this.testLevelCameraFollow));
-            } catch (_) {
-                // Storage is optional for this preview preference.
-            }
-        });
-        document.addEventListener('click', event => {
-            if (!splitButton.contains(event.target)) this.setTestLevelOptionsOpen(false);
-        });
-        document.addEventListener('keydown', event => {
-            if (event.key === 'Escape' && toggle.getAttribute('aria-expanded') === 'true') {
-                event.preventDefault();
-                this.setTestLevelOptionsOpen(false);
-                toggle.focus();
-            }
-        });
-    }
-
-    setTestLevelOptionsOpen(open) {
-        const toggle = document.getElementById('testLevelOptionsBtn');
-        const menu = document.getElementById('testLevelOptionsMenu');
-        if (!toggle || !menu) return;
-        toggle.setAttribute('aria-expanded', String(open));
-        menu.hidden = !open;
-    }
-
-    syncTestLevelOptions() {
-        const toggle = document.getElementById('testLevelOptionsBtn');
-        const checkbox = document.getElementById('testLevelCameraFollowCheckbox');
-        const icon = document.getElementById('testLevelOptionsIcon');
-        const menu = document.getElementById('testLevelOptionsMenu');
-        if (!toggle || !checkbox || !icon) return;
-        const enabled = Boolean(this.testLevelCameraFollow);
-        checkbox.checked = enabled;
-        toggle.dataset.cameraFollow = String(enabled);
-        const key = enabled ? 'testLevelOptionsFollowing' : 'testLevelOptionsNormal';
-        toggle.setAttribute('data-i18n-title', key);
-        toggle.title = i18n.t(key);
-        toggle.setAttribute('aria-label', toggle.title);
-        if (menu) menu.setAttribute('aria-label', i18n.t('testLevelOptions'));
-        icon.textContent = enabled ? '✓' : '›';
-    }
-
     async clearCache() {
         if (confirm(i18n.t('clearRomCacheConfirm'))) {
             try {
@@ -654,35 +536,94 @@ class App {
     /**
      * Handle file selection
      */
+    captureProjectForReplacement() {
+        const cached = this.romEditor.levels.length
+            ? {levels:this.romEditor.exportLevelsData(),levelCount:this.romEditor.getLevelCount(),
+                gameConfig:this.romEditor.getGameConfig()}
+            : this.recoveryLevelData;
+        if(!cached) return null;
+        const project = JSON.parse(JSON.stringify(cached));
+        const drafts = JSON.parse(JSON.stringify(this.backupLevels));
+        if(this.hasUnsavedChanges()) {
+            const current = this.getCurrentLevelRomData();
+            if(!current) throw new Error(i18n.t('romMigrationFailed'));
+            if(this.editorSource === 'formal' && project.levels[this.currentLevel]) {
+                project.levels[this.currentLevel].data = [...current.mapData];
+                project.levels[this.currentLevel].monsterData = [...current.monsterData];
+            } else {
+                const draft = drafts.find(d => d.id === this.currentDraftId);
+                if(draft) { draft.mapData = [...current.mapData]; draft.monsterData = [...current.monsterData]; draft.checksum = null; }
+            }
+        }
+        return {project,drafts};
+    }
+
+    restoreProject(editor,project) {
+        if(!Array.isArray(project.levels) || !Number.isInteger(project.levelCount) ||
+            project.levelCount < 1 || project.levelCount > project.levels.length ||
+            project.levels.length > editor.getMaxCountOfLevels())
+            throw new Error(i18n.t('romMigrationFailed'));
+        for(const level of project.levels) {
+            LevelFile.validateLevel({mapData:level.data,monsterData:level.monsterData});
+            if(level.monsterData.length > Config.MAX_ENEMIES_PER_LEVEL * 2 + 1)
+                throw new Error(i18n.t('romMigrationFailed'));
+        }
+        editor.setGameConfig(project.gameConfig || {});
+        if(!editor.importLevelsData(project.levels,project.levelCount))
+            throw new Error(i18n.t('romMigrationFailed'));
+        const checked = editor.checkRomData();
+        if(!checked.success) throw new Error(checked.error);
+    }
+
+    requestOriginalRom() {
+        this.replacingLegacyBase = true;
+        document.getElementById('fileInput').click();
+    }
+
+    async continueLegacyRom() {
+        this.replacingLegacyBase = false;
+        this.romPolicy = {forcedLegacy:true};
+        await this.romCache.savePolicy(this.romPolicy);
+        this.updateModifiedRomWarning(this.needsRomMigration);
+    }
+
     handleFileSelect(event) {
         const file = event.target.files[0];
-        if (!file) return;
-
+        if(!file) return;
         const reader = new FileReader();
-        
-        reader.onload = async (e) => {
+        reader.onload = async e => {
             try {
-                this.loadRomData(e.target.result, file.name, false);
-            } catch (error) {
-                console.error('Failed to load ROM:', error);
+                const candidate = new RomEditor();
+                candidate.loadROM(e.target.result);
+                const original = candidate.romIdentity.kind === 'original';
+                if(this.replacingLegacyBase && !original)
+                    throw new Error(i18n.t('romRequiresOriginal'));
+                const recovery = (this.replacingLegacyBase || (original &&
+                    (this.needsRomMigration || (!this.romEditor.romData && this.recoveryLevelData))))
+                    ? this.captureProjectForReplacement() : null;
+                if(recovery) this.restoreProject(candidate,recovery.project);
+                const drafts = recovery?.drafts || this.backupLevels;
+                const project = {levels:candidate.exportLevelsData(),levelCount:candidate.levelCount,
+                    romType:Config.ROM_TYPE_EXPANDED,gameConfig:candidate.getGameConfig()};
+                const policy = {forcedLegacy:false};
+                // Commit the base and recovered levels together before changing
+                // the visible project. Failed uploads leave the old project intact.
+                await this.romCache.saveProject(e.target.result,file.name,project,drafts,policy);
+                this.romPolicy = policy;
+                this.recoveryLevelData = project;
+                this.backupLevels = drafts;
+                this.loadRomData(e.target.result,file.name,false,candidate);
+                this.replacingLegacyBase = false;
+                this.renderBackupList();
+                if(recovery) this.showMessage('success',i18n.t('romMigrationSuccess',{count:project.levelCount}));
+            } catch(error) {
+                this.showMessage('error',error.message || i18n.t('romMigrationFailed'));
                 this.updateRecoveryExportVisibility();
-                this.showMessage('error', i18n.t('romParseFailedRecoveryAvailable'));
-                return;
-            }
-
-            try {
-                // Save original ROM to cache only after it parsed successfully.
-                await this.romCache.saveRom(e.target.result, file.name);
-                // Also save initial level data
-                await this.saveLevelDataToCache();
-            } catch (error) {
-                console.error('Failed to save to cache:', error);
-            }
+            } finally { event.target.value = ''; }
         };
-        
         reader.readAsArrayBuffer(file);
     }
-    
+
     /**
      * Initialize toolbar dragging functionality
      */
@@ -788,9 +729,11 @@ class App {
      * @param {string} fileName - File name
      * @param {boolean} fromCache - Whether from cache
      */
-    loadRomData(data, fileName, fromCache = false) {
+    loadRomData(data, fileName, fromCache = false, preparedEditor = null) {
         this.fileName = fileName;
-        this.romEditor.loadROM(data);
+        if(preparedEditor) this.romEditor = preparedEditor;
+        else this.romEditor.loadROM(data);
+        this.needsRomMigration = ['legacy','unknown-expanded'].includes(this.romEditor.romIdentity.kind);
         
         // Hide welcome overlay
         this.hideWelcomeOverlay();
@@ -800,17 +743,6 @@ class App {
         this.levelEditor.createButtons();
         levelCountInput.value = this.romEditor.getLevelCount();
 
-        // Sync ROM expansion checkbox and level count input max
-        const romExpansionCheckbox = document.getElementById('romExpansionCheckbox');
-        const isExpanded = this.romEditor.romType === Config.ROM_TYPE_EXPANDED;
-        // Check if ROM file itself is already mapper2 (cannot be converted back)
-        const isRomAlreadyMapper2 = this.romEditor.romData && this.romEditor.romData[0x06] === 0x21;
-        
-        if (romExpansionCheckbox) {
-            romExpansionCheckbox.checked = isExpanded;
-            // Disable checkbox if ROM file is already mapper2
-            romExpansionCheckbox.disabled = isRomAlreadyMapper2;
-        }
         this.syncGameConfigControls();
         const maxLevels = this.romEditor.getMaxCountOfLevels();
         levelCountInput.max = maxLevels;
@@ -831,10 +763,8 @@ class App {
             romSelectBtn.classList.add('loaded');
             romSelectBtn.title = `${fileName} (${this.romEditor.romData.length} Byte)`;
         }
-        this.updateModifiedRomWarning(isRomAlreadyMapper2);
-        if (isRomAlreadyMapper2 && !fromCache) {
-            this.showMessage('warning', i18n.t('modifiedRomDesignWarning'));
-        }
+        this.updateModifiedRomWarning(this.needsRomMigration);
+
 
         this.testLevelBtn.disabled = true;
         this.saveBtn.disabled = true;
@@ -862,12 +792,14 @@ class App {
     }
 
     updateModifiedRomWarning(
-        visible = this.romEditor.originalRomType === Config.ROM_TYPE_EXPANDED
+        visible = Boolean(this.needsRomMigration)
     ) {
         const warning = document.getElementById('modifiedRomWarning');
         if (!warning) return;
 
         warning.hidden = !visible;
+        const continueButton = document.getElementById('continueLegacyRomBtn');
+        if(continueButton) continueButton.hidden = !visible || Boolean(this.romPolicy?.forcedLegacy);
         if (!visible) {
             warning.classList.remove('is-overflowing');
             return;
@@ -877,23 +809,8 @@ class App {
     }
 
     updateModifiedRomWarningOverflow() {
-        const warning = document.getElementById('modifiedRomWarning');
-        const viewport = warning?.querySelector('.top-bar-warning-viewport');
-        const text = document.getElementById('modifiedRomWarningText');
-        if (!warning || warning.hidden || !viewport || !text) return;
-
-        warning.classList.remove('is-overflowing');
-        const textWidth = text.scrollWidth;
-        const shouldScroll = textWidth > viewport.clientWidth + 1;
-        warning.classList.toggle('is-overflowing', shouldScroll);
-
-        if (shouldScroll) {
-            const duration = Math.max(16, (textWidth + 48) / 34);
-            warning.style.setProperty(
-                '--top-bar-warning-duration',
-                `${duration.toFixed(1)}s`
-            );
-        }
+        // Persistent, readable warning; never interrupt with a scrolling banner.
+        document.getElementById('modifiedRomWarning')?.classList.remove('is-overflowing');
     }
 
     updateRecoveryExportVisibility() {
@@ -1548,7 +1465,7 @@ class App {
 
     // Test current level
     async testLevel(){
-        this.setTestLevelOptionsOpen(false);
+
         if(this.changeMode()){
             return;
         }
@@ -1562,12 +1479,9 @@ class App {
             return;
         }
         const levelRomData = DataConverter.fromLevelEditorToROMData(tmpEditorData, this.levelEditor.isWideScreen);
-        const loopView = Boolean(this.testLevelCameraFollow) && !this.levelEditor.isWideScreen;
+
         const gameConfig = this.romEditor.getGameConfig();
-        const romData = this.createTmpRomData(levelRomData, {
-            ...gameConfig,
-            cameraFollow: gameConfig.cameraFollow || loopView
-        });
+        const romData = this.createTmpRomData(levelRomData, gameConfig);
         
         // Check if romData creation failed (e.g., size validation error)
         if (!romData) {
@@ -1584,7 +1498,7 @@ class App {
         
         this.emulator.loadROM(romData);
         
-        this.emulator.quickStart({ loopView });
+        this.emulator.quickStart();
 
         this.testLevelBtn.disabled = true;
         this.saveBtn.disabled =  true;
@@ -3190,7 +3104,6 @@ function saveLevels() {
 function switchLanguage(lang) {
     i18n.setLanguage(lang);
     if (app) {
-        app.syncTestLevelOptions();
         app.renderBackupList();
         if (app.romEditor.romData) {
             app.createLevelList();
@@ -3264,7 +3177,6 @@ function toggleToolbarMode() {
 document.addEventListener('DOMContentLoaded', () => {
     // Initialize i18n
     const savedLang = i18n.init();
-    if (app) app.syncTestLevelOptions();
     
     // Set initial active button
     const activeBtn = document.querySelector(`.lang-btn[onclick*="${savedLang}"]`);

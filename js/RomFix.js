@@ -25,11 +25,13 @@ class Romfix{
         Romfix.enableTile13Crush(romData, isExpanded);
         Romfix.fixSpecialLevelAnimations(romData, isExpanded);
         Romfix.fixWideScreenEnemy9Background(romData, isExpanded);
-        Romfix.fixBatHorizontalWrap(romData);
+        // Restore legacy exports before applying the optional bat behavior.
+        Romfix.fixCodeInsert(romData, 0xAC72 - 0x8000 + 0x10, [0x48]);
+        if(cameraFollow) Romfix.fixBatHorizontalWrap(romData);
         //宽屏模式的时候 敌人只会重生在第一屏幕，有bug
         //Romfix.fixWideScreenEnemyRespawn(romData);
         Romfix.fixWideScreenRockPushBug(romData, isExpanded);
-        // Rebuild shared camera support before applying the menu-view hooks.
+        // Rebuild shared camera support before applying runtime view hooks.
         Romfix.resetWideScreenLoopingCameraPatch(romData, isExpanded);
         // Established wide-level follow and pause free-look are always enabled.
         Romfix.fixWideScreenLoopingCamera(romData, isExpanded);
@@ -689,7 +691,7 @@ class Romfix{
      * Restore every bank-0 byte owned by fixWideScreenLoopingCamera().
      *
      * This runs before shared looping-camera support so reload/export remains
-     * deterministic. addViewModes() subsequently applies its additional menu,
+     * deterministic. addViewModes() subsequently applies its runtime input,
      * background, and camera hooks; it requires the shared support below.
      *
      * fixWideScreenRockPushBug() runs immediately before this method and
@@ -1141,34 +1143,33 @@ class Romfix{
     }
 
     /**
-     * NORMAL VIEW keeps a 16-column level fixed. LOOP VIEW centers the player
-     * in that width. Wide levels always retain their established looping
-     * follow and pause free-look in either view. $21 is the existing title
-     * selection and survives both
-     * $82E7 and $82EB, so no gameplay RAM or map-format bits are repurposed.
-     *
-     * The removed password-entry UI at $C3CF-$C4C7 and validator at
-     * $C578-$C5E7 hold the helpers. The retired title password dispatch at
-     * $8254-$827A holds the background/palette queue checks. The replaced camera
-     * body at $9B3B-$9B61 holds the queue finalizer. Normalizer padding at
-     * $945B-$9467 and retired START/CONTINUE strings hold initialization/setup.
-     * The password generator, digit renderer, movement/HUD tables, and ending
-     * remain intact.
+     * Newly pressed UP toggles fixed/bounded and centered looping views.
+     * $2A holds the runtime choice and transition flag, independent of the
+     * native title/password selection in $21. Helpers live in fixed bank 7,
+     * CPU $F100-$F40F, cleared after level storage is relocated to bank 4.
+     * The original password code, title strings and ending remain intact.
      */
     static addViewModes(romData, isExpanded = false){
+        if(!isExpanded) throw new Error('Runtime view switching requires an expanded ROM');
         const fixedShift = isExpanded ? 6 * 0x4000 : 0;
         const fileAddress = (cpu) => cpu - 0x8000 + 0x10 +
             (cpu >= 0xC000 ? fixedShift : 0);
         const patch = (cpu, bytes) =>
             Romfix.fixCodeInsert(romData, fileAddress(cpu), bytes);
+        // getROMData() clears relocated native level storage before any code
+        // insertion. Fail visibly if a future patch starts using our reservation.
+        if(romData.subarray(fileAddress(0xF100),fileAddress(0xF410)).some(byte => byte !== 0))
+            throw new Error('Reserved view-patch area in bank 7 is occupied');
 
-        // Resolve local 6502 labels and verify that no helper crosses into
-        // the retained password digit renderer or the ending handler.
+        // Resolve local 6502 labels and enforce each reserved block boundary.
         const labels = new Map();
         const references = [];
         const blocks = [];
         let block;
         const org = (base, limit) => {
+            if(base < 0xF100 || limit > 0xF410 || limit <= base ||
+                (blocks.length && base < blocks[blocks.length - 1].limit))
+                throw new Error('View-patch blocks overlap or exceed their reservation');
             block = { base, limit, bytes: [] };
             blocks.push(block);
         };
@@ -1185,19 +1186,74 @@ class Romfix{
             emit(0);
         };
 
-        org(0xC3CF, 0xC4C8);
+        // Fixed bank 7: relocated level storage, cleared by getROMData().
+        // $2A is reserved for this bundle: bit 0 = loop, bit 7 = transition.
+        // Native gameplay has no direct reference to this byte. Title entry
+        // initializes it; death/next-stage camera resets preserve the choice.
+        org(0xF100, 0xF300);
         label('camera');
         emit(0xA5, 0x56, 0xC9, 0x03); // LDA stageState; CMP #live
-        branch(0xD0, 'reset');
-        emit(0xA5, 0x3D);             // Wide levels always loop-follow.
+        branch(0xF0, 'liveCamera');
+        absolute(0x4C, 'reset');
+        label('liveCamera');
+        emit(0xA5, 0x1F);             // Attract demos do not read player input.
+        branch(0xD0, 'normalCamera');
+        emit(0xA5, 0xF4, 0x29, 0x08); // Native newly-pressed UP, not held UP.
+        branch(0xF0, 'selectCamera');
+        emit(0xA5, 0x2A, 0x49, 0x01, 0x09, 0x80, 0x85, 0x2A);
+        label('selectCamera');
+        emit(0xA5, 0x2A, 0x29, 0x01);
         branch(0xD0, 'loopCamera');
-        emit(0xA5, 0x1F);             // Narrow attract demos remain fixed.
-        branch(0xD0, 'reset');
-        emit(0xA5, 0x21);             // LDA titleSelection
-        branch(0xF0, 'reset');
+        label('normalCamera');
+        emit(0xA9, 0x00, 0x85, 0x00, 0x85, 0x01, 0xA5, 0x3D);
+        branch(0xF0, 'targetReady');
+        // Native wide camera: clamp playerX - 128 to 0..255.
+        emit(0xA5, 0xC1);
+        branch(0xD0, 'normalRightPage');
+        emit(0xA5, 0xC2, 0xC9, 0x80);
+        branch(0x90, 'targetReady');
+        emit(0xE9, 0x80, 0x85, 0x00);
+        absolute(0x4C, 'targetReady');
+        label('normalRightPage');
+        emit(0xA5, 0xC2, 0xC9, 0x7F);
+        branch(0xB0, 'normalRightEdge');
+        emit(0x38, 0xE9, 0x80, 0x85, 0x00);
+        absolute(0x4C, 'targetReady');
+        label('normalRightEdge');
+        emit(0xA9, 0xFF, 0x85, 0x00);
+        absolute(0x4C, 'targetReady');
         label('loopCamera');
-        emit(0x38, 0xA5, 0xC2, 0xE9, 0x80, 0x85, 0xFD,
-             0xA5, 0xC1, 0xE9, 0x00, 0x25, 0x3D, 0x85, 0x9D);
+        emit(0x38, 0xA5, 0xC2, 0xE9, 0x80, 0x85, 0x00,
+             0xA5, 0xC1, 0xE9, 0x00, 0x25, 0x3D, 0x85, 0x01);
+        label('targetReady');
+        emit(0xA5, 0x2A);
+        branch(0x10, 'assignTarget');
+        // Shortest signed displacement on the 256/512-pixel ring.
+        emit(0x38, 0xA5, 0x00, 0xE5, 0xFD, 0x85, 0x02,
+             0xA5, 0x01, 0xE5, 0x9D, 0x25, 0x3D, 0x85, 0x03,
+             0xA5, 0x3D);
+        branch(0xD0, 'wideDirection');
+        emit(0xA5, 0x02);
+        branch(0x30, 'moveLeft');
+        absolute(0x4C, 'moveRight');
+        label('wideDirection');
+        emit(0xA5, 0x03);
+        branch(0xD0, 'moveLeft');
+        label('moveRight');
+        emit(0xA5, 0x02, 0xC9, 0x05);
+        branch(0x90, 'assignTarget');
+        emit(0x18, 0xA5, 0xFD, 0x69, 0x04, 0x85, 0xFD,
+             0xA5, 0x9D, 0x69, 0x00, 0x25, 0x3D, 0x85, 0x9D);
+        absolute(0x4C, 'page');
+        label('moveLeft');
+        emit(0xA5, 0x02, 0xC9, 0xFC);
+        branch(0xB0, 'assignTarget');
+        emit(0x38, 0xA5, 0xFD, 0xE9, 0x04, 0x85, 0xFD,
+             0xA5, 0x9D, 0xE9, 0x00, 0x25, 0x3D, 0x85, 0x9D);
+        absolute(0x4C, 'page');
+        label('assignTarget');
+        emit(0xA5, 0x00, 0x85, 0xFD, 0xA5, 0x01, 0x85, 0x9D,
+             0xA5, 0x2A, 0x29, 0x01, 0x85, 0x2A);
         absolute(0x4C, 'page');
         label('reset');
         emit(0xA9, 0x00, 0x85, 0xFD, 0x85, 0x9D);
@@ -1205,9 +1261,9 @@ class Romfix{
         emit(0xA5, 0xFF, 0x29, 0xFE, 0x05, 0x9D, 0x85, 0xFF, 0x60);
 
         label('pause');
-        emit(0xA5, 0x3D);             // Wide free-look ignores title selection.
+        emit(0xA5, 0x3D);             // Wide free-look is available in either view.
         branch(0xD0, 'loopPause');
-        emit(0xA5, 0x21);
+        emit(0xA5, 0x2A, 0x29, 0x01);
         branch(0xD0, 'loopPause');
         emit(0xA5, 0x32);
         branch(0xF0, 'active');
@@ -1240,10 +1296,8 @@ class Romfix{
         label('attributeDone');
         emit(0x68, 0x28, 0x60);
 
-        label('normalText');
-        emit(0x22, 0x2B, ...Array.from('NORMAL VIEW', c => c === ' ' ? 0 : c.charCodeAt(0) - 54), 0xFE);
-        label('loopText');
-        emit(0x22, 0x6B, ...Array.from('LOOP VIEW', c => c === ' ' ? 0 : c.charCodeAt(0) - 54), 0xFE);
+        label('titleReset');
+        emit(0xA9, 0x00, 0x85, 0x2A, 0x20, 0x60, 0xFF, 0x4C, 0x2E, 0xDA);
 
         // Prepare the opposite page AFTER the current frame's producers,
         // outside the next NMI's VRAM-transfer window. The original PPU
@@ -1281,7 +1335,7 @@ class Romfix{
         absolute(0x4C, 'queueScan');
         while(block.base + block.bytes.length < block.limit) emit(0xEA);
 
-        org(0xC578, 0xC5E8);
+        org(0xF300, 0xF380);
         label('queueMirrorAddress');
         emit(0xB9, 0x00, 0x03, 0x49, 0x04, 0x9D, 0x00, 0x03, 0xE8, 0xC8,
              0xB9, 0x00, 0x03, 0x9D, 0x00, 0x03, 0xE8, 0xC8,
@@ -1325,12 +1379,10 @@ class Romfix{
         emit(0x60);
         while(block.base + block.bytes.length < block.limit) emit(0xEA);
 
-        // The old camera body is unreachable after the $9B38 jump to camera.
-        // It supplies 39 bytes without touching password/ending data.
-        org(0x9B3B, 0x9B62);
+        // Finalize the producer queue outside the PPU transfer window.
+        org(0xF380, 0xF3B0);
         label('queueFinalize');
-        emit(0x20, 0xB2, 0x86, 0xA5, 0x21);
-        branch(0xF0, 'queueFinalizeDone');
+        emit(0x20, 0xB2, 0x86);
         emit(0xA5, 0x3D);
         branch(0xD0, 'queueFinalizeDone');
         emit(0xA5, 0x18, 0xC9, 0x04);
@@ -1343,9 +1395,8 @@ class Romfix{
         label('queueCommit');
         emit(0x86, 0x1E, 0xA9, 0x00, 0x4C, 0xB2, 0x86);
 
-        // Shared camera support replaced the old normalizer with RTS/NOPs;
-        // all five former callers now use $9B8D. Keep the RTS at $945A.
-        org(0x945B, 0x9468);
+        // Spread initialization across frames to leave room for both pages.
+        org(0xF3B0, 0xF3C0);
         label('initializeEnemySlot');
         // Stage substate $31 is zero on entry to stage state 10. Retain the
         // next native enemy slot there, and finish initialization before
@@ -1359,23 +1410,22 @@ class Romfix{
         emit(0xCA, 0x20, 0xFB, 0xBC);
         absolute(0x4C, 'initializeEnemyDone');
 
-        // The former START and CONTINUE strings are unreferenced after the
-        // menu pointers below are replaced. Keep the adjacent STAGE/REST text.
-        org(0x86FF, 0x8707);
+        // Finish the native enemy initialization before advancing stage state.
+        org(0xF3C0, 0xF3D0);
         label('initializeEnemyDone');
         emit(0xA5, 0x31);
         branch(0xD0, 'initializeEnemyWait');
         emit(0x4C, 0x12, 0x8B); // Original INC $30 / RTS.
         label('initializeEnemyWait');
         emit(0x60);
-        org(0x8712, 0x871D);
+        org(0xF3D0, 0xF3E0);
         label('queuePrepare');
         // $00-$03 are the original producers' temporary scratch bytes. No
         // producer runs after this final queue terminator, before the RTI.
         emit(0xA6, 0x1E, 0xCA, 0x86, 0x01, 0xA0, 0x00);
         absolute(0x4C, 'queueScan');
 
-        org(0x8254, 0x827B);
+        org(0xF3E0, 0xF410);
         label('backgroundQueueCheck');
         // Original A868 defers a rescue draw when queue length reaches $20.
         // A816 retains $68/$69 at the unprocessed map cell, and advances $6A
@@ -1383,8 +1433,6 @@ class Romfix{
         // 16-byte metatile packet instead of two when both pages are queued.
         // Falling slots at A507 use the same check and retain their cursor $53.
         // Both hooks return A=queue length and CMP carry without touching X/Y.
-        emit(0xA5, 0x21);
-        branch(0xF0, 'originalBackgroundQueue');
         emit(0xA5, 0x3D);
         branch(0xD0, 'originalBackgroundQueue');
         emit(0xA5, 0x1E, 0xC9, 0x10, 0x60);
@@ -1395,8 +1443,6 @@ class Romfix{
         // A fall can enqueue 38/48 bytes on its own: defer CA20 on those
         // frames and upload the complete current shadow on a quieter frame.
         // CA20's palette-inhibit check and loading/death/ending fades stay intact.
-        emit(0xA5, 0x21);
-        branch(0xF0, 'originalPaletteQueue');
         emit(0xA5, 0x3D);
         branch(0xD0, 'originalPaletteQueue');
         emit(0xA5, 0x1E, 0xC9, 0x11, 0x60);
@@ -1418,7 +1464,7 @@ class Romfix{
             }
         }
         for(const part of blocks){
-            if(part.base + part.bytes.length > part.limit) throw new Error('View patch exceeds password code space');
+            if(part.base + part.bytes.length > part.limit) throw new Error('View patch exceeds reserved bank 7 space');
             patch(part.base, part.bytes);
         }
         const hook = (cpu, opcode, name) => {
@@ -1426,6 +1472,7 @@ class Romfix{
             patch(cpu, [opcode, address & 0xFF, address >> 8]);
         };
         hook(0x9B38, 0x4C, 'camera');
+        hook(0x838E, 0x20, 'titleReset');
         hook(0x8B4F, 0x4C, 'pause');
         hook(0x8ECE, 0x20, 'attributeIndex');
         hook(0x90B0, 0x20, 'attributeStore');
@@ -1447,18 +1494,7 @@ class Romfix{
         // rather than waiting for the later STAGE/REST text entry.
         patch(0x8A3A, [0x20, 0x6D, 0xFF]);
 
-        // Both title choices now initialize stage 1 through the START path.
-        // Retire the password-substate branch before reusing its code space.
-        patch(0x8247, [0xA9, 0x00, 0x85, 0x1F,
-                      0x20, 0xE7, 0x82, 0x20, 0xDB, 0x82, 0x4C, 0x85, 0x82]);
-        for(const [index, name] of [[0, 'normalText'], [1, 'loopText']]){
-            const address = labels.get(name);
-            patch(0x86BB + index * 2, [address & 0xFF, address >> 8]);
-        }
-        // Reuse the native cursor writer with fixed X and selection-indexed Y.
-        // LDY #$4C; LDA $8225,X has the original instruction length and timing.
-        patch(0x81D0, [0xA0, 0x4C, 0xBD, 0x25, 0x82]);
-        patch(0x8225, [0x8C, 0x9C]);
+        // START/CONTINUE, password entry/validator and their data stay native.
 
         // Visibility is modulo the MAP width, independently of the view.
         // In single-screen maps high-byte parity must never hide a sprite.

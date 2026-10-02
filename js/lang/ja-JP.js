@@ -2,6 +2,13 @@
  * 日本語翻訳
  */
 const translations_jaJP = {
+    "romUnsupportedVersion": "このエディタ ROM の版は未対応です。",
+    "romUnsupportedStructure": "ROM の構造が未対応、またはファイルが不完全です。",
+    "romMigrationFailed": "ROM の交換に失敗しました。既存のステージと下書きは保持されています。",
+    "romMigrationSuccess": "ROM を交換し、{count} ステージと全下書きを保持しました。",
+    "romRequiresOriginal": "エディタで未編集の ROM を選択してください。互換性のある画像差し替え版も使用できます。ステージは上書きされていません。",
+    "romContinueLegacy": "旧 ROM を使い続ける",
+    "romUploadOriginal": "ROM 交換・ステージ保持",
     // Top Bar
     'title': 'Moai-kun Maker',
     'topBarSubtitle': 'NES ステージエディター',
@@ -33,8 +40,8 @@ const translations_jaJP = {
     'romExpansionTooltip': 'ゲームROMをmapper3からmapper2に変換します\nゲームコンテンツを拡張し、新機能を追加します\n注意：シーン切り替え時に一時的な画面の乱れが発生する場合がありますが、ゲームプレイには影響しません',
     'disableTimer': '⏱️ タイマーを無効化',
     'showNpcCount': '🗿 NPC数を表示',
-    'cameraFollow': '📷 単画面カメラ追従',
-    'cameraFollowHint': '単画面カメラ追従は十分にテストされていません。慎重にご使用ください。ワイド面のカメラ追従と一時停止中の左右確認は常に有効です。',
+    "cameraFollow": "📷 上キーで視点切替",
+    "cameraFollowHint": "上キーで視点を滑らかに切り替えます。単画面・横長画面に対応し、コウモリは横方向にループします。十分な検証が済んでいません。",
     'gameConfigHint': 'タイマーを無効にすると、NPC数は元のタイマー位置に表示されます。',
     'shiftMapLeft': 'マップを左へ',
     'shiftMapRight': 'マップを右へ',
@@ -42,7 +49,7 @@ const translations_jaJP = {
     'romExpansionEnabled': '🔧 ROM拡張モードが有効になりました。ステージ容量と敵の上限が拡大されました',
     'romExpansionDisabled': '🔧 ROM拡張モードが無効になりました。元のROM制限に戻りました',
     'romAutoExpandedForImportWarning': 'ステージ内容が多いため、ROMを拡張ROMへ自動変換しました。',
-    'modifiedRomDesignWarning': '拡張ROMが検出されました。未対応の不具合が発生する可能性があるため、変更済みROMでのステージ作成は推奨されません。ステージリストから全ステージを書き出し、キャッシュを削除してオリジナルROMを読み込んだ後、ステージを再度読み込んでください。',
+    "modifiedRomDesignWarning": "旧版または版不明の編集済み ROM は、不具合やゲーム動作の破損を起こす可能性があります。未編集 ROM に交換してもステージは保持されます。ステージメニューから全ステージをエクスポートして保存してください。",
     'clearMap': 'マップクリア',
     'exportData': 'データエクスポート',
     'applyToRom': 'ROMエディタに適用',
@@ -59,10 +66,6 @@ const translations_jaJP = {
     
     // Buttons
     'testLevel': '🎮 ステージテスト',
-    'testLevelOptions': 'ステージテスト設定',
-    'testLevelOptionsNormal': 'ステージテスト設定：単画面カメラ追従はオフ',
-    'testLevelOptionsFollowing': 'ステージテスト設定：単画面カメラ追従はオン',
-    'testLevelCameraFollowHint': 'ステージテスト専用です。十分にテストされていないため、慎重にご使用ください。',
     'testRom': '🎮 ROMテスト',
     'stopEmulator': '⏹️ エミュレータ停止',
     'saveLevel': '💾 ステージ保存',

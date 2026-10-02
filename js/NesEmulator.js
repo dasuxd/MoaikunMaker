@@ -439,7 +439,7 @@ class NesEmulator {
         }, 400);
     }
 
-    async quickStart({ loopView = false } = {}){
+    async quickStart(){
         const runGeneration = this.runGeneration;
         const nes = this.nes;
         this.adjustUIForMobile()
@@ -469,12 +469,7 @@ class NesEmulator {
             }
             return runGeneration === this.runGeneration;
         };
-        if (loopView) {
-            if (!pressButton(jsnes.Controller.BUTTON_SELECT)) return;
-            // Let the title read SELECT's release before confirming LOOP VIEW.
-            nes.frame();
-            if (runGeneration !== this.runGeneration) return;
-        }
+
         if (!pressButton(jsnes.Controller.BUTTON_START)) return;
 
         for(let i = 0; i <  NesEmulator.LOADING_WAIT_START_FRAME; i++){

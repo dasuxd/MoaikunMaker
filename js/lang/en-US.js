@@ -2,6 +2,13 @@
  * English (US) Translation
  */
 const translations_enUS = {
+    "romUnsupportedVersion": "This editor ROM version is not supported yet.",
+    "romUnsupportedStructure": "Unsupported ROM structure or incomplete file.",
+    "romMigrationFailed": "ROM replacement failed. Existing levels and drafts are preserved.",
+    "romMigrationSuccess": "Replaced the ROM base, keeping {count} levels and all drafts.",
+    "romRequiresOriginal": "Choose a ROM not modified by the editor. Compatible artwork variants are supported. Your levels have not been overwritten.",
+    "romContinueLegacy": "Keep using legacy ROM",
+    "romUploadOriginal": "Replace base, keep levels",
     // Top Bar
     'title': 'Moai-kun Maker',
     'topBarSubtitle': 'NES Level Editor',
@@ -33,8 +40,8 @@ const translations_enUS = {
     'romExpansionTooltip': 'Converts the game ROM from mapper3 to mapper2\nExpands game content and adds new features\nNote: There may be brief screen glitches during scene transitions, but it does not affect gameplay',
     'disableTimer': '⏱️ Disable Timer',
     'showNpcCount': '🗿 Show NPC Count',
-    'cameraFollow': '📷 Single-screen Camera Follow',
-    'cameraFollowHint': 'Single-screen camera follow has not been extensively tested. Please use with caution. Wide levels always retain camera follow and paused free-look.',
+    "cameraFollow": "📷 Up to switch view",
+    "cameraFollowHint": "Press Up to smoothly switch single- or double-screen views. Bats wrap horizontally. Experimental; use with caution.",
     'gameConfigHint': 'When the timer is disabled, the NPC count uses the timer position.',
     'shiftMapLeft': 'Shift Map Left',
     'shiftMapRight': 'Shift Map Right',
@@ -42,7 +49,7 @@ const translations_enUS = {
     'romExpansionEnabled': '🔧 ROM expansion mode enabled, level capacity and enemy limits increased',
     'romExpansionDisabled': '🔧 ROM expansion mode disabled, reverted to original ROM limits',
     'romAutoExpandedForImportWarning': 'The ROM was automatically converted to an expanded ROM because the imported level content is too large.',
-    'modifiedRomDesignWarning': 'Expanded ROM detected. Designing levels with a modified ROM is not recommended because it may cause unhandled bugs. Export all levels from the level list, clear the cache, load an original ROM, and then import those levels again.',
+    "modifiedRomDesignWarning": "Legacy or unrecognized editor ROMs may cause bugs or broken game mechanics. Upload a clean base ROM to retain your levels. Back up now using Export All Levels in the level menu.",
     'clearMap': 'Clear Map',
     'exportData': 'Export Data',
     'applyToRom': 'Apply to ROM Editor',
@@ -59,10 +66,6 @@ const translations_enUS = {
     
     // Buttons
     'testLevel': '🎮 Test Level',
-    'testLevelOptions': 'Test level options',
-    'testLevelOptionsNormal': 'Test level options: single-screen camera follow is off',
-    'testLevelOptionsFollowing': 'Test level options: single-screen camera follow is on',
-    'testLevelCameraFollowHint': 'For level testing only. This feature has not been extensively tested; please use with caution.',
     'testRom': '🎮 Test ROM',
     'stopEmulator': '⏹️ Stop Emulator',
     'saveLevel': '💾 Save Level',
