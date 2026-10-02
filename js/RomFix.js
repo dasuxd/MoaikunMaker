@@ -1271,6 +1271,14 @@ class Romfix{
         label('active');
         emit(0x4C, 0x54, 0x8B);
         label('loopPause');
+        // Free-look sets $6E=0 after moving the paused camera. Arm the same
+        // transition on its first resumed frame, before active camera update.
+        emit(0xA5, 0x32);
+        branch(0xD0, 'dispatchFreeLook');
+        emit(0xA5, 0x6E);
+        branch(0xD0, 'dispatchFreeLook');
+        emit(0xA5, 0x2A, 0x09, 0x80, 0x85, 0x2A);
+        label('dispatchFreeLook');
         emit(0x4C, 0xD9, 0xFE);
 
         // Attribute initialization bypasses map lookup: normalize the byte
@@ -1298,6 +1306,11 @@ class Romfix{
 
         label('titleReset');
         emit(0xA9, 0x00, 0x85, 0x2A, 0x20, 0x60, 0xFF, 0x4C, 0x2E, 0xDA);
+
+        label('stageReset');
+        // Stage text/loading must keep page 0; the first live frame then
+        // approaches the selected view instead of assigning it immediately.
+        emit(0x20, 0x60, 0xFF, 0xA5, 0x2A, 0x09, 0x80, 0x85, 0x2A, 0x60);
 
         // Prepare the opposite page AFTER the current frame's producers,
         // outside the next NMI's VRAM-transfer window. The original PPU
@@ -1493,6 +1506,9 @@ class Romfix{
         // Reset before clearing/drawing the next stage's transition screen,
         // rather than waiting for the later STAGE/REST text entry.
         patch(0x8A3A, [0x20, 0x6D, 0xFF]);
+        // Both native stage-entry paths still reset scroll before drawing.
+        hook(0xFF6D, 0x20, 'stageReset');
+        hook(0xFFD4, 0x20, 'stageReset');
 
         // START/CONTINUE, password entry/validator and their data stay native.
 

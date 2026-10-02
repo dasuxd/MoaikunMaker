@@ -330,7 +330,7 @@ const romPath = process.env.MOAIKUN_TEST_ROM;
 const original = romPath ? fs.readFileSync(romPath) : null;
 const realTest = (name, body) => test(name, { skip: !original }, body);
 
-function exportStage(expanded, wide, scene = 0, rock = false, doorX = 11, cameraFollow = true) {
+function exportStage(expanded, wide, scene = 0, rock = false, doorX = 11, cameraFollow = true, spawnX = null) {
     const editor = new RomEditor();
     editor.loadROM(original);
     editor.gameConfig.cameraFollow = cameraFollow;
@@ -345,7 +345,7 @@ function exportStage(expanded, wide, scene = 0, rock = false, doorX = 11, camera
     if (rock) map[11][rock === 'right' ? width - 1 : 0] = 10;
     const converted = DataConverter.fromLevelEditorToROMData({
         background: scene | (wide ? 0x10 : 0),
-        player: { x: rock === 'right' ? width - 2 : rock ? 1 : 8, y: 11 },
+        player: { x: spawnX ?? (rock === 'right' ? width - 2 : rock ? 1 : 8), y: 11 },
         door: { x: doorX, y: 10 }, map, enemies: []
     }, wide);
     editor.levels[0].data = converted.mapData;
@@ -409,6 +409,7 @@ function start(data, view) {
                 nes.buttonUp(1,jsnes.Controller.BUTTON_UP);
                 for(let i=0;i<80;i++) nes.frame();
             }
+            for(let i=0;i<140&&(nes.cpu.mem[0x2A]&128);i++)nes.frame();
             return nes;
         }
     }
@@ -417,6 +418,62 @@ function start(data, view) {
 
 const worldX = m => (m[0xC1] << 8) | m[0xC2];
 const cameraX = m => (m[0x9D] << 8) | m[0xFD];
+
+realTest('a far-right wide spawn enters gameplay with a smooth camera instead of teleporting', () => {
+    // Native player-start coordinates encode only the first 16 columns.
+    const nes = machine(exportStage(true,true,0,false,11,true,15)),m=nes.cpu.mem;
+    for(let i=0;i<160;i++)nes.frame();
+    nes.buttonDown(1,jsnes.Controller.BUTTON_START);nes.frame();
+    nes.buttonUp(1,jsnes.Controller.BUTTON_START);
+    let changes=0,live=false,settled=false,previous=cameraX(m);
+    for(let i=0;i<500;i++) {
+        nes.frame();
+        const camera=cameraX(m);
+        if(m[0x30]===12&&m[0x56]===3) {
+            live=true;
+            let delta=(camera-previous)&511;if(delta>255)delta-=512;
+            assert.ok(Math.abs(delta)<=4,'initial gameplay frame must not jump to the player');
+            if(delta)changes++;
+            const target=Math.max(0,Math.min(255,worldX(m)-128));
+            if(!(m[0x2A]&128)&&camera===target){settled=true;break;}
+        }
+        previous=camera;
+    }
+    assert.ok(live&&settled);assert.ok(changes>1,'the entry scroll takes several frames');
+    assert.equal(m[0x2A],0);assert.equal(nes.cpu.REG_SP,0x1FF);
+});
+
+realTest('resuming after pause free-look smoothly returns to the selected gameplay view', () => {
+    for(const wide of [false,true])for(const view of [0,1]) {
+        if(!wide&&!view)continue;
+        const nes=start(exportStage(true,wide),view),m=nes.cpu.mem,mask=wide?511:255;
+        for(let i=0;i<80;i++)nes.frame();
+        const player=worldX(m),vertical=m[0xFC];
+        nes.buttonDown(1,jsnes.Controller.BUTTON_START);nes.frame();
+        nes.buttonUp(1,jsnes.Controller.BUTTON_START);nes.frame();
+        assert.equal(m[0x32],1);
+        nes.buttonDown(1,jsnes.Controller.BUTTON_RIGHT);
+        for(let i=0;i<27;i++)nes.frame();
+        nes.buttonUp(1,jsnes.Controller.BUTTON_RIGHT);nes.frame();
+        assert.equal(worldX(m),player);
+        const paused=cameraX(m);let previous=paused,changes=0,settled=false;
+        const target=view?(player-128)&mask:Math.max(0,Math.min(255,player-128));
+        assert.notEqual(paused,target);
+        nes.buttonDown(1,jsnes.Controller.BUTTON_START);
+        for(let i=0;i<140;i++) {
+            nes.frame();if(i===0)nes.buttonUp(1,jsnes.Controller.BUTTON_START);
+            const camera=cameraX(m);let delta=(camera-previous)&mask;if(delta>(mask>>1))delta-=mask+1;
+            assert.ok(Math.abs(delta)<=4,'resume must not teleport from free-look');
+            if(delta)changes++;
+            assert.equal(m[0xFC],vertical);assert.equal(worldX(m),player);
+            previous=camera;
+            if(m[0x32]===0&&!(m[0x2A]&128)&&camera===target){settled=true;break;}
+        }
+        assert.ok(settled);assert.ok(changes>1);assert.equal(m[0x2A],view);
+        nes.frame();assert.equal(m[0x6E],1);assert.equal(m[0xFE]&0x10,0x10);
+        assert.equal(nes.cpu.REG_SP,0x1FF);
+    }
+});
 
 realTest('both feature settings retain native START and working password entry', () => {
     for (const expanded of [true]) for(const enabled of [false,true]) {
@@ -964,7 +1021,8 @@ realTest('retry, stage transition, game over, title return, and ending reset the
             }
             assert.equal(reached, true, `reset hook $${hook.toString(16)}`);
             assert.equal(m[0xFD] | m[0x9D] | (m[0xFF] & 1), 0);
-            assert.equal(m[0x2A], hook === 0x838E ? 0 : view);
+            assert.equal(m[0x2A], hook === 0x838E ? 0 :
+                [0x8A60,0x8A3A].includes(hook) ? view | 128 : view);
         }
         // Ending wrapper must preserve the graphics bank chosen by ending.
         m[0x2A] = view;
@@ -990,7 +1048,12 @@ realTest('retry, stage transition, game over, title return, and ending reset the
             if (m[0x30] === 12 && m[0x56] === 3) { resumed = true; break; }
         }
         assert.equal(resumed, true);
-        nes.frame();
+        for(let i=0;i<140;i++) {
+            const previous=cameraX(m);nes.frame();
+            let delta=(cameraX(m)-previous)&511;if(delta>255)delta-=512;
+            assert.ok(Math.abs(delta)<=4,'retry re-centers smoothly from loading scroll');
+            if(!(m[0x2A]&128))break;
+        }
         assert.equal(m[0x2A], view);
         assert.equal(cameraX(m), (worldX(m) - 128) & 511);
         assert.equal(nes.cpu.REG_SP, 0x1FF);
