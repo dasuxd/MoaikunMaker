@@ -92,7 +92,7 @@ npx serve
 ### 4. Save & Share
 
 - A new browser cache copies old ROM, level and draft records once without deleting the old cache. Separate cached edits take priority over embedded ROM levels.
-- Legacy editor outputs are recognized by local patch/layout features, not a whole-file hash; compatible artwork variants are accepted. A persistent red warning allows continued editing/testing/exporting.
+- Editor outputs are recognized by version records and local patch/layout features, not a whole-file hash; compatible artwork variants are accepted. Reimported current outputs, legacy outputs and unrecognized expanded ROMs all show a persistent red warning while allowing editing/testing/exporting. An output version does not make an already patched ROM a safe base for rebuilding patches.
 - Export all levels as a backup, then use “Upload clean ROM, keep levels” to replace the base while retaining level order/count, enemies, drafts, unsaved edits and settings. A failed validation or cache commit retains the old project.
 
 - **💾 Save Level** - Save changes to memory

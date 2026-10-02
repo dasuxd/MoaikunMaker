@@ -733,7 +733,12 @@ class App {
         this.fileName = fileName;
         if(preparedEditor) this.romEditor = preparedEditor;
         else this.romEditor.loadROM(data);
-        this.needsRomMigration = ['legacy','unknown-expanded'].includes(this.romEditor.romIdentity.kind);
+        this.needsRomMigration = RomEditor.needsBaseMigration(this.romEditor.romIdentity);
+        console.info('ROM identity: ' + JSON.stringify({
+            ...this.romEditor.romIdentity,
+            needsBaseMigration: this.needsRomMigration,
+            cache: fromCache ? this.romCache.dbName : null
+        }));
         
         // Hide welcome overlay
         this.hideWelcomeOverlay();

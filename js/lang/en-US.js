@@ -49,7 +49,7 @@ const translations_enUS = {
     'romExpansionEnabled': '🔧 ROM expansion mode enabled, level capacity and enemy limits increased',
     'romExpansionDisabled': '🔧 ROM expansion mode disabled, reverted to original ROM limits',
     'romAutoExpandedForImportWarning': 'The ROM was automatically converted to an expanded ROM because the imported level content is too large.',
-    "modifiedRomDesignWarning": "Legacy or unrecognized editor ROMs may cause bugs or broken game mechanics. Upload a clean base ROM to retain your levels. Back up now using Export All Levels in the level menu.",
+    "modifiedRomDesignWarning": "This ROM is already modified or its version is unrecognized. Further editing may cause bugs or broken game mechanics. Upload a clean base ROM to retain your levels. Back up now using Export All Levels in the level menu.",
     'clearMap': 'Clear Map',
     'exportData': 'Export Data',
     'applyToRom': 'Apply to ROM Editor',

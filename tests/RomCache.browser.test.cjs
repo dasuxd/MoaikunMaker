@@ -10,14 +10,16 @@ const root = path.resolve(__dirname,'..');
 
 // Real IndexedDB transactions and the actual app, using an isolated browser
 // profile/origin. This never reads or changes the user's browser database.
-test('legacy cache migration, override and base replacement preserve the complete project',
+for(const marked of [false,true]) {
+test(`${marked ? 'versioned' : 'legacy'} cache migration, override and base replacement preserve the complete project`,
     {skip:!playwrightPath || !romPath,timeout:60000}, async()=>{
     const {chromium}=require(playwrightPath);
     const source=['Config','Level','RomFix','RomEditor','DataConverter','LevelFile']
         .map(name=>fs.readFileSync(path.join(root,'js',name+'.js'),'utf8')).join('\n');
     const {RomEditor,LevelFile}=new Function('i18n',source+'\nreturn {RomEditor,LevelFile};')({t:key=>key});
     const original=fs.readFileSync(romPath), editor=new RomEditor();editor.loadROM(original);
-    const legacy=Buffer.from(editor.getROMData());legacy.fill(0,0x18010,0x1801A);
+    const legacy=Buffer.from(editor.getROMData());
+    if(!marked)legacy.fill(0,0x18010,0x1801A);
     const levels=editor.exportLevelsData().slice(0,2).reverse();levels.forEach((l,i)=>l.index=i);
     levels[0].data[0]=2;
     const project={levels,levelCount:2,romType:0,gameConfig:{cameraFollow:true,disableTimer:true,showRemainingRescueCount:false}};
@@ -56,6 +58,7 @@ test('legacy cache migration, override and base replacement preserve the complet
         },{rom:[...legacy],project,drafts});
         await page.goto(origin);
         await page.waitForFunction(()=>app?.romEditor?.levelCount===2&&app.needsRomMigration&&app.backupLevels.length===1);
+        assert.equal(await page.evaluate(()=>app.romEditor.romIdentity.kind),marked?'current':'legacy');
         await page.waitForFunction(()=>!document.getElementById('testLevelBtn').disabled);
         const assertProject=async()=>{
             const actual=await page.evaluate(()=>({levels:app.romEditor.exportLevelsData(),count:app.romEditor.levelCount,
@@ -162,3 +165,4 @@ test('legacy cache migration, override and base replacement preserve the complet
         assert.deepEqual(errors,[]);
     }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
 });
+}

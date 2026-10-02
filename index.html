@@ -13,9 +13,9 @@
     <meta name="format-detection" content="telephone=no, email=no">
     <title>Moai-kun Maker</title>
     <link rel="shortcut icon" href="favicon.ico" />
-    <link rel="stylesheet" href="css/style.css?v=up-view-cache-v3">
-    <link rel="stylesheet" href="css/sortable.css?v=up-view-cache-v3">
-    <link rel="stylesheet" href="css/level_editor.css?v=up-view-cache-v3">
+    <link rel="stylesheet" href="css/style.css?v=up-view-cache-v3-base-check">
+    <link rel="stylesheet" href="css/sortable.css?v=up-view-cache-v3-base-check">
+    <link rel="stylesheet" href="css/level_editor.css?v=up-view-cache-v3-base-check">
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-096V7R6G3R"></script>
     <script>
@@ -84,7 +84,7 @@
 
         <div class="top-bar-warning" id="modifiedRomWarning" role="status" aria-live="polite" hidden>
             <span class="top-bar-warning-icon" aria-hidden="true">⚠️</span>
-            <span id="modifiedRomWarningText" data-i18n="modifiedRomDesignWarning">旧版编辑器 ROM 可能产生异常或损坏游戏机制。上传原版后将保留关卡；建议立即导出全部关卡备份。</span>
+            <span id="modifiedRomWarningText" data-i18n="modifiedRomDesignWarning">检测到已修改或无法识别版本的 ROM，继续编辑可能产生异常或损坏游戏机制。建议上传原版，您的关卡数据将保留；请立即从关卡列表菜单导出全部关卡备份。</span>
             <div class="rom-migration-actions">
                 <button type="button" onclick="app.requestOriginalRom()" data-i18n="romUploadOriginal">上传原版并保留关卡</button>
                 <button type="button" id="continueLegacyRomBtn" onclick="app.continueLegacyRom()" data-i18n="romContinueLegacy">继续使用旧 ROM</button>
@@ -622,32 +622,32 @@
     <!-- JavaScript 模块 -->
 
     <!-- 引入 SortableJS v1.15.0 -->
-    <script src="js/lib/Sortable-1.15.0.min.js?v=up-view-cache-v3"></script>
+    <script src="js/lib/Sortable-1.15.0.min.js?v=up-view-cache-v3-base-check"></script>
     
     <!-- 语言文件 -->
-    <script src="js/lang/zh-CN.js?v=up-view-cache-v3"></script>
-    <script src="js/lang/en-US.js?v=up-view-cache-v3"></script>
-    <script src="js/lang/ja-JP.js?v=up-view-cache-v3"></script>
+    <script src="js/lang/zh-CN.js?v=up-view-cache-v3-base-check"></script>
+    <script src="js/lang/en-US.js?v=up-view-cache-v3-base-check"></script>
+    <script src="js/lang/ja-JP.js?v=up-view-cache-v3-base-check"></script>
     
     <!-- 国际化核心 -->
-    <script src="js/i18n.js?v=up-view-cache-v3"></script>
+    <script src="js/i18n.js?v=up-view-cache-v3-base-check"></script>
     
-    <script src="js/lib/jsnes.min.js?v=up-view-cache-v3"></script>
-    <script src="js/NesEmulator.js?v=up-view-cache-v3"></script>
-    <script src="js/MobileGameController.js?v=up-view-cache-v3"></script>
-    <script src="js/Config.js?v=up-view-cache-v3"></script>
-    <script src="js/RomFix.js?v=up-view-cache-v3"></script>
-    <script src="js/OptimizedMap.js?v=up-view-cache-v3"></script>
-    <script src="js/Enemy.js?v=up-view-cache-v3"></script>
-    <script src="js/ResourceManager.js?v=up-view-cache-v3"></script>
-    <script src="js/RomCache.js?v=up-view-cache-v3"></script>
-    <script src="js/Level.js?v=up-view-cache-v3"></script>
-    <script src="js/RomEditor.js?v=up-view-cache-v3"></script>
-    <script src="js/DataConverter.js?v=up-view-cache-v3"></script>
-    <script src="js/LevelFile.js?v=up-view-cache-v3"></script>
-    <script src="js/LevelEditor.js?v=up-view-cache-v3"></script>
+    <script src="js/lib/jsnes.min.js?v=up-view-cache-v3-base-check"></script>
+    <script src="js/NesEmulator.js?v=up-view-cache-v3-base-check"></script>
+    <script src="js/MobileGameController.js?v=up-view-cache-v3-base-check"></script>
+    <script src="js/Config.js?v=up-view-cache-v3-base-check"></script>
+    <script src="js/RomFix.js?v=up-view-cache-v3-base-check"></script>
+    <script src="js/OptimizedMap.js?v=up-view-cache-v3-base-check"></script>
+    <script src="js/Enemy.js?v=up-view-cache-v3-base-check"></script>
+    <script src="js/ResourceManager.js?v=up-view-cache-v3-base-check"></script>
+    <script src="js/RomCache.js?v=up-view-cache-v3-base-check"></script>
+    <script src="js/Level.js?v=up-view-cache-v3-base-check"></script>
+    <script src="js/RomEditor.js?v=up-view-cache-v3-base-check"></script>
+    <script src="js/DataConverter.js?v=up-view-cache-v3-base-check"></script>
+    <script src="js/LevelFile.js?v=up-view-cache-v3-base-check"></script>
+    <script src="js/LevelEditor.js?v=up-view-cache-v3-base-check"></script>
 
-    <script src="js/app.js?v=up-view-cache-v3"></script>
+    <script src="js/app.js?v=up-view-cache-v3-base-check"></script>
 
     <!-- 消息提示容器 -->
     <div id="messageContainer" class="message-container"></div>

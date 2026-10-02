@@ -1226,10 +1226,16 @@ realTest('exports share one layout, keep native password code, and recognize ski
     assert.equal(e.romType,Config.ROM_TYPE_EXPANDED);
     const skin=new Uint8Array(original);skin[0xAA70]^=0x55;
     assert.equal(RomEditor.inspectROM(skin).kind,'original');
+    assert.equal(RomEditor.needsBaseMigration(RomEditor.inspectROM(skin)),false);
     for(const enabled of [false,true]) {
         e.gameConfig.cameraFollow=enabled;const data=e.getROMData();
         assert.equal(data.length,0x20010);assert.equal(data[4],8);assert.equal(data[5],0);
         assert.equal(RomEditor.inspectROM(data).kind,'current');
+        assert.equal(RomEditor.needsBaseMigration(RomEditor.inspectROM(data)),true,
+            'a recognized output version is not a clean patch base');
+        const reimported=new RomEditor();reimported.loadROM(data);
+        assert.equal(RomEditor.needsBaseMigration(RomEditor.inspectROM(reimported.getROMData())),true,
+            'reexporting a patched base must not remove the migration warning');
         assert.equal(data[0xAC72-0x8000+16],enabled?0x5C:0x48);
         for(const [a,b] of [[0xC3CF,0xC4C8],[0xC578,0xC5E8]])
             assert.deepEqual(data.slice(a-0x8000+16+0x18000,b-0x8000+16+0x18000),new Uint8Array(original.subarray(a-0x8000+16,b-0x8000+16)));

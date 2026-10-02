@@ -29,7 +29,7 @@ function setup() {
     app.renderBackupList = app.updateRecoveryExportVisibility = () => {};
     app.loadRomData = (_,name,__,editor) => {
         app.romEditor=editor; app.fileName=name;
-        app.needsRomMigration=['legacy','unknown-expanded'].includes(editor.romIdentity.kind);
+        app.needsRomMigration=classes.RomEditor.needsBaseMigration(editor.romIdentity);
     };
     const writes = [];
     app.romCache = { async saveProject(...args) {writes.push(args);}, async savePolicy(){} };

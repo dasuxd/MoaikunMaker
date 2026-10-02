@@ -49,7 +49,7 @@ const translations_zhCN = {
     'romExpansionEnabled': '🔧 ROM 拓展模式已开启，关卡容量和敌人数量上限已扩大',
     'romExpansionDisabled': '🔧 ROM 拓展模式已关闭，已恢复为原始 ROM 限制',
     'romAutoExpandedForImportWarning': '由于导入关卡内容过多，已自动转换为拓展 ROM。',
-    "modifiedRomDesignWarning": "旧版或无法识别版本的编辑器 ROM 可能产生异常或损坏游戏机制。上传原版后将保留关卡；建议立即从关卡列表菜单导出全部关卡备份。",
+    "modifiedRomDesignWarning": "检测到已修改或无法识别版本的 ROM，继续编辑可能产生异常或损坏游戏机制。建议上传原版，您的关卡数据将保留；请立即从关卡列表菜单导出全部关卡备份。",
     'clearMap': '清空地图',
     'exportData': '导出数据',
     'applyToRom': '应用到 ROM 编辑器',

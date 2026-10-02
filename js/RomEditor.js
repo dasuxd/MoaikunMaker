@@ -71,6 +71,14 @@ class RomEditor {
             ? 'legacy' : expanded ? 'unknown-expanded' : 'original', expanded};
     }
 
+    /** An output version identifies the format, not a clean patch base.
+     * Reimported editor outputs already contain code patches; rebuild from
+     * an original/artwork-only base while retaining the user's level data.
+     */
+    static needsBaseMigration(identity) {
+        return ['legacy', 'unknown-expanded', 'current'].includes(identity?.kind);
+    }
+
     /**
      * Parse ROM file, read all level data
      */

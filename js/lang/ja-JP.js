@@ -49,7 +49,7 @@ const translations_jaJP = {
     'romExpansionEnabled': '🔧 ROM拡張モードが有効になりました。ステージ容量と敵の上限が拡大されました',
     'romExpansionDisabled': '🔧 ROM拡張モードが無効になりました。元のROM制限に戻りました',
     'romAutoExpandedForImportWarning': 'ステージ内容が多いため、ROMを拡張ROMへ自動変換しました。',
-    "modifiedRomDesignWarning": "旧版または版不明の編集済み ROM は、不具合やゲーム動作の破損を起こす可能性があります。未編集 ROM に交換してもステージは保持されます。ステージメニューから全ステージをエクスポートして保存してください。",
+    "modifiedRomDesignWarning": "編集済みまたは版不明の ROM を検出しました。再編集すると不具合やゲーム動作の破損が起きる可能性があります。未編集 ROM に交換してもステージは保持されます。ステージメニューから全ステージをエクスポートして保存してください。",
     'clearMap': 'マップクリア',
     'exportData': 'データエクスポート',
     'applyToRom': 'ROMエディタに適用',
