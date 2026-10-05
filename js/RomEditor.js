@@ -588,6 +588,13 @@ class RomEditor {
             const levelAddr = levels[i].cpuAddress;
             newRomData.set([levelAddr & 0xFF, (levelAddr >> 8) & 0xFF], this.getLevelAddressTable() + i * 2);
             newRomData.set(levels[i].data, levels[i].romAddress);
+            // Native ROMs always have an exit coordinate. Keep their previous
+            // (0, 0) fallback when the project contains no door; never pass the
+            // editor-only absence marker to the game's tile renderer.
+            if(levels[i].data[2] === DataConverter.NO_DOOR_COORDINATE &&
+                levels[i].data[3] === DataConverter.NO_DOOR_COORDINATE){
+                newRomData.fill(0, levels[i].romAddress + 2, levels[i].romAddress + 4);
+            }
             newRomData[levels[i].romAddress + levels[i].data.length] = 0xFF;
             newRomData.set(levels[i].monsterData, levels[i].monsterRomAddress);
 

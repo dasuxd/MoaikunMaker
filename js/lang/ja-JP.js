@@ -178,7 +178,7 @@ const translations_jaJP = {
     'forbiddenPlaceConsecutiveMoaiWarning': 'システムの制限により、14個以上の連続したモアイNPCを配置することはできません。そうしないと、圧縮されたデータがマップの終わりを示すことになります。',
     'prohibitedTileAreaWarning': '最初の行はタイルを配置できない禁止エリアです',
     'prohibitedPlayerAreaWarning': 'システムの制限により、プレイヤーの開始位置は左半分のエリアにのみ配置できます、必要に応じてマップ全体を左右に移動できます。',
-    'prohibitedDoorAreaWarning': 'システムの制限により、この位置ではプレイヤーがステージをクリアできなくなります。',
+    'prohibitedDoorAreaWarning': 'ドアには2×2マスの空間が必要です。下段の左側のマスにカーソルを合わせてください。',
     'consecutiveMoaiError': "システムの制限により、14個の連続したモアイNPCを防ぐことはできません。そうしないと、圧縮されたデータがマップの終わりを示すことになります。",
     'buggyEnemy9PlaceInfo': "第2画面に配置された火を吹く像はゲーム内でバグが発生する可能性があります。第1画面にのみ配置することをお勧めします。",
     'levelDataSizeExceedError': 'ステージデータのサイズが制限を超えています！現在のサイズ: {currentSize}バイト、最大許容: {maxSize}バイト。ステージ数を減らすか、ステージ内容を簡略化してから再試行してください。',

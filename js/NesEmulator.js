@@ -252,7 +252,13 @@ class NesEmulator {
         }
         
         // JSNES 需要字符串格式
+        this.ramRecorder?.stop();
         this.nes.loadROM(romString);
+        // Optional RAM observer owns its UI/storage and can be removed alone.
+        if (typeof RamRecorder !== 'undefined') {
+            this.ramRecorder = RamRecorder.getInstance();
+            this.ramRecorder.load(this, uint8Array);
+        }
     }
 
     renderLoadingProgress() {
@@ -486,6 +492,7 @@ class NesEmulator {
     
     start() {
         if (this.isRunning) return;
+        this.ramRecorder?.resumeRecording();
         if(this.loadingProgress === 0){
             this.adjustUIForMobile()
         }
@@ -518,6 +525,7 @@ class NesEmulator {
     }
     
     stop() {
+        this.ramRecorder?.stop();
         this.isRunning = false;
         this.isPaused = false;
         clearTimeout(this.mobilePositionTimer);
@@ -562,7 +570,8 @@ class NesEmulator {
         try {
             // jsnes returns live references. A serialized snapshot is detached
             // without retaining a second tree of large JavaScript arrays.
-            this.quickSaveSlots[slot - 1] = JSON.stringify(this.nes.toJSON());
+            const save = () => JSON.stringify(this.nes.toJSON());
+            this.quickSaveSlots[slot - 1] = this.ramRecorder ? this.ramRecorder.suspend(save) : save();
             app.showMessage('success', i18n.t('quickSaveSuccess', { slot }));
             app.mobileController?.updateActionState?.();
             return true;
@@ -582,7 +591,9 @@ class NesEmulator {
         }
         try {
             // Every load gets fresh arrays; fromJSON cannot mutate the saved text.
-            this.nes.fromJSON(JSON.parse(state));
+            const restore = () => this.nes.fromJSON(JSON.parse(state));
+            if (this.ramRecorder) this.ramRecorder.suspend(restore, true);
+            else restore();
             for (const controller of Object.values(this.nes.controllers)) {
                 controller.state.fill(64); // release keys held at the moment of loading
             }

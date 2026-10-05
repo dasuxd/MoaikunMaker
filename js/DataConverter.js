@@ -3,6 +3,11 @@
  * 在ROM编辑器和可视化编辑器之间转换数据格式
  */
 class DataConverter {
+    // Editor/project marker: keep absence distinct from the valid position (0, 0).
+    // 0xFF cannot be used here because ROM readers treat it as a terminator.
+    // RomEditor converts this marker to the game's historical (0, 0) fallback.
+    static NO_DOOR_COORDINATE = 0xFE;
+
     constructor() {
     }
 
@@ -32,7 +37,9 @@ class DataConverter {
         // 3. 解析门的位置（第三、四个字节）
         const doorX = mapData[2];
         const doorY = mapData[3];
-        const door = (doorX > 0 || doorY > 0) ? { x: doorX, y: doorY } : null;
+        const door = (doorX === DataConverter.NO_DOOR_COORDINATE &&
+            doorY === DataConverter.NO_DOOR_COORDINATE)
+            ? null : { x: doorX, y: doorY };
         
         // 4. 解析地图tile数据（从第5个字节开始，RLE编码）
         const map = DataConverter.decodeRLEMap(mapData.slice(4), isWideScreen, isBuggyScreen );
@@ -74,14 +81,14 @@ class DataConverter {
         if (levelEditorData.door) {
             mapBytes.push(levelEditorData.door.x);
         } else {
-            mapBytes.push(0x00);
+            mapBytes.push(DataConverter.NO_DOOR_COORDINATE);
         }
         
         // 4. 门的Y坐标
         if (levelEditorData.door) {
             mapBytes.push(levelEditorData.door.y);
         } else {
-            mapBytes.push(0x00);
+            mapBytes.push(DataConverter.NO_DOOR_COORDINATE);
         }
         
         // 5. 地图数据（RLE编码）

@@ -178,7 +178,7 @@ const translations_enUS = {
     'forbiddenPlaceConsecutiveMoaiWarning': 'Due to system limitations, you cannot place more than 14 consecutive Moai NPCs, otherwise the compressed data indicates the end of the map.',
     'prohibitedTileAreaWarning': 'The first row is a prohibited area for placing tiles',
     'prohibitedPlayerAreaWarning': 'Due to system limitations, the player start point can only be placed in the left half area, if necessary, you can move the entire map left or right.',
-    'prohibitedDoorAreaWarning': 'Due to system limitations, this position will prevent the player from completing the level.',
+    'prohibitedDoorAreaWarning': 'The door needs a full 2×2 space. Point at the left cell of its bottom row.',
     'consecutiveMoaiError': "Due to system limitations, it is not possible to prevent 14 consecutive Moai NPCs, otherwise the compressed data indicates the end of the map.",
     'buggyEnemy9PlaceInfo': "Placing the fire-breathing statue in the second screen may cause bugs in the game. It is recommended to place it only in the first screen.",
     'levelDataSizeExceedError': 'Level data size exceeds limit! Current size: {currentSize} bytes, maximum allowed: {maxSize} bytes. Please reduce the number of levels or simplify level content and try again.',

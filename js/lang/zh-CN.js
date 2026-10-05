@@ -178,7 +178,7 @@ const translations_zhCN = {
     'forbiddenPlaceConsecutiveMoaiWarning': '由于系统限制，无法连续放置 14 个以上的摩艾 NPC，否则压缩后的数据意味着地图结束符号。',
     'prohibitedTileAreaWarning': '第一行为非法放置区域，无法放置图块',
     'prohibitedPlayerAreaWarning': '由于系统限制，玩家起始点只能放在左半边区域，如果必要可以整体左右移动地图。',
-    'prohibitedDoorAreaWarning': '由于系统限制，该位置将导致玩家无法通关。',
+    'prohibitedDoorAreaWarning': '大门需要完整的 2×2 空间，请将鼠标放在底部两个格子的左侧格子。',
     'consecutiveMoaiError': "由于系统限制，无法防止连续14个摩艾 NPC，否则压缩后的数据意味着地图结束符号。",
     'buggyEnemy9PlaceInfo': "放置在第二屏的喷火像会在游戏中有bug，建议只放在第一屏。",
     'levelDataSizeExceedError': '关卡数据大小超出限制！当前大小: {currentSize} 字节，最大允许: {maxSize} 字节。请减少关卡数量或简化关卡内容后重试。',

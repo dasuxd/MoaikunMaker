@@ -18,12 +18,15 @@ function machine(data) {
     return nes;
 }
 
-function syntheticMachine() {
+function syntheticMachine(cameraFollow = true) {
     const data = new Uint8Array(0x20010);
     data.set([0x4E, 0x45, 0x53, 0x1A, 8, 0, 0x21]);
     data.set([0x00, 0x80, 0x00, 0x80, 0x00, 0x80], 0x2000A);
+    // Native game-over menu setup, before shared/optional camera hooks.
+    data.set([0x20, 0xB9, 0x83], 0x8C7E - 0x8000 + 16);
+    data.set([0x20, 0xB9, 0x83], 0x8C10 - 0x8000 + 16);
     Romfix.fixWideScreenLoopingCamera(data, true);
-    Romfix.addViewModes(data, true);
+    if (cameraFollow) Romfix.addViewModes(data, true);
     // Native queue terminator writer, called at the very end of the NMI.
     data.set([0xA6, 0x1E, 0x9D, 0x00, 0x03, 0xE8, 0x86, 0x1E, 0x60],
         0x86B2 - 0x8000 + 16);
@@ -50,6 +53,39 @@ function call(nes, entry, carry = 1, stepLimit = 2000) {
 }
 
 const target = (mem, hook) => mem[hook + 1] | (mem[hook + 2] << 8);
+
+test('continue/password menu resets both camera bytes and the PPU page with view switching enabled or disabled', () => {
+    for (const enabled of [false, true]) {
+        const nes = syntheticMachine(enabled), m = nes.cpu.mem;
+        // Stand in for the native setup call: record the scroll/page observed
+        // BEFORE it starts clearing/drawing the menu, then return normally.
+        m.splice(0x83B9, 16, 0xA5, 0xFD, 0x05, 0x9D, 0x85, 0x05,
+            0xA5, 0xFF, 0x29, 0x01, 0x05, 0x05, 0x85, 0x05, 0x60, 0xEA);
+        for (const hook of [0x8C10, 0x8C7E]) for (const wide of [0, 1]) for (const view of [0, 1]) {
+            m[0x3D] = wide;
+            m[0x2A] = view;
+            m[0x21] = 1; // Native menu/password choice belongs to the game.
+            m[0xFD] = 0xA6;
+            m[0x9D] = 1;
+            m[0xFF] = 0xB1;
+            m[0xFC] = 0x37;
+            m[0x2F] = 5;
+            nes.cpu.REG_X = 7;
+            nes.cpu.REG_Y = 9;
+            call(nes, target(m, hook));
+            assert.equal(m[0x05], 0, `menu setup sees page 0: view switching=${enabled}, entry=${hook.toString(16)}`);
+            assert.equal(m[0xFD], 0);
+            assert.equal(m[0x9D], 0);
+            assert.equal(m[0xFF], 0xB0, 'other PPUCTRL bits are preserved');
+            assert.equal(m[0xFC], 0x37, 'vertical scroll is unchanged');
+            assert.equal(m[0x2A], view, 'continue retains the chosen gameplay view');
+            assert.equal(m[0x21], 1, 'native menu choice is unchanged');
+            assert.equal(m[0x2F], 5, 'graphics bank is unchanged');
+            assert.equal(nes.cpu.REG_X, 7);
+            assert.equal(nes.cpu.REG_Y, 9);
+        }
+    }
+});
 
 test('occupied reserved code space fails before installing runtime hooks', () => {
     const data = new Uint8Array(0x20010);
@@ -1050,7 +1086,7 @@ realTest('retry, stage transition, game over, title return, and ending reset the
     for (const expanded of [true]) for (const view of [0, 1]) {
         const nes = start(exportStage(expanded, true), view), m = nes.cpu.mem;
         const savedPC = nes.cpu.REG_PC;
-        for (const hook of [0x8A60, 0x8A3A, 0x8C7E, 0x838E]) {
+        for (const hook of [0x8A60, 0x8A3A, 0x8C10, 0x8C7E, 0x838E]) {
             m[0x2A] = view;
             m[0xFD] = 0xA6;
             m[0x9D] = 1;
@@ -1059,7 +1095,7 @@ realTest('retry, stage transition, game over, title return, and ending reset the
             // checks each entry BEFORE any background is rendered.
             const entry = target(m, hook);
             const stop = hook === 0x8A60 ? 0x8002
-                : hook === 0x8C7E ? 0x83B8 : 0xDA2D;
+                : [0x8C10, 0x8C7E].includes(hook) ? 0x83B8 : 0xDA2D;
             nes.cpu.REG_SP = 0x1FF;
             nes.cpu.REG_PC = 0x7FFF;
             nes.cpu.irqRequested = false;
@@ -1112,6 +1148,69 @@ realTest('retry, stage transition, game over, title return, and ending reset the
     }
 });
 
+realTest('losing the last life shows the menu and keeps continue/password working in both camera configurations', () => {
+    for (const enabled of [false, true]) for (const wide of [false, true]) {
+        for (const view of enabled ? [0, 1] : [0]) {
+            const data = exportStage(true, wide, 0, false, 11, enabled);
+            const nes = start(data, view), m = nes.cpu.mem;
+            m[0x46] = 1; // Last native life: use the real death and menu state machine.
+            m[0xC1] = 0;
+            m[0xC2] = 24;
+            m[0x41E] = 220;
+            m[Romfix.COORDINATE_RAM.playerYHigh] = 0;
+            let reached = false;
+            for (let frame = 0; frame < 700; frame++) {
+                nes.frame();
+                if (m[0x30] === 14 && m[0x31] === 7) { reached = true; break; }
+            }
+            assert.equal(reached, true, 'native game-over flow reaches the continue/password choice');
+            for (let frame = 0; frame < 5; frame++) nes.frame();
+            assert.equal(m[0x46], 0, 'the last life has actually been consumed');
+            assert.equal(cameraX(m), 0, `menu scroll: enabled=${enabled}, wide=${wide}, view=${view}`);
+            assert.equal(m[0xFF] & 1, 0, 'PPUCTRL selects the nametable containing the menu');
+            assert.ok(nes.ppu.vramMem.slice(0x2000, 0x23C0).some(tile => tile !== 0),
+                'menu text exists on the visible nametable');
+            assert.equal(m[0x2A] & 1, view, 'continue retains the chosen gameplay view');
+            assert.equal(nes.cpu.REG_SP, 0x1FF);
+
+            const menuState = JSON.parse(JSON.stringify(nes.toJSON()));
+            const tap = (game, button) => {
+                game.buttonDown(1, button); game.frame();
+                game.buttonUp(1, button); game.frame();
+            };
+            tap(nes, jsnes.Controller.BUTTON_START);
+            let resumed = false;
+            for (let frame = 0; frame < 700; frame++) {
+                nes.frame();
+                if (m[0x30] === 12 && m[0x56] === 3) { resumed = true; break; }
+            }
+            assert.equal(resumed, true, 'CONTINUE returns to actual gameplay');
+            assert.ok(m[0x46] > 0, 'continue restores native lives');
+            assert.equal(m[0x2A] & 1, view, 'continue preserves the gameplay view');
+            assert.equal(nes.cpu.REG_SP, 0x1FF);
+
+            const password = machine(data);
+            password.fromJSON(menuState);
+            const p = password.cpu.mem;
+            tap(password, jsnes.Controller.BUTTON_SELECT);
+            assert.equal(p[0x3B], 1, 'the menu cursor selects PASSWORD');
+            tap(password, jsnes.Controller.BUTTON_START);
+            let shown = false;
+            for (let frame = 0; frame < 300; frame++) {
+                password.frame();
+                if (p[0x30] === 14 && p[0x31] === 11) { shown = true; break; }
+            }
+            assert.equal(shown, true, 'PASSWORD reaches its native display');
+            for (let frame = 0; frame < 5; frame++) password.frame();
+            assert.equal(cameraX(p), 0);
+            assert.equal(p[0xFF] & 1, 0);
+            assert.ok(password.ppu.vramMem.slice(0x2000, 0x23C0).some(tile => tile !== 0),
+                'password text is on the visible nametable');
+            assert.equal(password.cpu.REG_SP, 0x1FF);
+        }
+    }
+});
+
 realTest('single-screen rock pushes update both backgrounds across either edge in LOOP VIEW', () => {
     for (const expanded of [true]) for (const right of [false, true]) {
         const nes = start(exportStage(expanded, false, 0, right ? 'right' : true), 1), m = nes.cpu.mem;
@@ -1137,6 +1236,22 @@ realTest('single-screen rock pushes update both backgrounds across either edge i
         assert.equal(destinationRock(), 10, 'rock lands across the map edge');
         assert.deepEqual(nes.ppu.vramMem.slice(0x2000, 0x23F8), nes.ppu.vramMem.slice(0x2400, 0x27F8));
         assert.equal(nes.cpu.REG_SP, 0x1FF);
+    }
+});
+
+realTest('re-export replaces legacy menu hooks and keeps the shared reset when view switching is disabled', () => {
+    for (const enabled of [false, true]) {
+        const data = exportStage(true, true, 0, false, 11, enabled);
+        const previous = new Uint8Array(data);
+        previous.set([0x20, 0xB9, 0x83], 0x8C10 - 0x8000 + 16);
+        // An old optional-bundle hook, including its now-retired helper.
+        previous.set([0x20, 0x40, 0xF3], 0x8C7E - 0x8000 + 16);
+        previous.set([0x20, 0x60, 0xFF, 0x4C, 0xB9, 0x83], 0xF340 - 0x8000 + 16 + 0x18000);
+        const migrated = new RomEditor();
+        migrated.loadROM(previous);
+        migrated.gameConfig.cameraFollow = enabled;
+        migrated.gameConfig.disableTimer = true;
+        assert.deepEqual(migrated.getROMData(), data, 'both menu entries and helper storage are rebuilt');
     }
 });
 

@@ -1,4 +1,7 @@
 class Romfix{
+    // Audited against the native ROM and the optional RAM observer. Native
+    // $82EF clears these bytes on stage/death reset; no native live reads.
+    static COORDINATE_RAM = Object.freeze({ enemySpawnPages: 0x75, enemySlots: 8, playerYHigh: 0x7D });
     // Fix original version rom
     static fixOriginalRom(romData, isExpanded = false, gameConfig = {}){
         const disableTimer = Boolean(gameConfig.disableTimer);
@@ -9,7 +12,6 @@ class Romfix{
         Romfix.backupUnusedImages(romData);
         // Always remove the optional bundle first, including on old exports.
         Romfix.resetViewModesPatch(romData, isExpanded);
-        Romfix.fixPlayerDeathBug(romData);
         // Keep the reset so commenting out the next call also restores ROMs
         // that were exported with this patch enabled.
         Romfix.resetTile7SupportFallPatch(romData);
@@ -28,8 +30,6 @@ class Romfix{
         // Restore legacy exports before applying the optional bat behavior.
         Romfix.fixCodeInsert(romData, 0xAC72 - 0x8000 + 0x10, [0x48]);
         if(cameraFollow) Romfix.fixBatHorizontalWrap(romData);
-        //宽屏模式的时候 敌人只会重生在第一屏幕，有bug
-        //Romfix.fixWideScreenEnemyRespawn(romData);
         Romfix.fixWideScreenRockPushBug(romData, isExpanded);
         // Rebuild shared camera support before applying runtime view hooks.
         Romfix.resetWideScreenLoopingCameraPatch(romData, isExpanded);
@@ -44,7 +44,194 @@ class Romfix{
             );
         }
         if(cameraFollow) Romfix.addViewModes(romData, isExpanded);
+        Romfix.fixExtendedCoordinates(romData, isExpanded);
         Romfix.addMoaikunMakerLabel(romData);
+    }
+
+    /**
+     * Eight immutable enemy birth pages and a signed player Y high byte.
+     * The high byte extends native 8.8 Y physics; negative Y is air above the
+     * map, not a second vertical map. Keep native bottom death and velocities.
+     * Fixed bank 7 $F410–$F7FF is relocated level storage, cleared on export.
+     */
+    static fixExtendedCoordinates(romData, isExpanded = false){
+        if(!isExpanded) throw new Error('Extended coordinates require an expanded ROM');
+        const file = cpu => cpu - 0x8000 + 0x10 + (cpu >= 0xC000 ? 6 * 0x4000 : 0);
+        const base = 0xF410, limit = 0xF800;
+        if(romData.subarray(file(base), file(limit)).some(byte => byte !== 0))
+            throw new Error('Reserved coordinate-patch area in bank 7 is occupied');
+        const { enemySpawnPages: pages, playerYHigh: high } = Romfix.COORDINATE_RAM;
+        const bytes = [], labels = new Map(), references = [], hooks = [];
+        const emit = (...values) => bytes.push(...values);
+        const label = name => labels.set(name, base + bytes.length);
+        const absolute = (opcode, destination) => {
+            emit(opcode); references.push({ offset: bytes.length, destination }); emit(0, 0);
+        };
+        const branch = (opcode, destination) => {
+            emit(opcode); references.push({ offset: bytes.length, destination, relative: true }); emit(0);
+        };
+        const hook = (address, name, size = 3, opcode = 0x4C) => hooks.push({ address, name, size, opcode });
+
+        // Capture bit 7 of the loaded enemy type AFTER native decoding of its
+        // page, but BEFORE ASL extracts facing. PHA/PLA preserve that operand.
+        label('birth');
+        emit(0x48, 0xBD, 0x0E, 0x05, 0x29, 0x01, 0x95, pages, 0x68, 0x0A, 0xA9, 0x03, 0x60);
+        hook(0xADED, 'birth', 3, 0x20);
+        label('clearBirth');
+        emit(0xA2, 0x07, 0xA9, 0x00);
+        label('clearBirthLoop'); emit(0x95, pages, 0xCA); branch(0x10, 'clearBirthLoop');
+        emit(0xA2, 0x07); absolute(0x4C, 0xAE36);
+        hook(0xAE32, 'clearBirth', 4);
+        // Native respawn rebuilds the local birth X/Y then forces X page 0.
+        label('respawn');
+        emit(0xB5, pages, 0x9D, 0x0E, 0x05, 0x85, 0x01,
+            0xBD, 0x16, 0x05, 0x85, 0x00, 0xBD, 0x33, 0x04, 0x85, 0x02);
+        // $AC was sampled at the death position earlier in this frame.
+        // Resample at birth so a blocked birthplace waits on the right page.
+        absolute(0x20, 0x9330); absolute(0x4C, 0xAD98);
+        hook(0xAD93, 'respawn', 5);
+
+        label('integrateY');
+        emit(0xA5, 0xC7, 0x85, 0x00, 0x18, 0xA5, 0xC4, 0x65, 0xC8, 0x85, 0xC4,
+            0xAD, 0x1E, 0x04, 0x65, 0x00, 0x8D, 0x1E, 0x04);
+        absolute(0x4C, 'extendY');
+        hook(0x9995, 'integrateY');
+        // The spring uses a separate signed integer addition, not $9995.
+        label('springY');
+        emit(0x85, 0x00, 0x18, 0x6D, 0x1E, 0x04, 0x8D, 0x1E, 0x04);
+        label('extendY');
+        emit(0xA5, 0x00); branch(0x30, 'negativeY');
+        emit(0xA5, high, 0x69, 0x00); absolute(0x4C, 'storeYHigh');
+        label('negativeY'); emit(0xA5, high, 0x69, 0xFF);
+        label('storeYHigh'); emit(0x85, high, 0xAD, 0x1E, 0x04, 0x60);
+        hook(0x9CA2, 'springY', 7, 0x20);
+        label('stepY');
+        emit(0xAD, 0x1E, 0x04); branch(0xD0, 'stepYLow'); emit(0xC6, high);
+        label('stepYLow'); emit(0xCE, 0x1E, 0x04, 0x60);
+        hook(0x97DF, 'stepY', 3, 0x20);
+        label('initY'); emit(0x8D, 0x1E, 0x04, 0xA9, 0x00, 0x85, high, 0x60);
+        hook(0x9B20, 'initY', 3, 0x20);
+        label('boundsY');
+        emit(0xA5, high); branch(0x30, 'aboveBounds'); branch(0xD0, 'belowBounds');
+        emit(0xAD, 0x1E, 0x04, 0xC9, 0xD5); branch(0x90, 'aboveBounds');
+        label('belowBounds'); absolute(0x4C, 0xB9A1);
+        label('aboveBounds'); absolute(0x4C, 0x945A);
+        hook(0x9863, 'boundsY');
+
+        // Player-only probes use the body, not just the anchor. Above-map
+        // feet can reach row 0 and support a player at signed Y=-8.
+        label('collision');
+        emit(0xA5, high); branch(0xF0, 'onscreenCollision');
+        emit(0xC9, 0xFF); branch(0xD0, 'noCollision');
+        emit(0xAD, 0x1E, 0x04, 0xC9, 0xF8); branch(0x90, 'noCollision');
+        emit(0xA5, 0x42, 0xC9, 0x02); branch(0x90, 'noCollision');
+        branch(0xF0, 'topFeet');
+        // Horizontal body probes touch row 0 only at anchors -7..-1.
+        emit(0xAD, 0x1E, 0x04, 0xC9, 0xF9); branch(0xB0, 'normalCollision');
+        absolute(0x4C, 'noCollision');
+        label('topFeet');
+        // $9BE3 adds one to its probe. Account for that input wrapping
+        // from $FF to $00 before the native +7 foot offset is applied.
+        emit(0xA5, 0x02, 0xCD, 0x1E, 0x04); branch(0x90, 'normalCollision');
+        emit(0x18, 0x69, 0x07); branch(0xB0, 'normalCollision');
+        absolute(0x4C, 'noCollision');
+        label('onscreenCollision');
+        emit(0xA5, 0x42, 0xC9, 0x01); branch(0xD0, 'normalCollision');
+        // $9BD5 subtracts one from Y before calling us: at Y=0 its
+        // probe is already $FF, even though the player's high byte is zero.
+        emit(0xAD, 0x1E, 0x04); branch(0xF0, 'noCollision');
+        emit(0xA5, 0x02, 0xC9, 0x08); branch(0x90, 'noCollision');
+        label('normalCollision'); emit(0x86, 0x3F, 0x84, 0x40); absolute(0x4C, 0x8F61);
+        label('noCollision'); emit(0xA9, 0x00, 0x85, 0x41, 0x85, 0x44, 0x18, 0x60);
+        hook(0x8F5D, 'collision', 4);
+        // Horizontal probes near the top still touch visible row 0. Clip
+        // their -8 start and test one row, instead of wrapping to row 15.
+        label('probeY');
+        emit(0xA5, high); branch(0xF0, 'nativeProbeY');
+        emit(0xA5, 0x42, 0xC9, 0x03); branch(0x90, 'nativeProbeY');
+        emit(0xA9, 0x01, 0x85, 0x05, 0xA9, 0x00, 0x85, 0x02, 0x60);
+        label('nativeProbeY');
+        emit(0x18); // The high-byte guard changed C; native ADC starts clear.
+        emit(0xBD, 0x63, 0xBF); branch(0x30, 'negativeProbe');
+        emit(0x65, 0x02, 0x85, 0x02, 0x60);
+        label('negativeProbe'); emit(0x65, 0x02); branch(0xB0, 'storeProbe');
+        emit(0xA9, 0x01, 0x85, 0x05, 0xA9, 0x00);
+        label('storeProbe'); emit(0x85, 0x02, 0x60);
+        hook(0x8FA7, 'probeY', 7, 0x20);
+
+        // Raw tile lookups outside the common player collision routine.
+        label('tileAction'); emit(0xA5, high); branch(0xD0, 'return');
+        absolute(0x20, 0x98AE); absolute(0x4C, 0x9873);
+        hook(0x9870, 'tileAction');
+        label('ledge'); emit(0xA5, high); branch(0xD0, 'noLedge');
+        emit(0xAD, 0x1E, 0x04, 0xC9, 0x0A); branch(0x90, 'noLedge');
+        emit(0x38, 0xA5, 0xC2); absolute(0x4C, 0x9C3F);
+        label('noLedge'); emit(0xA9, 0x00, 0x85, 0xA7);
+        label('return'); emit(0x60);
+        hook(0x9C3C, 'ledge');
+        label('ladder'); absolute(0x20, 'feetInMap'); branch(0x90, 'noLadder');
+        emit(0x38, 0xA5, 0xC2); absolute(0x4C, 0x9F7B);
+        label('noLadder'); emit(0x18, 0x60);
+        hook(0x9F78, 'ladder');
+        label('spring'); absolute(0x20, 'feetInMap'); branch(0x90, 'noSpring');
+        emit(0xA9, 0xFA, 0x85, 0x06); absolute(0x4C, 0x9D0E);
+        label('noSpring'); emit(0x18, 0x60);
+        hook(0x9D0A, 'spring', 4);
+        label('punch'); emit(0xA5, high); branch(0xD0, 'noPunch');
+        absolute(0x20, 0xA2C2); absolute(0x4C, 0x95FD);
+        label('noPunch'); emit(0xA9, 0x00, 0x85, 0x55, 0x60);
+        hook(0x95FA, 'punch');
+        // Guard these call sites to retain the native routines' prologues.
+        label('platform'); absolute(0x20, 'feetInMap'); branch(0x90, 'skipPlatform');
+        absolute(0x20, 0xA68B); label('skipPlatform'); emit(0x60);
+        hook(0x94E2, 'platform', 3, 0x20);
+        label('bomb'); emit(0xA5, high); branch(0xD0, 'skipBomb');
+        absolute(0x20, 0xA318); label('skipBomb'); emit(0x60);
+        hook(0x95BF, 'bomb', 3, 0x20);
+        label('specialContact'); emit(0xA5, high); branch(0xD0, 'skipContact');
+        absolute(0x20, 0xB2AA); label('skipContact'); emit(0x60);
+        hook(0x8B6F, 'specialContact', 3, 0x20);
+        label('enemyContact'); emit(0xA5, high); branch(0xD0, 'noEnemyContact');
+        emit(0xA5, 0xC2, 0x85, 0x00); absolute(0x4C, 0xB037);
+        label('noEnemyContact'); emit(0x18, 0x60);
+        hook(0xB033, 'enemyContact', 4);
+        label('door'); emit(0x48, 0xA5, high); branch(0xD0, 'noDoor');
+        emit(0x68, 0x48, 0xA5, 0x43); absolute(0x4C, 0xB805);
+        label('noDoor'); emit(0x68, 0x60);
+        hook(0xB802, 'door');
+
+        // The crumbling-floor routine probes Y+8 and Y+24: at Y=-8 both
+        // points are valid first/second map rows even with an offscreen body.
+        label('feetInMap'); emit(0xA5, high); branch(0xF0, 'validFeet');
+        emit(0xC9, 0xFF); branch(0xD0, 'invalidFeet');
+        emit(0xAD, 0x1E, 0x04, 0xC9, 0xF8, 0x60);
+        label('validFeet'); emit(0x38, 0x60);
+        label('invalidFeet'); emit(0x18, 0x60);
+
+        // Guard at OAM construction, after every view/pause sprite update.
+        // X projection and the selected horizontal camera stay native.
+        label('oam'); emit(0xA5, high); branch(0xF0, 'normalOam');
+        emit(0xA9, 0x00, 0x8D, 0x00, 0x04, 0x8D, 0x11, 0x04);
+        label('normalOam'); emit(0xA5, 0x23, 0x18); absolute(0x4C, 0x88D6);
+        hook(0x88D3, 'oam');
+
+        if(base + bytes.length > limit) throw new Error('Coordinate patch exceeds reserved bank 7 space');
+        for(const ref of references){
+            const destination = typeof ref.destination === 'string' ? labels.get(ref.destination) : ref.destination;
+            if(destination === undefined) throw new Error(`Unknown coordinate label: ${ref.destination}`);
+            if(ref.relative){
+                const delta = destination - (base + ref.offset + 1);
+                if(delta < -128 || delta > 127) throw new Error('Coordinate branch is out of range');
+                bytes[ref.offset] = delta & 0xFF;
+            }else{ bytes[ref.offset] = destination & 0xFF; bytes[ref.offset + 1] = destination >> 8; }
+        }
+        Romfix.fixCodeInsert(romData, file(base), bytes);
+        for(const entry of hooks){
+            const destination = labels.get(entry.name);
+            Romfix.fixCodeInsert(romData, file(entry.address),
+                [entry.opcode, destination & 0xFF, destination >> 8, ...Array(entry.size - 3).fill(0xEA)]);
+        }
+        Romfix.fixWideScreenEnemyRespawn(romData);
     }
     static resetTile7SupportFallPatch(romData){
         romData[0x3FA1] = 0x01;
@@ -115,15 +302,6 @@ class Romfix{
                 romData[page1Addr + offset] = romData[index];
                 romData[page2Addr + offset] = romData[index];
             }
-        }
-    }
-
-    //Fix bug where player dies when reaching max height, using some code space I believe is unused
-    static fixPlayerDeathBug(romData){
-        const fixedCode = [0x18, 0xA5, 0xC4, 0x65, 0xC8, 0x85, 0xC4, 0xAD, 0x1E, 0x04, 0x65, 0xC7, 0x24, 0xC7, 0x10, 0x06, 0xC9, 0xD5, 0x90, 0x02, 0xA9, 0x00, 0x8D, 0x1E, 0x04, 0x60];
-        const codeAddr = 0x19A5;
-        for(let i = codeAddr; i< codeAddr + fixedCode.length; i++){
-            romData[i] = fixedCode[i - codeAddr];
         }
     }
 
@@ -659,7 +837,6 @@ class Romfix{
             [0x8A3A, '202EDA'],
             [0x8B0F, '20F9BC'],
             [0x8B8E, 'A51EC950B0032020CA'],
-            [0x8C7E, '20B983'],
             [0x8ECE, '6500AA'],
             [0x90B0, '998006'],
             [0xA507, 'A51EC920'],
@@ -711,6 +888,8 @@ class Romfix{
         // Restore the main-title initializer and the ending-state jump target.
         restore(0x838E, [0x20, 0x2E, 0xDA]);
         restore(0x8A35, [0xE8, 0xC5]);
+        restore(0x8C10, [0x20, 0xB9, 0x83]);
+        restore(0x8C7E, [0x20, 0xB9, 0x83]);
 
         // Restore the original pause early-return test.
         restore(0x8B4F, [0xA5, 0x32, 0xF0]);
@@ -819,6 +998,9 @@ class Romfix{
         const resetCameraCpuAddr = 0xFF60;
         const mainTitleResetCpuAddr = 0xFF6D;
         const endingResetCpuAddr = 0xFF73;
+        // Expansion loaders end at $F0D1; the bank-safe NMI starts at $F0E2.
+        // $FF79-$FF7F belongs to the rescue HUD and must remain untouched.
+        const gameOverResetCpuAddr = 0xF0D2;
 
         /**
          * CPU $FF60-$FF78: shared non-gameplay camera reset and two wrappers.
@@ -847,6 +1029,19 @@ class Romfix{
             0x20, 0x60, 0xFF,       // endingReset: JSR resetCamera
             0x4C, 0xE8, 0xC5,       // JMP original ending-state handler
         ]);
+
+        Romfix.fixCodeInsert(romData, fixedBankRomAddr(gameOverResetCpuAddr), [
+            0x20, 0x60, 0xFF,       // JSR resetCamera
+            0x4C, 0xB9, 0x83,       // JMP original game-over setup
+        ]);
+
+        // $8C10 is death substate 3: clear the stage before consuming a life
+        // and eventually drawing CONTINUE/PASSWORD. $8C7E is the later password
+        // display, not the menu entry. Reset BEFORE either native screen setup,
+        // regardless of whether runtime UP switching is enabled.
+        for(const cpu of [0x8C10, 0x8C7E]){
+            patchBank0(cpu, [0x20, gameOverResetCpuAddr & 0xFF, gameOverResetCpuAddr >> 8]);
+        }
 
         // Main title: reset before its first background/graphics setup call.
         patchBank0(0x838E, [
@@ -1374,8 +1569,6 @@ class Romfix{
         branch(0x10, 'queueMirrorAddress');
         emit(0x9D, 0x00, 0x03, 0xE8, 0xC8);
         absolute(0x4C, 'queueScan');
-        label('gameOverReset');
-        emit(0x20, 0x60, 0xFF, 0x4C, 0xB9, 0x83);
 
         // Walk every counted segment once, including rejected commands. $00
         // records a non-6 command or an address outside $2000-$2FFF. Return
@@ -1509,7 +1702,6 @@ class Romfix{
         hook(0xB867, 0x4C, 'doorAnimation');
         hook(0x8B0F, 0x4C, 'initializeEnemySlot');
         patch(0xBD39, [0x86, 0x31, 0xCA, 0x60]); // Save native slot, return.
-        hook(0x8C7E, 0x20, 'gameOverReset');
         for(const cpu of [0xA507, 0xA868]){
             hook(cpu, 0x20, 'backgroundQueueCheck');
             patch(cpu + 3, [0xEA]); // Replace the fourth byte of LDA/CMP.

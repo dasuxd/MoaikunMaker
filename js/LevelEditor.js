@@ -12,7 +12,7 @@ class LevelEditor {
         
         // Special object positions
         this.playerPos = null;  // {x, y}
-        this.doorPos = null;    // {x, y}
+        this.doorPos = null;    // {x, y}, ROM-compatible top-left corner
         
         // Enemy list [{id, x, y}, ...]
         this.enemies = [];
@@ -719,8 +719,7 @@ class LevelEditor {
         if (x >= 0 && x < Config.GRID_WIDTH && y >= 0 && y < Config.GRID_HEIGHT) {
             this.mouseGridPos = { x, y };
             
-            // First row shows prohibition marker
-            if (y === 0 && this.currentTool) {
+            if (this.currentTool && this.isProhibitedArea(x, y)) {
                 document.getElementById('mousePos').textContent = `(${x}, ${y}) - Placement prohibited`;
             } else {
                 document.getElementById('mousePos').textContent = `(${x}, ${y})`;
@@ -800,7 +799,10 @@ class LevelEditor {
             isProhibitedArea = true;
         }
 
-        if(this.isWideScreen === false && this.currentTool === 'door' && (x === (Config.GRID_WIDTH / 2 -1))){
+        // The cursor anchors the bottom-left cell of the 2x2 door.
+        const doorWidth = this.isWideScreen ? Config.GRID_WIDTH : Config.GRID_WIDTH / 2;
+        if(this.currentTool === 'door' &&
+            (x < 0 || x + 1 >= doorWidth || y < 1 || y >= Config.GRID_HEIGHT)){
             warningMessage = i18n.t('prohibitedDoorAreaWarning');
             isProhibitedArea = true;
         }
@@ -868,8 +870,8 @@ class LevelEditor {
             // Place player
             this.playerPos = { x, y };
         } else if (this.currentTool === 'door') {
-            // Place door
-            this.doorPos = { x, y };
+            // Keep saved coordinates at the top-left; place upward from the cursor.
+            this.doorPos = { x, y: y - 1 };
         } else if (this.currentTool === 'eraser') {
             // Execute erase operation
             this.performErase(x, y);
@@ -1188,12 +1190,13 @@ class LevelEditor {
         
         // Door is 2x2 cells, needs special handling
         if (this.currentTool === 'door') {
+            const previewY = y - 1;
             // Draw 2x2 highlight box
             this.ctx.strokeStyle = '#FFD700';
             this.ctx.lineWidth = 2;
             this.ctx.strokeRect(
                 x * Config.TILE_SIZE,
-                y * Config.TILE_SIZE,
+                previewY * Config.TILE_SIZE,
                 Config.TILE_SIZE * 2,
                 Config.TILE_SIZE * 2
             );
@@ -1204,7 +1207,7 @@ class LevelEditor {
                 this.ctx.drawImage(
                     this.images.get(Config.DOOR),
                     x * Config.TILE_SIZE,
-                    y * Config.TILE_SIZE,
+                    previewY * Config.TILE_SIZE,
                     Config.TILE_SIZE * 2,
                     Config.TILE_SIZE * 2
                 );
