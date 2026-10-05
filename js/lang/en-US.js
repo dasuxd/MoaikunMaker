@@ -33,6 +33,8 @@ const translations_enUS = {
     'dragToMove': 'Drag to Move',
     'operations': 'Operations',
     'gameConfig': 'Game Config',
+    'customLevelAuthor': 'Custom level author',
+    'customLevelAuthorHint': 'English letters and spaces only. Displayed in uppercase in the game. Leave blank to skip the ending credit page.',
     'selectScene': 'Select Scene',
     'scene': 'Scene',
     'wideScene': '📺 Wide Screen',

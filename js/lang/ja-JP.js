@@ -33,6 +33,8 @@ const translations_jaJP = {
     'dragToMove': 'ドラッグで移動',
     'operations': '操作',
     'gameConfig': 'ゲーム設定',
+    'customLevelAuthor': '自作ステージ作者',
+    'customLevelAuthorHint': '英字と半角スペースのみ。ゲーム内では大文字で表示されます。空欄の場合、エンディングの作者ページは追加されません。',
     'selectScene': 'シーン選択',
     'scene': 'シーン',
     'wideScene': '📺 ワイドスクリーン',

@@ -354,6 +354,18 @@
                                         <span data-i18n="cameraFollow">📷 上键切换视角</span>
                                     </label>
                                 </div>
+                                <div class="game-config-author">
+                                    <label for="customLevelAuthorInput" data-i18n="customLevelAuthor">自制关卡署名</label>
+                                    <div class="game-config-author-field">
+                                        <input type="text" id="customLevelAuthorInput" pattern="[A-Za-z ]*"
+                                            autocomplete="off" spellcheck="false"
+                                            aria-describedby="customLevelAuthorHint customLevelAuthorLength">
+                                        <span id="customLevelAuthorLength" aria-live="polite"></span>
+                                    </div>
+                                    <p class="game-config-hint" id="customLevelAuthorHint" data-i18n="customLevelAuthorHint">
+                                        仅支持英文字母和空格，游戏中显示为大写。留空则不追加结尾署名页。
+                                    </p>
+                                </div>
                                 <p class="game-config-hint" id="cameraFollowHint" data-i18n="cameraFollowHint">
                                     按上键平滑切换视角，支持单屏和双屏；蝙蝠横向循环。尚未经过大量测试，请谨慎使用。
                                 </p>

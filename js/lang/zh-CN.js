@@ -33,6 +33,8 @@ const translations_zhCN = {
     'dragToMove': '拖动移动',
     'operations': '操作',
     'gameConfig': '游戏配置',
+    'customLevelAuthor': '自制关卡署名',
+    'customLevelAuthorHint': '仅支持英文字母和空格，游戏中显示为大写。留空则不追加结尾署名页。',
     'selectScene': '选择场景',
     'scene': '场景',
     'wideScene': '📺 宽场景',

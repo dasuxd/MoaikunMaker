@@ -45,7 +45,90 @@ class Romfix{
         }
         if(cameraFollow) Romfix.addViewModes(romData, isExpanded);
         Romfix.fixExtendedCoordinates(romData, isExpanded);
+        Romfix.configureCustomLevelCredit(romData, isExpanded, gameConfig.customLevelAuthor);
         Romfix.addMoaikunMakerLabel(romData);
+    }
+
+    /**
+     * Append a text page after all six native staff entries, before KONAMI.
+     * $B5=4 is the native logo phase. Its $BC=0 entry shows our page first;
+     * $BC=5 waits on the existing $BD timer, then enters native $C914.
+     * Native logo substates 1–4, staff data, music and ending animation stay
+     * untouched. Fixed bank 7 $F800–$F9FF is relocated, cleared level storage;
+     * coordinate helpers end at $F800 and pause helpers start at $FED9.
+     */
+    static configureCustomLevelCredit(romData, isExpanded, value) {
+        const file = cpu => cpu - 0x8000 + 0x10 + (isExpanded ? 6 * 0x4000 : 0);
+        // Remove an earlier export's hook even when the new name is blank.
+        Romfix.fixCodeInsert(romData, file(0xC905), [0xA5, 0xBC, 0x20, 0x0D, 0x83]);
+        const author = Config.normalizeCustomLevelAuthor(value).trim().toUpperCase();
+        if (!author) return;
+        if (!isExpanded) throw new Error('Custom level credits require an expanded ROM');
+        const base = 0xF800, limit = 0xFA00;
+        if (romData.subarray(file(base), file(limit)).some(byte => byte !== 0))
+            throw new Error('Reserved ending-credit area in bank 7 is occupied');
+
+        const text = [];
+        const columns = Config.CREDIT_SCREEN_WIDTH / Config.CREDIT_GLYPH_WIDTH;
+        const row = (line, value) => {
+            const address = 0x2000 + line * columns + Math.floor((columns - value.length) / 2);
+            text.push(0x06, address >> 8, address & 0xFF, value.length,
+                ...Array.from(value, letter => letter === ' ' ? 0 : letter.charCodeAt(0) - 0x36), 0xFF);
+        };
+        row(12, 'CUSTOM LEVEL DESIGN');
+        row(16, author);
+
+        const bytes = [], labels = new Map(), references = [];
+        const emit = (...values) => bytes.push(...values);
+        const label = name => labels.set(name, base + bytes.length);
+        const branch = (op, name) => { emit(op, 0); references.push({at: bytes.length - 1, name, relative: true}); };
+        const address = (op, name) => { emit(op, 0, 0); references.push({at: bytes.length - 2, name}); };
+
+        emit(0xA5, 0xBC);                // LDA logo substate
+        branch(0xF0, 'show');             // BEQ show our page
+        emit(0xC9, 0x05);
+        branch(0xF0, 'resume');           // BEQ resume original logo setup
+        emit(0x20, 0x0D, 0x83);          // Native indexed dispatch
+        emit(0x14, 0xC9, 0x26, 0xC9, 0xC0, 0xC9, 0xC8, 0xC9, 0xD0, 0xC9);
+
+        label('show');
+        emit(0x20, 0xB9, 0x83,          // Clear background (native)
+             0x20, 0xED, 0x89,          // Hide ending entities (native)
+             0xA9, 0x00, 0x85, 0x2F,   // Keep native ending graphics bank 0
+             0xA9, 0x00, 0x85, 0xFC,   // No vertical scroll on our text page
+             0x20, 0x60, 0xFF,          // Shared camera reset, also for wide maps
+             // Bank 0's $1000 pattern table contains the complete A–Z font.
+             // Its $0000 ending font omits several letters. Entities are hidden.
+             0xA5, 0xFF, 0x29, 0xE0, 0x09, 0x10, 0x85, 0xFF,
+             0xA0, 0x22, 0x20, 0x26, 0xD6, // Native ending palette
+             0xA6, 0x1E, 0xA0, 0x00);  // Append to native VRAM queue
+        label('copy');
+        address(0xB9, 'text');           // LDA text,Y
+        emit(0x9D, 0x00, 0x03, 0xE8, 0xC8, 0xC0, text.length);
+        branch(0xD0, 'copy');
+        emit(0x86, 0x1E,
+             0xA9, 0x3C, 0x85, 0xBD,   // 60 ticks × 4 frames = four seconds
+             0xA9, 0x05, 0x85, 0xBC, 0x60);
+        label('resume');
+        emit(0xA5, 0xFF, 0x29, 0xE0, 0x09, 0x08, 0x85, 0xFF, // Native pattern tables
+             0xA9, 0x00, 0x85, 0xBC, 0x4C, 0x14, 0xC9);
+        label('text');
+        emit(...text);
+
+        for (const ref of references) {
+            const target = labels.get(ref.name);
+            if (ref.relative) {
+                const distance = target - (base + ref.at + 1);
+                if (distance < -128 || distance > 127) throw new Error('Ending-credit branch out of range');
+                bytes[ref.at] = distance & 0xFF;
+            } else {
+                bytes[ref.at] = target & 0xFF;
+                bytes[ref.at + 1] = target >> 8;
+            }
+        }
+        if (base + bytes.length > limit) throw new Error('Ending-credit patch exceeds reserved space');
+        Romfix.fixCodeInsert(romData, file(base), bytes);
+        Romfix.fixCodeInsert(romData, file(0xC905), [0x4C, base & 0xFF, base >> 8, 0xEA, 0xEA]);
     }
 
     /**

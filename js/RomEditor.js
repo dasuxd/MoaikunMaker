@@ -25,7 +25,8 @@ class RomEditor {
         this.gameConfig = {
             disableTimer: false,
             showRemainingRescueCount: true,
-            cameraFollow: false
+            cameraFollow: false,
+            customLevelAuthor: ''
         };
     }
 
@@ -629,7 +630,8 @@ class RomEditor {
                 config.showRemainingRescueCount === undefined
                     ? true
                     : Boolean(config.showRemainingRescueCount),
-            cameraFollow: Boolean(config.cameraFollow)
+            cameraFollow: Boolean(config.cameraFollow),
+            customLevelAuthor: Config.normalizeCustomLevelAuthor(config.customLevelAuthor)
         };
     }
 

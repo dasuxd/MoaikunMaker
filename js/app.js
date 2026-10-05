@@ -396,6 +396,21 @@ class App {
             });
         }
 
+        const customLevelAuthorInput = document.getElementById('customLevelAuthorInput');
+        if (customLevelAuthorInput) {
+            customLevelAuthorInput.maxLength = Config.CUSTOM_LEVEL_AUTHOR_MAX_LENGTH;
+            customLevelAuthorInput.addEventListener('input', (e) => {
+                const input = e.target;
+                const caret = input.selectionStart;
+                const prefix = input.value.slice(0, caret ?? input.value.length);
+                this.updateGameConfig('customLevelAuthor', input.value);
+                if (caret !== null) {
+                    const position = Config.normalizeCustomLevelAuthor(prefix).length;
+                    input.setSelectionRange(position, position);
+                }
+            });
+        }
+
 
 
         // Clear cache button
@@ -475,7 +490,7 @@ class App {
     updateGameConfig(key, value) {
         this.romEditor.setGameConfig({
             ...this.romEditor.getGameConfig(),
-            [key]: Boolean(value)
+            [key]: value
         });
         this.syncGameConfigControls();
 
@@ -502,6 +517,15 @@ class App {
         }
         if (cameraFollowCheckbox) {
             cameraFollowCheckbox.checked = gameConfig.cameraFollow;
+        }
+        const customLevelAuthorInput = document.getElementById('customLevelAuthorInput');
+        if (customLevelAuthorInput) {
+            customLevelAuthorInput.maxLength = Config.CUSTOM_LEVEL_AUTHOR_MAX_LENGTH;
+            customLevelAuthorInput.value = gameConfig.customLevelAuthor;
+        }
+        const authorLength = document.getElementById('customLevelAuthorLength');
+        if (authorLength) {
+            authorLength.textContent = `${gameConfig.customLevelAuthor.length}/${Config.CUSTOM_LEVEL_AUTHOR_MAX_LENGTH}`;
         }
     }
 

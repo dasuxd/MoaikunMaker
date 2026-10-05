@@ -22,7 +22,7 @@ test(`${marked ? 'versioned' : 'legacy'} cache migration, override and base repl
     if(!marked)legacy.fill(0,0x18010,0x1801A);
     const levels=editor.exportLevelsData().slice(0,2).reverse();levels.forEach((l,i)=>l.index=i);
     levels[0].data[0]=2;
-    const project={levels,levelCount:2,romType:0,gameConfig:{cameraFollow:true,disableTimer:true,showRemainingRescueCount:false}};
+    const project={levels,levelCount:2,romType:0,gameConfig:{cameraFollow:true,disableTimer:true,showRemainingRescueCount:false,customLevelAuthor:'QA AUTHOR'}};
     const drafts=[LevelFile.createLevelRecord(levels[1].data,levels[1].monsterData,{id:'qa-draft',name:'Retained draft'})];
     const server=http.createServer((req,res)=>{
         let target=path.resolve(root,'.'+decodeURIComponent(new URL(req.url,'http://localhost').pathname));

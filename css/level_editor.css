@@ -297,6 +297,36 @@ h1 {
     line-height: 1.55;
 }
 
+.game-config-author {
+    margin-top: 14px;
+    color: #555;
+    font-size: 13px;
+}
+
+.game-config-author-field {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 7px;
+}
+
+.game-config-author-field input {
+    flex: 1;
+    min-width: 0;
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #cbd3dc;
+    border-radius: 4px;
+    font: inherit;
+}
+
+.game-config-author-field span {
+    flex: 0 0 auto;
+    color: #888;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+
 .tool-tabs {
     display: flex;
     gap: 5px;

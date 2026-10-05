@@ -5,6 +5,21 @@ class Config{
     static TILE_SIZE = 32;
     static DEBUG_MODE = false;
     static LEVEL_TYPE_COUNT = 12;
+    // One 8px glyph per tile on the 256px ending screen, with a 16px
+    // horizontal margin on either side to keep names clear of overscan.
+    static CREDIT_SCREEN_WIDTH = 256;
+    static CREDIT_GLYPH_WIDTH = 8;
+    static CREDIT_HORIZONTAL_MARGIN = 16;
+    static CUSTOM_LEVEL_AUTHOR_MAX_LENGTH = Math.floor(
+        (Config.CREDIT_SCREEN_WIDTH - 2 * Config.CREDIT_HORIZONTAL_MARGIN) /
+        Config.CREDIT_GLYPH_WIDTH
+    );
+
+    static normalizeCustomLevelAuthor(value) {
+        return typeof value === 'string'
+            ? value.replace(/[^A-Za-z ]/g, '').slice(0, Config.CUSTOM_LEVEL_AUTHOR_MAX_LENGTH)
+            : '';
+    }
     
 
     static ADDRESS_TABLE_START = 0x5841;
