@@ -57,8 +57,9 @@ test('real browser remembers settings and records across reload, restart, failed
         await appPage.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'
             ? route.continue() : route.fulfill({contentType:'application/javascript',body:'window.LA={init(){}};'}));
         await appPage.goto(url.replace('/fixture','/index.html'));
-        await appPage.waitForSelector('#ramRecorderControls',{state:'attached'});
-        assert.equal(await appPage.locator('#ramRecordingEnabled').isChecked(),false);
+        assert.equal(await appPage.locator('#ramRecorderControls').count(),0);
+        assert.equal(await appPage.locator('#ramRecorderDialog').count(),0);
+        assert.equal(await appPage.evaluate(()=>typeof RamRecorder),'undefined');
         await appPage.close();
         assert.equal(await page.locator('#ramRecordingEnabled').isChecked(),false);
         await page.evaluate(()=>makeTestEmulator());
