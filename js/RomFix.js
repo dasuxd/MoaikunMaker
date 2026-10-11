@@ -54,7 +54,7 @@ class Romfix{
      * $B5=4 is the native logo phase. Its $BC=0 entry shows our page first;
      * $BC=5 waits on the existing $BD timer, then enters native $C914.
      * Native logo substates 1–4, staff data, music and ending animation stay
-     * untouched. Fixed bank 7 $F800–$F9FF is relocated, cleared level storage;
+     * untouched. Fixed bank 7 $F800–$FCFF is relocated, cleared level storage;
      * coordinate helpers end at $F800 and pause helpers start at $FED9.
      */
     static configureCustomLevelCredit(romData, isExpanded, value) {
@@ -64,25 +64,55 @@ class Romfix{
         const author = Config.normalizeCustomLevelAuthor(value).trim().toUpperCase();
         if (!author) return;
         if (!isExpanded) throw new Error('Custom level credits require an expanded ROM');
-        const base = 0xF800, limit = 0xFA00;
+        const base = 0xF800, limit = 0xFD00;
         if (romData.subarray(file(base), file(limit)).some(byte => byte !== 0))
             throw new Error('Reserved ending-credit area in bank 7 is occupied');
 
         const text = [];
         const columns = Config.CREDIT_SCREEN_WIDTH / Config.CREDIT_GLYPH_WIDTH;
-        const row = (line, value) => {
+        const row = (line, value, font = 0x0B) => {
             const address = 0x2000 + line * columns + Math.floor((columns - value.length) / 2);
             text.push(0x06, address >> 8, address & 0xFF, value.length,
-                ...Array.from(value, letter => letter === ' ' ? 0 : letter.charCodeAt(0) - 0x36), 0xFF);
+                ...Array.from(value, letter => letter === ' ' ? 0 : font + letter.charCodeAt(0) - 0x41), 0xFF);
         };
-        row(12, 'CUSTOM LEVEL DESIGN');
-        row(16, author);
+        row(7, 'THANKS TO KONAMI');
+        row(9, 'FOR CREATING MOAI KUN');
+        row(14, 'CUSTOM LEVELS DESIGNED BY');
+        row(16, author, 0x80);
+        row(21, 'CREATED WITH');
+        row(23, 'MOAI KUN MAKER', 0x80);
+
+        // The original staff names use centered 8px glyphs in 8x16 sprite
+        // tiles ($16/$17 = A, $18/$19 = B, ...). Move their eight visible
+        // rows into background tiles $80–$99, so even a 28-letter name is
+        // complete without the NES's eight-sprites-per-scanline limit.
+        const font = [];
+        for (let letter = 0; letter < 26; letter++) {
+            const source = 0x8010 + (0x16 + letter * 2) * 16;
+            const ink = Array.from({length:8}, (_, y) => {
+                const nativeY = y + 4;
+                const at = source + (nativeY >> 3) * 16 + (nativeY & 7);
+                // Native sprite palette 2 draws index 2 white and index 3
+                // black. Preserve the visible white strokes, not the black
+                // cutouts inside them, when remapping to background ink.
+                return romData[at + 8] & ~romData[at];
+            });
+            // Palette index 2 is the native ending's white foreground.
+            font.push(...Array(8).fill(0), ...ink);
+        }
+        const originalFont = romData.slice(0x9810, 0x9810 + font.length);
 
         const bytes = [], labels = new Map(), references = [];
         const emit = (...values) => bytes.push(...values);
         const label = name => labels.set(name, base + bytes.length);
         const branch = (op, name) => { emit(op, 0); references.push({at: bytes.length - 1, name, relative: true}); };
         const address = (op, name) => { emit(op, 0, 0); references.push({at: bytes.length - 2, name}); };
+        const loadFont = name => {
+            emit(0xA9, 0, 0x85, 0x00, 0xA9, 0, 0x85, 0x01);
+            references.push({at:bytes.length - 7, name, byte:'low'},
+                {at:bytes.length - 3, name, byte:'high'});
+            address(0x20, 'uploadFont');
+        };
 
         emit(0xA5, 0xBC);                // LDA logo substate
         branch(0xF0, 'show');             // BEQ show our page
@@ -100,20 +130,41 @@ class Romfix{
              // Bank 0's $1000 pattern table contains the complete A–Z font.
              // Its $0000 ending font omits several letters. Entities are hidden.
              0xA5, 0xFF, 0x29, 0xE0, 0x09, 0x10, 0x85, 0xFF,
-             0xA0, 0x22, 0x20, 0x26, 0xD6, // Native ending palette
-             0xA6, 0x1E, 0xA0, 0x00);  // Append to native VRAM queue
+             0xA0, 0x22, 0x20, 0x26, 0xD6); // Native ending palette
+        loadFont('nameFont');
+        emit(0xA6, 0x1E, 0xA0, 0x00);  // Append to native VRAM queue
         label('copy');
         address(0xB9, 'text');           // LDA text,Y
         emit(0x9D, 0x00, 0x03, 0xE8, 0xC8, 0xC0, text.length);
         branch(0xD0, 'copy');
         emit(0x86, 0x1E,
-             0xA9, 0x3C, 0x85, 0xBD,   // 60 ticks × 4 frames = four seconds
+             0xA9, 0xE1, 0x85, 0xBD,   // 225 ticks × 4 frames = fifteen seconds
              0xA9, 0x05, 0x85, 0xBC, 0x60);
         label('resume');
+        loadFont('originalFont');       // Restore CHR RAM before native logo/title
         emit(0xA5, 0xFF, 0x29, 0xE0, 0x09, 0x08, 0x85, 0xFF, // Native pattern tables
              0xA9, 0x00, 0x85, 0xBC, 0x4C, 0x14, 0xC9);
+
+        label('uploadFont');
+        // Use native rendering/NMI suspension for a bounded 416-byte upload.
+        // Code and both font copies stay in the fixed bank throughout.
+        emit(0x20, 0x2D, 0x81,
+             0xA9, 0x18, 0x8D, 0x06, 0x20, 0xA9, 0x00, 0x8D, 0x06, 0x20,
+             0xA0, 0x00);
+        label('fontPage');
+        emit(0xB1, 0x00, 0x8D, 0x07, 0x20, 0xC8);
+        branch(0xD0, 'fontPage');
+        emit(0xE6, 0x01);
+        label('fontTail');
+        emit(0xB1, 0x00, 0x8D, 0x07, 0x20, 0xC8, 0xC0, 0xA0);
+        branch(0xD0, 'fontTail');
+        emit(0x4C, 0x0C, 0x81);
         label('text');
         emit(...text);
+        label('nameFont');
+        emit(...font);
+        label('originalFont');
+        emit(...originalFont);
 
         for (const ref of references) {
             const target = labels.get(ref.name);
@@ -121,6 +172,8 @@ class Romfix{
                 const distance = target - (base + ref.at + 1);
                 if (distance < -128 || distance > 127) throw new Error('Ending-credit branch out of range');
                 bytes[ref.at] = distance & 0xFF;
+            } else if (ref.byte) {
+                bytes[ref.at] = ref.byte === 'low' ? target & 0xFF : target >> 8;
             } else {
                 bytes[ref.at] = target & 0xFF;
                 bytes[ref.at + 1] = target >> 8;
