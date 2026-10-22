@@ -363,6 +363,102 @@ test('native background queue checks preserve registers and reduce narrow mirror
     }
 });
 
+test('falling keeps its quota while rescues yield to an upcoming fire redraw', () => {
+    const nes = syntheticMachine(), cpu = nes.cpu, m = cpu.mem;
+    const cases = [
+        { active: 0, timer: 2, phase: 0, draws: false },
+        { active: 1, timer: 0, phase: 0, draws: false },
+        { active: 1, timer: 1, phase: 0, draws: false },
+        { active: 1, timer: 2, phase: 0, draws: true },
+        { active: 1, timer: 2, phase: 14, draws: true }, // Last draw erases the fire.
+        { active: 1, timer: 2, phase: 15, draws: false }, // Handoff draws nothing.
+        { active: 1, timer: 254, phase: 0, draws: true },
+        { active: 1, timer: 255, phase: 0, draws: false }, // Native INC wraps to zero.
+    ];
+    for (const slot of [0, 7]) for (const wide of [0, 1]) for (const view of [0, 1]) {
+        m.fill(0, 0x4FE, 0x586);
+        m[0x4FE + slot] = 9;
+        m[0x3D] = wide;
+        m[0x2A] = view;
+        for (const state of cases) for (const length of [0, 15, 16, 32]) {
+            m[0x506 + slot] = state.active;
+            m[0x566 + slot] = state.timer;
+            m[0x57E + slot] = state.phase;
+            const enemyState = m.slice(0x4FE, 0x586);
+            for (const hook of [0xA507, 0xA868]) {
+                m[0x1E] = length;
+                cpu.REG_X = 0x5A;
+                cpu.REG_Y = 0xA5;
+                call(nes, target(m, hook));
+                assert.equal(cpu.REG_ACC, length);
+                assert.equal(cpu.REG_X, 0x5A);
+                assert.equal(cpu.REG_Y, 0xA5);
+                const yieldsToFire = hook === 0xA868 && state.draws;
+                assert.equal(cpu.F_CARRY, Number(wide ? length >= 32 : length >= 16 || yieldsToFire),
+                    `slot=${slot}, wide=${wide}, view=${view}, queue=${length}, ${JSON.stringify(state)}`);
+                assert.deepEqual(m.slice(0x4FE, 0x586), enemyState,
+                    'reservation does not advance fire timing, length, collision or handoff');
+            }
+        }
+    }
+});
+
+test('busy narrow fire ticks retain state and execute the native collision path', () => {
+    const nes = syntheticMachine(), cpu = nes.cpu, m = cpu.mem;
+    // Separate stand-ins for native progression and its normal collision-only
+    // path. Carry must reach the enemy loop unchanged, including a collision.
+    m.splice(0xB9C7, 4, 0xE6, 0x05, 0x18, 0x60);
+    m.splice(0xB9E1, 4, 0xE6, 0x06, 0x38, 0x60);
+    for (const wide of [0, 1]) for (const view of [0, 1]) for (const active of [0, 1]) {
+        for (const timer of [0, 1, 2, 255]) for (const phase of [0, 14, 15]) {
+            for (const length of [0, 16, 17, 38, 48]) {
+                m[0x3D] = wide;
+                m[0x2A] = view;
+                m[0x1E] = length;
+                m[0x506 + 7] = active;
+                m[0x566 + 7] = timer;
+                m[0x57E + 7] = phase;
+                m[0x05] = m[0x06] = 0;
+                cpu.REG_X = 7;
+                cpu.REG_Y = 0xA5;
+                const state = m.slice(0x506, 0x586);
+                call(nes, target(m, 0xA97C));
+                const deferred = !wide && length >= 17 && active && timer === 2 && phase < 15;
+                assert.equal(m[0x05], Number(!deferred), 'native progression runs whenever its packet fits');
+                assert.equal(m[0x06], Number(Boolean(deferred)), 'a held flame still checks damage');
+                assert.equal(cpu.F_CARRY, Number(Boolean(deferred)), 'native collision carry reaches the caller');
+                assert.equal(cpu.REG_X, 7);
+                assert.equal(cpu.REG_Y, 0xA5);
+                assert.equal(m[0x1E], length);
+                assert.deepEqual(m.slice(0x506, 0x586), state);
+            }
+        }
+    }
+});
+
+test('busy narrow frames defer scene decorations and disabling views restores their native call', () => {
+    const nes = syntheticMachine(), m = nes.cpu.mem;
+    // Stand in for the complete native decoration tick; a deferred call must
+    // not advance any of its slot timers or frames.
+    m.splice(0xD8D9, 3, 0xE6, 0x05, 0x60);
+    for (const wide of [0, 1]) for (const view of [0, 1]) for (const length of [0, 16, 31, 32, 50, 80]) {
+        m[0x3D] = wide;
+        m[0x2A] = view;
+        m[0x1E] = length;
+        m[0x05] = 0;
+        call(nes, target(m, 0x8B81));
+        assert.equal(m[0x05], Number(wide || length < 32));
+        assert.equal(m[0x1E], length);
+    }
+    const data = new Uint8Array(0x20010);
+    Romfix.addViewModes(data, true);
+    Romfix.resetViewModesPatch(data, true);
+    assert.deepEqual(Array.from(data.slice(0x8B81 - 0x8000 + 16, 0x8B84 - 0x8000 + 16)),
+        [0x20, 0xD9, 0xD8], 'feature-off exports retain the native decoration update');
+    assert.deepEqual(Array.from(data.slice(0xA97C - 0x8000 + 16, 0xA97F - 0x8000 + 16)),
+        [0x20, 0xC7, 0xB9], 'feature-off exports restore native fire progression');
+});
+
 // Optional full-ROM regressions. Never commit the user-supplied ROM or embed
 // its bytes in fixtures. Set MOAIKUN_TEST_ROM to an original ROM's local path.
 const romPath = process.env.MOAIKUN_TEST_ROM;
@@ -974,7 +1070,9 @@ realTest('native rescue scanner pauses before mutation and resumes at the next u
 });
 
 realTest('stage 1 palette updates preserve the original ground tiles in both runtime views', () => {
-    const ground = nes => nes.ppu.nameTable[0].tile.slice(768, 800);
+    // CHR packing relocates scenery indices; compare their actual patterns.
+    const ground = (nes, page = 0) => nes.ppu.nameTable[page].tile.slice(768, 800).flatMap(tile =>
+        nes.ppu.vramMem.slice(0x1000 + tile * 16, 0x1010 + tile * 16));
     const baseline = ground(start(original, 0));
     for (const expanded of [true]) for (const view of [0, 1]) {
         const editor = new RomEditor();
@@ -997,7 +1095,7 @@ realTest('stage 1 palette updates preserve the original ground tiles in both run
         for (let f = 0; f < 60; f++) {
             nes.frame();
             assert.deepEqual(ground(nes), baseline, 'live palette updates preserve the ground');
-            assert.deepEqual(nes.ppu.nameTable[1].tile.slice(768, 800), baseline,
+            assert.deepEqual(ground(nes, 1), baseline,
                 'the repeated page also retains its ground');
         }
         assert.ok(paletteWrites > 0, 'the regression exercises actual palette updates');

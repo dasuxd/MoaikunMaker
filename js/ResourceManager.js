@@ -48,7 +48,7 @@ class ResourceManager{
         return this.romLevelTypeImg[levelType].get(resourceKey);
     }
 
-    async parseRomImgSync(romData, imgInfo, colorStyle, levelType, metatileoffset){
+    async parseRomImgSync(romData, imgInfo, colorStyle, levelType, metatileoffset, sourceBaseAddr = null){
         // 存储解析后的图像数据
         this.parsedImages = [];
 
@@ -60,7 +60,15 @@ class ResourceManager{
         }else if(levelType === 7 || levelType === 8 || levelType === 0xD){
             baseAddr += 0x4000;
         }
-
+        if (sourceBaseAddr !== null) {
+            baseAddr = sourceBaseAddr;
+        } else if (typeof Romfix !== 'undefined' && Romfix.getScenePatternData) {
+            const patterns = Romfix.getScenePatternData(romData, levelType);
+            if (patterns) {
+                romData = patterns;
+                baseAddr = imgInfo.isSprite ? 0 : 0x1000;
+            }
+        }
 
         // 遍历 imgBlockIndex 获取 tile 索引
         const flattenedTiles = [];
@@ -257,6 +265,8 @@ class ResourceManager{
                 if(itemConfig.isSprite || key === 'enemy_9' || key === 'door'){
                     if(key === 'player'){
                         color = palette.slice(16,  20);
+                    }else if(key === 'enemy_9'){
+                        color = palette.slice(4, 8);
                     }else if(key === 'door'){
                         color = palette.slice(24,  28);
                     }else{
@@ -267,24 +277,15 @@ class ResourceManager{
                     let index = parseInt(key.split("_")[1]);
                     if(index){
                         color = palette.slice(colorIndex[index] * 4, colorIndex[index] * 4 + 4);
-                        //TODO
-                        // scene 4 offset in game should be 14
-                        // scene 6 offset in game shoule be XX  I think it's a discarded design in original game
-                        //
-                        
                         if(index < 4){
-                            if(levelType === 0){
-                                metatileoffset = 4;
-                            }else if(levelType === 2){
-                                metatileoffset = 8;
-                            }else if(levelType === 3){
-                                metatileoffset = 12;
-                            }else if(levelType === 4){
-                                metatileoffset = 16;
-                            }else if(levelType === 6){
-                                metatileoffset = -9;
-                            }else if(levelType === 11){
-                                metatileoffset = 4;
+                            // Current exports use $60-$6B in every scene.
+                            // Native and first-version exports retain their
+                            // source base table, including theme variants.
+                            const version = typeof Romfix !== 'undefined' &&
+                                Romfix.getSceneGraphicsVersion?.(romData);
+                            if (!version || version < 2) {
+                                const address = app.romEditor.getRomAddrByOriginalRomAddr(0x3FE4 + levelType);
+                                metatileoffset = (romData[address] - 0x60) / 2;
                             }
                         }
                     }else{
@@ -293,7 +294,25 @@ class ResourceManager{
                     
                 }
 
-                let img = await parseRomImg(romData, itemConfig, color, levelType, metatileoffset);
+                let img;
+                if (key === 'enemy_12') {
+                    // Runtime graphics share $AA-$B1. Read the preserved native
+                    // artwork for previews, including older Maker ROM bases.
+                    const frames = Romfix.getFlightSpriteFrames(romData, levelType === 4);
+                    const previewConfig = {
+                        ...itemConfig,
+                        imgBlockIndex: itemConfig.imgBlockIndex.map(row =>
+                            row.map(tile => ({ ...tile, index: tile.index - 0xAA })))
+                    };
+                    img = await this.parseRomImgSync(frames, previewConfig, color, levelType, 0, 0);
+                } else if (key === 'enemy_9') {
+                    // The fire-breathing statue uses background palette 1.
+                    // Read preserved castle source art across both layouts.
+                    img = await this.parseRomImgSync(romData, itemConfig,
+                        color, levelType, 0, 0xF010);
+                } else {
+                    img = await parseRomImg(romData, itemConfig, color, levelType, metatileoffset);
+                }
                 levelImgs.set(key, img);
             }
 
@@ -315,7 +334,10 @@ class ResourceManager{
             }else if(i === 7 || i === 8 || i === 0xD){
                 imgPageAddr += 0x4000;
             }
-            const bgImg = this.renderBgImage(romData, bgDatas[i], imgPageAddr);
+            const patterns = typeof Romfix !== 'undefined' &&
+                Romfix.getScenePatternData?.(romData, i);
+            const bgImg = this.renderBgImage(patterns || romData, bgDatas[i],
+                patterns ? 0x1000 : imgPageAddr);
              
             // 等待图片创建完成
             const img = await this.createImage(bgImg.pixels, bgImg.width, bgImg.height);
@@ -396,7 +418,8 @@ class ResourceManager{
         //一个字节对应一块大块 所以应该是 8 * 7 = 56 个字节
         //const bgAttributeData = [0xF];
         // 将 romData[colorDataAddr] 之后的16 个值放入bgAttributeData；
-        const indexColor = romData.slice(bgAttributeAddr, bgAttributeAddr + 0xf);
+        const blockCount = levelType === 7 || levelType === 8 ? 32 : 16;
+        const indexColor = romData.slice(bgAttributeAddr, bgAttributeAddr + blockCount);
         const bgAttributeData = new Array(32 * 28).fill(0);
         //const lineNum = 8 * 4;
         for(let j = 0; j < 7; j++){
@@ -589,9 +612,10 @@ class ResourceManager{
         let tileIndexAddr = romData[tileIndexAddrAddr + 1] * 0x100 + romData[tileIndexAddrAddr];
         //tileIndexAddr = tileIndexAddr - 0x8000 + 0x0010;
         tileIndexAddr = app.romEditor.getRomAddressFromOriginalCpuAddress(tileIndexAddr);
-        //不管原本多少个都拼16个。
+        // Castle layouts use 5-bit block indices, including blocks 16-31.
         const tileCombines = [];
-        for(let tileIndex = 0; tileIndex < 16; tileIndex++){
+        const blockCount = levelType === 7 || levelType === 8 ? 32 : 16;
+        for(let tileIndex = 0; tileIndex < blockCount; tileIndex++){
 
             const sigleTile = [];
             for(let j = 0; j < 4; j++){

@@ -164,7 +164,7 @@ class Config{
                 [{index: 0xAE, reverse: false}, {index: 0xB0, reverse: false}, {index: 0xB6, reverse: false}, {index: 0xB8, reverse: false}],
                 [{index: 0xAF, reverse: false}, {index: 0xB1, reverse: false}, {index: 0xB7, reverse: false}, {index: 0xB9, reverse: false}],
             ],
-            disabledLevelType:[],
+            disabledLevelType:[0, 1, 2, 3, 4, 5, 6, 9, 10, 11],
             name: "Enemy 7"
         },
         'enemy_8':{
@@ -196,7 +196,7 @@ class Config{
                 [{index: 0xE4, reverse: false}, {index: 0xE5, reverse: false}],
                 [{index: 0xE6, reverse: false}, {index: 0xE7, reverse: false}],
             ],
-            disabledLevelType:[0, 1, 2, 3, 4, 5, 6, 9, 10, 11],
+            disabledLevelType:[],
             name: "Enemy 9"
         },
         'enemy_10':{
@@ -219,15 +219,16 @@ class Config{
             disabledLevelType:[],
             name: "Enemy 11"
         },
-        // crashes when enable these enemies
-        // 'enemy_12':{
-        //     isSprite: true,
-        //     imgBlockIndex:[
-        //         [{index: 0xA0, reverse: false}, {index: 0xA2, reverse: false}],
-        //         [{index: 0xA1, reverse: false}, {index: 0xA3, reverse: false}],
-        //     ],
-        //     disabledLevelType:[]
-        // },
+        'enemy_12':{
+            isSprite: true,
+            imgBlockIndex:[
+                [{index: 0xAA, reverse: false}, {index: 0xAC, reverse: false}],
+                [{index: 0xAB, reverse: false}, {index: 0xAD, reverse: false}],
+            ],
+            disabledLevelType:[7, 8],
+            name: "Enemy 12"
+        },
+        // These remaining types have no native enemy implementation.
         // 'enemy_13':{
         //     isSprite: true,
         //     imgBlockIndex:[
@@ -267,8 +268,8 @@ class Config{
         'tile_1':{
             isSprite: false,
             imgBlockIndex:[
-                [{index: 0x6C, reverse: false}, {index: 0x6E, reverse: false}],
-                [{index: 0x6D, reverse: false}, {index: 0x6F, reverse: false}],
+                [{index: 0x60, reverse: false}, {index: 0x62, reverse: false}],
+                [{index: 0x61, reverse: false}, {index: 0x63, reverse: false}],
             ],
             disabledLevelType:[6, 11],
             name: "Tile 1"
@@ -276,8 +277,8 @@ class Config{
         'tile_2':{
             isSprite: false,
             imgBlockIndex:[
-                [{index: 0x70, reverse: false}, {index: 0x72, reverse: false}],
-                [{index: 0x71, reverse: false}, {index: 0x73, reverse: false}],
+                [{index: 0x64, reverse: false}, {index: 0x66, reverse: false}],
+                [{index: 0x65, reverse: false}, {index: 0x67, reverse: false}],
             ],
             disabledLevelType:[6, 11],
             name: "Tile 2"
@@ -285,8 +286,8 @@ class Config{
         'tile_3':{
             isSprite: false,
             imgBlockIndex:[
-                [{index: 0x74, reverse: false}, {index: 0x76, reverse: false}],
-                [{index: 0x75, reverse: false}, {index: 0x77, reverse: false}],
+                [{index: 0x68, reverse: false}, {index: 0x6A, reverse: false}],
+                [{index: 0x69, reverse: false}, {index: 0x6B, reverse: false}],
             ],
             disabledLevelType:[4, 6, 7, 8, 11],
             name: "Tile 3"

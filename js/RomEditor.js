@@ -566,6 +566,9 @@ class RomEditor {
 
         //3、 CHR
         newRomData.set(this.romData.subarray(0x8010, 0x10010), 0x8010);
+        // Scene layouts in exported ROMs contain relocated decoration tiles.
+        // Rebuild from their preserved source definitions on every export.
+        Romfix.restoreSceneGraphicsSource(newRomData, this.romData);
         
         //4、 handle levels
         // level data

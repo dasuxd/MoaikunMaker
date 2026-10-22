@@ -415,7 +415,7 @@ class LevelEditor {
      */
     createEnemyButtons() {
         const container = document.getElementById('enemyButtons');
-        for (let i = 1; i <= 11; i++) {
+        for (let i = 1; i <= 12; i++) {
             const btn = this.createButton("enemy", container, `Enemy ${i}`, i);
             this.enemyBtns.push(btn);
         }
@@ -786,6 +786,16 @@ class LevelEditor {
 
     // Prohibited placement area
     isProhibitedArea(x, y, isDragging = true) {
+
+        // A selected enemy tool can outlive a scene change.
+        if (this.currentTool === 'enemy' && this.currentEnemyId !== null) {
+            const enemyConfig = Config.RESOURCE_IMG_CONFIG[
+                Config.ENEMY_PREFIX + Enemy.getRealId(this.currentEnemyId)
+            ];
+            if (enemyConfig?.disabledLevelType.includes(Number(this.currentBgId))) {
+                return true;
+            }
+        }
 
         let isProhibitedArea = false;
         let warningMessage = '';

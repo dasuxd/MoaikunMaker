@@ -1,4 +1,246 @@
 class Romfix{
+    // Gameplay background pattern-table ABI. The final interval is reserved
+    // in every scene; new background tiles and 8x16 sprites may share it.
+    static SCENE_GRAPHICS_LAYOUT = Object.freeze({
+        version: 2, foregroundStart: 0x60, enemy9Start: 0x6C,
+        scene8MetatileStart: 0x96, scene8SingleStart: 0xA2,
+        reservedBackgroundStart: 0xBC, reservedBackgroundEnd: 0x100
+    });
+    static SCENE_GRAPHICS_ENEMY9_TILES = Object.freeze(
+        Array.from({length: 44}, (_, index) => 0xD2 + index)
+            .filter(tile => tile !== 0xED && tile !== 0xF0)
+    );
+    static SCENE_GRAPHICS_SOURCE_TABLES = Object.freeze([
+        Object.freeze({cpu: 0xBFD4, length: 12}),
+        Object.freeze({cpu: 0xC03B, length: 0x56}),
+        Object.freeze({cpu: 0xBDA1, length: 0x50})
+    ]);
+
+    static getSceneGraphicsVersion(data) {
+        const signature = [0x53, 0x43, 0x45, 0x4E, 0x45, 0x43, 0x48, 0x52]; // SCENECHR
+        if (!signature.every((value, index) => data[0x18020 + index] === value)) return 0;
+        const version = data[0x18028];
+        if (version !== 1 && version !== 2) throw new Error('Unsupported scene graphics version');
+        return version;
+    }
+
+    static getSceneGraphicsSourceTables(source) {
+        const tables = [];
+        for (const {cpu, length} of Romfix.SCENE_GRAPHICS_SOURCE_TABLES) {
+            const address = cpu - 0x8000 + 0x10 + (cpu >= 0xC000 ? 6 * 0x4000 : 0);
+            tables.push(...source.subarray(address, address + length));
+        }
+        return Uint8Array.from(tables);
+    }
+
+    /** Restore editable definitions before rebuilding a previously compiled ROM. */
+    static restoreSceneGraphicsSource(target, source) {
+        const version = Romfix.getSceneGraphicsVersion(source);
+        if (!version) return false;
+        const fixed = cpu => 0x1C010 + cpu - 0xC000;
+        target.set(source.slice(0x18110, 0x18990), fixed(0xCCF2));
+        target.set([1, 1, 1, 1, 1, 2, 2, 3, 3, 2, 2, 2], fixed(0xD821));
+        if (version >= 2) {
+            let backup = 0x18030;
+            for (const {cpu, length} of Romfix.SCENE_GRAPHICS_SOURCE_TABLES) {
+                const address = cpu - 0x8000 + 0x10 + (cpu >= 0xC000 ? 6 * 0x4000 : 0);
+                target.set(source.slice(backup, backup + length), address);
+                backup += length;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Build twelve independent CHR-RAM images without changing the source.
+     * Original CHR pages stay at $8010-$1000F. Shared background-definition
+     * tables share one relocation map, so their tile references remain valid.
+     */
+    static buildSceneGraphics(romData) {
+        if (romData.length < 0x20010) throw new Error('Scene graphics require an expanded ROM');
+        const source = romData.slice();
+        Romfix.restoreSceneGraphicsSource(source, romData);
+        const layout = Romfix.SCENE_GRAPHICS_LAYOUT;
+        const fixed = cpu => 0x1C010 + cpu - 0xC000;
+        const address = cpu => cpu < 0xC000 ? cpu - 0x8000 + 0x10 : fixed(cpu);
+        const word = cpu => source[fixed(cpu)] | source[fixed(cpu) + 1] << 8;
+        const range = (start, end) => Array.from({ length: end - start + 1 }, (_, i) => start + i);
+        const patternKey = bytes => Array.from(bytes).join(',');
+        const graphicsPages = [1, 1, 1, 1, 1, 2, 2, 3, 3, 2, 2, 2];
+        const groups = new Map();
+        const patchValues = new Map();
+        const scenes = graphicsPages.map((page, scene) => {
+            const definitions = word(0xCCB2 + scene * 2);
+            const backgroundLayout = fixed(word(0xCAD2 + scene * 2));
+            const definitionAddresses = new Set();
+            const staticTiles = new Set();
+            const wide = scene === 7 || scene === 8;
+            for (let index = 0; index < (wide ? 56 : 28); index++) {
+                const value = source[backgroundLayout + index];
+                const entries = wide ? [value] : [value >> 4, value & 15];
+                for (const entry of entries) {
+                    const start = fixed(definitions) + entry * 16;
+                    for (let offset = 0; offset < 16; offset++) {
+                        definitionAddresses.add(start + offset);
+                        staticTiles.add(source[start + offset]);
+                    }
+                }
+            }
+            const patterns = new Uint8Array(0x2000);
+            const sourceStart = 0x8010 + page * 0x2000;
+            const original = source.slice(sourceStart, sourceStart + 0x2000);
+            const spriteTiles = new Set(scene === 7 || scene === 8
+                ? range(0, 0xFF) : [...range(0, 0xA9), ...range(0xE0, 0xFF)]);
+            for (const tile of spriteTiles) patterns.set(original.subarray(tile * 16, tile * 16 + 16), tile * 16);
+            if (scene !== 7 && scene !== 8) {
+                patterns.set(Romfix.getFlightSpriteFrames(source, scene === 4), 0xAA0);
+                for (let tile = 0xAA; tile <= 0xB1; tile++) spriteTiles.add(tile);
+            }
+
+            const backgroundTiles = new Set(), fixedKeys = new Map();
+            const copyBackground = (bytes, to) => {
+                patterns.set(bytes, 0x1000 + to * 16);
+                backgroundTiles.add(to);
+                fixedKeys.set(to, patternKey(bytes));
+            };
+            const originalBackground = tile => original.subarray(0x1000 + tile * 16, 0x1010 + tile * 16);
+            // Native metatiles and odd 8x16 sprite tiles also reference this region.
+            for (const tile of [0, ...range(2, 0x59), 0x5F]) copyBackground(originalBackground(tile), tile);
+            const foreground = source[address(0xBFD4) + scene];
+            for (let index = 0; index < 12; index++) {
+                copyBackground(originalBackground(foreground + index), layout.foregroundStart + index);
+            }
+            Romfix.SCENE_GRAPHICS_ENEMY9_TILES.forEach((tile, index) => {
+                const start = 0xF010 + tile * 16;
+                copyBackground(source.subarray(start, start + 16), layout.enemy9Start + index);
+            });
+            if (scene === 8) {
+                for (let index = 0; index < 12; index++) {
+                    copyBackground(originalBackground(0x7B + index), layout.scene8MetatileStart + index);
+                }
+                for (let index = 0; index < 3; index++) {
+                    copyBackground(originalBackground(0xCD + index), layout.scene8SingleStart + index);
+                }
+            }
+            const result = { scene, patterns, spriteTiles, backgroundTiles, fixedKeys,
+                originalBackground, staticTiles, definitionAddresses };
+            if (!groups.has(definitions)) groups.set(definitions, []);
+            groups.get(definitions).push(result);
+            return result;
+        });
+
+        for (const group of groups.values()) {
+            const tiles = [...new Set(group.flatMap(scene => [...scene.staticTiles]))].sort((a, b) => a - b);
+            const nodes = new Map(), tileNodes = new Map();
+            for (const tile of tiles) {
+                // A shared definition can still be used with different source CHR pages.
+                const key = group.map(scene => patternKey(scene.originalBackground(tile))).join('|');
+                if (!nodes.has(key)) nodes.set(key, { tile, scenes: new Set(), mask: 0 });
+                const node = nodes.get(key);
+                tileNodes.set(tile, node);
+                for (const scene of group) if (scene.staticTiles.has(tile)) {
+                    node.scenes.add(scene);
+                    node.mask |= 1 << scene.scene;
+                }
+            }
+            const candidates = range(0, layout.reservedBackgroundStart - 1);
+            const available = candidates.filter(tile => group.every(scene => !scene.fixedKeys.has(tile)));
+            const extra = [];
+            for (const node of nodes.values()) {
+                node.target = candidates.find(tile => [...node.scenes].every(scene =>
+                    scene.fixedKeys.get(tile) === patternKey(scene.originalBackground(node.tile))));
+                if (node.target === undefined) extra.push(node);
+            }
+            // Different decorations may share a slot when their scenes never coexist.
+            // The deterministic first-fit coloring needs no backtracking or scene exceptions.
+            extra.sort((a, b) => b.scenes.size - a.scenes.size || a.tile - b.tile);
+            const occupancy = [];
+            for (const node of extra) {
+                let color = occupancy.findIndex(mask => !(mask & node.mask));
+                if (color < 0) { color = occupancy.length; occupancy.push(0); }
+                if (color >= available.length) throw new Error('Not enough free background tiles for scene graphics');
+                occupancy[color] |= node.mask;
+                node.target = available[color];
+            }
+            for (const scene of group) {
+                for (const tile of scene.staticTiles) {
+                    const target = tileNodes.get(tile).target;
+                    scene.patterns.set(scene.originalBackground(tile), 0x1000 + target * 16);
+                    scene.backgroundTiles.add(target);
+                }
+                for (const fileAddr of scene.definitionAddresses) {
+                    const target = tileNodes.get(source[fileAddr]).target;
+                    if (target !== source[fileAddr]) patchValues.set(fileAddr, target);
+                }
+            }
+        }
+
+        for (let scene = 0; scene < 12; scene++) patchValues.set(address(0xBFD4) + scene, layout.foregroundStart);
+        const enemy9 = new Map(Romfix.SCENE_GRAPHICS_ENEMY9_TILES.map((tile, index) => [tile, layout.enemy9Start + index]));
+        for (const [cpu, length] of [[0xC07B, 16], [0xBDA1, 0x50]]) {
+            for (let index = 0; index < length; index++) {
+                const fileAddr = address(cpu) + index, value = enemy9.get(source[fileAddr]);
+                if (value !== undefined) patchValues.set(fileAddr, value);
+            }
+        }
+        for (const [cpu, count, oldStart, newStart] of [
+            [0xC06B, 12, 0x7B, layout.scene8MetatileStart],
+            [0xC08E, 3, 0xCD, layout.scene8SingleStart]
+        ]) for (let index = 0; index < count; index++) {
+            const fileAddr = address(cpu) + index, oldTile = source[fileAddr];
+            if (oldTile >= oldStart && oldTile < oldStart + count) patchValues.set(fileAddr, newStart + oldTile - oldStart);
+        }
+        const builtScenes = scenes.map(({ scene, patterns, spriteTiles, backgroundTiles }) => ({
+            scene, patterns,
+            usedSpriteTiles: [...spriteTiles].sort((a, b) => a - b),
+            usedBackgroundTiles: [...backgroundTiles].sort((a, b) => a - b),
+            freeSpriteTiles: range(0, 0xFF).filter(tile => !spriteTiles.has(tile)),
+            freeBackgroundTiles: range(0, 0xFF).filter(tile => !backgroundTiles.has(tile))
+        }));
+        return {
+            scenes: builtScenes, patches: [...patchValues].map(([fileAddr, value]) => ({ fileAddr, value })),
+            sourceDefinitions: source.slice(fixed(0xCCF2), fixed(0xD572)),
+            sourceTables: Romfix.getSceneGraphicsSourceTables(source), layout
+        };
+    }
+
+    /** Store deduplicated 256-byte CHR pages and a 32-page list per scene. */
+    static compileSceneGraphics(romData) {
+        const built = Romfix.buildSceneGraphics(romData);
+        const pages = [], pageIndexes = new Map(), manifest = new Uint8Array(12 * 32);
+        for (const { scene, patterns } of built.scenes) {
+            for (let page = 0; page < 32; page++) {
+                const pixels = patterns.slice(page * 256, (page + 1) * 256);
+                const key = Array.from(pixels).join(',');
+                if (!pageIndexes.has(key)) {
+                    pageIndexes.set(key, pages.length);
+                    pages.push(pixels);
+                }
+                manifest[scene * 32 + page] = pageIndexes.get(key);
+            }
+        }
+        if (pages.length > 116) throw new Error(`Scene graphics exceed the 116-page pool (${pages.length})`);
+        romData.fill(0, 0x14010, 0x18010);
+        romData.fill(0, 0x18C10, 0x1C010);
+        pages.forEach((page, index) => romData.set(page,
+            index < 64 ? 0x14010 + index * 256 : 0x18C10 + (index - 64) * 256));
+        romData.set([0x53, 0x43, 0x45, 0x4E, 0x45, 0x43, 0x48, 0x52,
+            Romfix.SCENE_GRAPHICS_LAYOUT.version], 0x18020);
+        romData.set(built.sourceTables, 0x18030);
+        romData.set(built.sourceDefinitions, 0x18110);
+        romData.set(manifest, 0x18A10);
+        for (const { fileAddr, value } of built.patches) romData[fileAddr] = value;
+        romData.set(Array.from({ length: 12 }, (_, scene) => 0x80 + scene), 0x1D831);
+        return {
+            uniquePages: pages.length,
+            layout: Romfix.SCENE_GRAPHICS_LAYOUT,
+            scenes: built.scenes.map(({ scene, usedSpriteTiles, usedBackgroundTiles, freeSpriteTiles, freeBackgroundTiles }) => ({
+                scene, usedSpriteTiles: usedSpriteTiles.length, usedBackgroundTiles: usedBackgroundTiles.length,
+                freeSpriteTiles: freeSpriteTiles.length, freeBackgroundTiles: freeBackgroundTiles.length
+            }))
+        };
+    }
+
     // Audited against the native ROM and the optional RAM observer. Native
     // $82EF clears these bytes on stage/death reset; no native live reads.
     static COORDINATE_RAM = Object.freeze({ enemySpawnPages: 0x75, enemySlots: 8, playerYHigh: 0x7D });
@@ -9,7 +251,7 @@ class Romfix{
             gameConfig.showRemainingRescueCount !== false;
         const cameraFollow = Boolean(gameConfig.cameraFollow);
 
-        Romfix.backupUnusedImages(romData);
+        Romfix.backupUnusedImages(romData, isExpanded);
         // Always remove the optional bundle first, including on old exports.
         Romfix.resetViewModesPatch(romData, isExpanded);
         // Keep the reset so commenting out the next call also restores ROMs
@@ -45,8 +287,113 @@ class Romfix{
         }
         if(cameraFollow) Romfix.addViewModes(romData, isExpanded);
         Romfix.fixExtendedCoordinates(romData, isExpanded);
+        Romfix.addBirdFishAuxiliary(romData, isExpanded);
         Romfix.configureCustomLevelCredit(romData, isExpanded, gameConfig.customLevelAuthor);
         Romfix.addMoaikunMakerLabel(romData);
+        if (isExpanded) {
+            Romfix.compileSceneGraphics(romData);
+            Romfix.installSceneGraphicsLoader(romData);
+        }
+    }
+
+    /**
+     * Enemy 12 is a harmless horizontal auxiliary. Its two scene-specific
+     * 16x16 frames occupy sprite tiles $AA-$B1. Native enemy-type tables end
+     * at 11, so this object bypasses their AI, collision-damage and animation
+     * dispatch while retaining map probes, movement, facing and projection.
+     * Fixed bank 7 $FD00-$FDC1 is cleared former level storage. The scene CHR
+     * uploader follows at $FDC2; pause code begins at $FED9.
+     */
+    static addBirdFishAuxiliary(romData, isExpanded = false){
+        if(!isExpanded) throw new Error('Bird/fish auxiliary requires an expanded ROM');
+        const file = cpu => cpu - 0x8000 + 0x10 + (cpu >= 0xC000 ? 6 * 0x4000 : 0);
+        const base = 0xFD00, limit = 0xFDC2;
+        if(romData.subarray(file(base), file(limit)).some(byte => byte !== 0))
+            throw new Error('Reserved bird/fish area in bank 7 is occupied');
+        const bytes = [], labels = new Map(), references = [];
+        const emit = (...values) => bytes.push(...values);
+        const label = name => labels.set(name, base + bytes.length);
+        const absolute = (opcode, destination) => {
+            emit(opcode); references.push({at: bytes.length, destination}); emit(0, 0);
+        };
+        const branch = (opcode, destination) => {
+            emit(opcode); references.push({at: bytes.length, destination, relative: true}); emit(0);
+        };
+
+        label('dispatch');
+        emit(0xC9, 0x0C); branch(0xF0, 'update');
+        emit(0xC9, 0x09); branch(0xF0, 'nativeFace');
+        absolute(0x4C, 0xA982);
+        label('nativeFace'); absolute(0x4C, 0xA97C);
+
+        label('update');
+        // Ignore enemy-only stun/death effects and hold the authored height.
+        emit(0xA9, 0x01, 0x9D, 0x06, 0x05,
+            0xA9, 0x00, 0x9D, 0x4E, 0x05, 0x9D, 0x6F, 0x04,
+            0xBD, 0x76, 0x05, 0x0A, 0x0A, 0x0A, 0x0A, 0x09, 0x08,
+            0x9D, 0x33, 0x04, 0x85, 0x02,
+            0xBD, 0x16, 0x05, 0x85, 0x00,
+            0xBD, 0x0E, 0x05, 0x85, 0x01);
+        absolute(0x20, 0x9330);
+        emit(0xBD, 0x56, 0x05, 0xC9, 0x04); branch(0xF0, 'right');
+        emit(0xA5, 0xAD); branch(0xF0, 'move');
+        emit(0xA5, 0xAE); branch(0xD0, 'animate');
+        absolute(0x4C, 'reverse');
+        label('right');
+        emit(0xA5, 0xAE); branch(0xF0, 'move');
+        emit(0xA5, 0xAD); branch(0xD0, 'animate');
+        label('reverse'); absolute(0x20, 0xB013);
+        label('move');
+        // The native 8.8 X integrator wraps by the actual map width.
+        emit(0xA9, 0x80, 0x9D, 0x36, 0x05,
+            0xBD, 0x56, 0x05, 0xC9, 0x04, 0xA9, 0x00);
+        branch(0xB0, 'velocity');
+        emit(0xA9, 0xFF);
+        label('velocity'); emit(0x9D, 0x2E, 0x05);
+        absolute(0x20, 0xAFB0);
+
+        label('animate');
+        emit(0xFE, 0x66, 0x05, 0xBD, 0x66, 0x05, 0xC9, 0x08);
+        branch(0x90, 'draw');
+        emit(0xA9, 0x00, 0x9D, 0x66, 0x05, 0xFE, 0x5E, 0x05,
+            0xBD, 0x5E, 0x05, 0xC9, 0x02);
+        branch(0x90, 'draw');
+        emit(0xA9, 0x00, 0x9D, 0x5E, 0x05);
+        label('draw');
+        emit(0xBD, 0x5E, 0x05, 0x18, 0x69, 0x2D, 0x9D, 0x15, 0x04);
+        absolute(0x20, 0xAF68);
+        absolute(0x20, 0xAE54);
+        absolute(0x4C, 0xA9B3);
+
+        // Add simple metasprites $2D-$2E without consuming existing entries.
+        // Each frame is two adjacent 8x16 hardware sprites; the native OAM
+        // builder still handles horizontal flipping, clipping and palettes.
+        label('render');
+        emit(0xC9, 0x2D); branch(0x90, 'nativeRender');
+        emit(0xC9, 0x2F); branch(0xB0, 'nativeRender');
+        emit(0x38, 0xE9, 0x2D, 0x0A, 0x0A, 0x18, 0x69, 0xAA, 0x85, 0x10,
+            0x18, 0x69, 0x02, 0x85, 0x11,
+            0xA9, 0x01, 0x85, 0x12, 0x85, 0x13);
+        absolute(0x4C, 0x8951);
+        label('nativeRender');
+        emit(0x0A); branch(0xB0, 'largeRender');
+        absolute(0x4C, 0x8935);
+        label('largeRender'); absolute(0x4C, 0x8991);
+
+        if(base + bytes.length > limit) throw new Error('Bird/fish patch exceeds reserved bank 7 space');
+        for(const ref of references){
+            const target = typeof ref.destination === 'string' ? labels.get(ref.destination) : ref.destination;
+            if(target === undefined) throw new Error(`Unknown bird/fish label: ${ref.destination}`);
+            if(ref.relative){
+                const delta = target - (base + ref.at + 1);
+                if(delta < -128 || delta > 127) throw new Error('Bird/fish branch is out of range');
+                bytes[ref.at] = delta & 0xFF;
+            }else{ bytes[ref.at] = target & 0xFF; bytes[ref.at + 1] = target >> 8; }
+        }
+        Romfix.fixCodeInsert(romData, file(base), bytes);
+        Romfix.fixCodeInsert(romData, file(0xA978), [0x4C, base & 0xFF, base >> 8, 0xEA]);
+        const render = labels.get('render');
+        Romfix.fixCodeInsert(romData, file(0x8932), [0x4C, render & 0xFF, render >> 8]);
     }
 
     /**
@@ -413,32 +760,47 @@ class Romfix{
         romData[0x40C6 + fixedBankShift] = 0x01;
     }
 
-    // Backup unused images.
-    static backupUnusedImages(romData){
-        let index = 0xEA70;
-        let indexEnd = 0xEE10;
-        const backupAddr = 0x8C50;
-        // If 0x8C50 is all zeros, means no backup has been made
-        let needBackup = true;
-        for(let i = backupAddr; i < backupAddr + (indexEnd - index); i++){
-            if(romData[i] !== 0x00){
-                needBackup = false;
-                break;
-            }
+    /** Read the two original 16x16 poses, including from older editor exports. */
+    static getFlightSpriteFrames(romData, isFish = false) {
+        const tile = isFish ? 0xB0 : 0xB8;
+        const hasBackup = romData.subarray(0x8C50, 0x8FF0).some(byte => byte !== 0);
+        const source = hasBackup
+            ? 0x8C50 + (tile - 0xA6) * 16
+            : 0xA010 + tile * 16;
+        return romData.slice(source, source + 8 * 16);
+    }
+
+    /** Decode the exact gameplay CHR image used by an exported scene. */
+    static getScenePatternData(romData, scene) {
+        if (!Romfix.getSceneGraphicsVersion(romData)) return null;
+        if (!Number.isInteger(scene) || scene < 0 || scene >= 12) return null;
+        const patterns = new Uint8Array(0x2000);
+        for (let page = 0; page < 32; page++) {
+            const chunk = romData[0x18A10 + scene * 32 + page];
+            if (chunk >= 116) throw new Error('Invalid scene graphics page');
+            const address = chunk < 64 ? 0x14010 + chunk * 256
+                : 0x18C10 + (chunk - 64) * 256;
+            patterns.set(romData.subarray(address, address + 256), page * 256);
+        }
+        return patterns;
+    }
+
+    static backupUnusedImages(romData, isExpanded = false) {
+        const backup = 0x8C50, length = 0x3A0;
+        if (!romData.subarray(backup, backup + length).some(byte => byte !== 0)) {
+            romData.set(romData.slice(0xAA70, 0xAA70 + length), backup);
         }
 
-        if(needBackup){
-            const page1Addr = 0xAA70;
-            const page2Addr = 0xCA70;
-            for(;index < indexEnd; index++){
-                let offset = index - 0xEA70;
-                // Backup address
-                romData[backupAddr + offset] = romData[page1Addr + offset];
-                // Write new data
-                romData[page1Addr + offset] = romData[index];
-                romData[page2Addr + offset] = romData[index];
-            }
-        }
+        // Stop spreading the castle boss over the unused small characters.
+        // Enemy 7 keeps its native castle graphics at $EA70-$EE0F.
+        const original = romData.slice(backup, backup + length);
+        romData.set(original, 0xAA70);
+        romData.set(original, 0xCA70);
+        const bird = Romfix.getFlightSpriteFrames(romData);
+        romData.set(bird, 0xAAB0); // Both poses use PPU tiles $AA-$B1.
+        romData.set(bird, 0xCAB0);
+
+        // Scene-specific copies are compiled into the shared page pool later.
     }
 
     /**
@@ -972,11 +1334,13 @@ class Romfix{
             [0x886C, 'E006B035'],
             [0x8A3A, '202EDA'],
             [0x8B0F, '20F9BC'],
+            [0x8B81, '20D9D8'],
             [0x8B8E, 'A51EC950B0032020CA'],
             [0x8ECE, '6500AA'],
             [0x90B0, '998006'],
             [0xA507, 'A51EC920'],
             [0xA868, 'A51EC920'],
+            [0xA97C, '20C7B9'],
             [0xB867, '20A5B7'],
             [0xBBEA, '998006'],
             [0xBD39, 'CA10BF60'],
@@ -1691,6 +2055,56 @@ class Romfix{
         label('queueSkipCommand');
         emit(0xC8);
         absolute(0x4C, 'queueScan');
+
+        // Enemies run AFTER rescues. Reserve an imminent 34-byte fire packet
+        // before admitting rescue animation. Falling objects use their own
+        // quota and run first; a busy falling frame defers fire instead.
+        // Predict the native B9C7/B9EA tick without advancing fire state or
+        // collision length. Phase 15 hands off to a face whose timer is reset,
+        // so even a later slot cannot draw again during that handoff frame.
+        label('reserveFireQueue');
+        emit(0x8A, 0x48, 0xA2, 0x07); // Save X; inspect all eight enemy slots.
+        label('checkFireSlot');
+        emit(0xBD, 0xFE, 0x04, 0xC9, 0x09);
+        branch(0xD0, 'nextFireSlot');
+        emit(0xBD, 0x06, 0x05);
+        branch(0xF0, 'nextFireSlot');
+        emit(0xBD, 0x7E, 0x05, 0xC9, 0x0F);
+        branch(0xB0, 'nextFireSlot');
+        emit(0xBD, 0x66, 0x05, 0x18, 0x69, 0x01, 0xC9, 0x03);
+        branch(0x90, 'nextFireSlot');
+        emit(0x68, 0xAA, 0xA5, 0x1E, 0x38, 0x60); // Defer, preserve A/X/Y.
+        label('nextFireSlot');
+        emit(0xCA);
+        branch(0x10, 'checkFireSlot');
+        emit(0x68, 0xAA, 0xA5, 0x1E, 0xC9, 0x10, 0x60);
+
+        // Scene-8 decorations run after enemies. Keep their staggered timers
+        // together by postponing the whole decoration tick on busy narrow
+        // frames; a rock push plus fire otherwise leaves no room for a flag.
+        label('sceneAnimationQueue');
+        emit(0xA5, 0x3D);
+        branch(0xD0, 'drawSceneAnimations');
+        emit(0xA5, 0x1E, 0xC9, 0x20);
+        branch(0xB0, 'sceneAnimationDone');
+        label('drawSceneAnimations');
+        emit(0x4C, 0xD9, 0xD8);
+        label('sceneAnimationDone');
+        emit(0x60);
+
+        // Freeze only a fire tick that would draw into a busy queue. The
+        // native off-tick path still checks damage against the unchanged,
+        // visible flame length. Idle ticks and phase-15 handoff run normally.
+        label('fireTickQueue');
+        emit(0xBD, 0x06, 0x05);
+        branch(0xF0, 'nativeFireTick');
+        emit(0xBD, 0x7E, 0x05, 0xC9, 0x0F);
+        branch(0xB0, 'nativeFireTick');
+        emit(0xBD, 0x66, 0x05, 0x18, 0x69, 0x01, 0xC9, 0x03);
+        branch(0x90, 'nativeFireTick');
+        emit(0x4C, 0xE1, 0xB9); // Native collision check, then original C/RTS.
+        label('nativeFireTick');
+        emit(0x4C, 0xC7, 0xB9);
         while(block.base + block.bytes.length < block.limit) emit(0xEA);
 
         org(0xF300, 0xF380);
@@ -1733,6 +2147,16 @@ class Romfix{
         emit(0x4C, 0x20, 0xCA);
         label('doorAnimationDone');
         emit(0x60);
+
+        label('fireQueueCheck');
+        emit(0xA5, 0x3D);
+        branch(0xD0, 'fireQueueAvailable');
+        // One existing metatile plus fire fits; a 38/48-byte fall does not.
+        emit(0xA5, 0x1E, 0xC9, 0x11);
+        branch(0x90, 'fireQueueAvailable');
+        absolute(0x4C, 'fireTickQueue');
+        label('fireQueueAvailable');
+        emit(0x4C, 0xC7, 0xB9);
         while(block.base + block.bytes.length < block.limit) emit(0xEA);
 
         // Finalize the producer queue outside the PPU transfer window.
@@ -1782,18 +2206,26 @@ class Romfix{
         absolute(0x4C, 'queueScan');
 
         org(0xF3E0, 0xF410);
-        label('backgroundQueueCheck');
+        label('rescueQueueCheck');
         // Original A868 defers a rescue draw when queue length reaches $20.
         // A816 retains $68/$69 at the unprocessed map cell, and advances $6A
         // only after finishing the scan. Reuse that scheduler, allowing one
         // 16-byte metatile packet instead of two when both pages are queued.
-        // Falling slots at A507 use the same check and retain their cursor $53.
-        // Both hooks return A=queue length and CMP carry without touching X/Y.
+        // Reserve fire before rescues, without changing native scan cursors.
+        // Both checks return A=queue length and carry without touching X/Y.
+        emit(0xA5, 0x3D);
+        branch(0xD0, 'originalBackgroundQueue');
+        emit(0xA5, 0x1E, 0xC9, 0x10);
+        branch(0xB0, 'backgroundQueueDone');
+        absolute(0x4C, 'reserveFireQueue');
+        label('backgroundQueueDone');
+        emit(0x60);
+        label('originalBackgroundQueue');
+        emit(0xA5, 0x1E, 0xC9, 0x20, 0x60);
+        label('fallingQueueCheck');
         emit(0xA5, 0x3D);
         branch(0xD0, 'originalBackgroundQueue');
         emit(0xA5, 0x1E, 0xC9, 0x10, 0x60);
-        label('originalBackgroundQueue');
-        emit(0xA5, 0x1E, 0xC9, 0x20, 0x60);
         label('paletteQueueCheck');
         // One metatile plus its second page and 32 colors fits in vblank.
         // A fall can enqueue 38/48 bytes on its own: defer CA20 on those
@@ -1838,10 +2270,12 @@ class Romfix{
         hook(0xB867, 0x4C, 'doorAnimation');
         hook(0x8B0F, 0x4C, 'initializeEnemySlot');
         patch(0xBD39, [0x86, 0x31, 0xCA, 0x60]); // Save native slot, return.
-        for(const cpu of [0xA507, 0xA868]){
-            hook(cpu, 0x20, 'backgroundQueueCheck');
+        for(const [cpu, name] of [[0xA507, 'fallingQueueCheck'], [0xA868, 'rescueQueueCheck']]){
+            hook(cpu, 0x20, name);
             patch(cpu + 3, [0xEA]); // Replace the fourth byte of LDA/CMP.
         }
+        hook(0xA97C, 0x20, 'fireQueueCheck');
+        hook(0x8B81, 0x20, 'sceneAnimationQueue');
         patch(0x8B94, [0x20, 0x20, 0xCA]); // Restore original full palette upload.
         hook(0x8B8E, 0x20, 'paletteQueueCheck');
         patch(0x8B91, [0xEA]);
@@ -1875,6 +2309,85 @@ class Romfix{
     }
 
 
+    /**
+     * Graphics IDs $80-$8B select the twelve compiled scene images. Each
+     * 32-byte manifest at bank 6 $8A00 identifies 256-byte source chunks:
+     * 0-63 are bank 5 $8000-$BFFF, 64-115 are bank 6 $8C00-$BFFF.
+     * Keep title/ending graphics ID 0 on the existing $EF80 uploader.
+     */
+    static installSceneGraphicsLoader(romData) {
+        const base = 0xFDC2, limit = 0xFED9;
+        const file = cpu => cpu - 0x8000 + 0x10 + (cpu >= 0xC000 ? 6 * 0x4000 : 0);
+        if(romData.subarray(file(base), file(limit)).some(byte => byte !== 0))
+            throw new Error('Reserved scene-graphics loader area in bank 7 is occupied');
+        const bytes = [], labels = new Map(), references = [];
+        const emit = (...values) => bytes.push(...values);
+        const label = name => labels.set(name, base + bytes.length);
+        const absolute = (opcode, target) => {
+            emit(opcode); references.push({ at: bytes.length, target }); emit(0, 0);
+        };
+        const branch = (opcode, target) => {
+            emit(opcode); references.push({ at: bytes.length, target, relative: true }); emit(0);
+        };
+
+        emit(0x48, 0xA5, 0x2F); branch(0x30, 'scene');
+        emit(0x68);
+        absolute(0x4C, 0xEF80);
+        label('scene');
+        // The uploader runs inside NMI. Preserve the two game-state bytes
+        // reused as a source pointer, as well as the caller's A/X/Y.
+        emit(0x8A, 0x48, 0x98, 0x48,
+            0xA5, 0x30, 0x48, 0xA5, 0x31, 0x48,
+            0xA9, 0x00, 0x8D, 0x00, 0x20, 0x8D, 0x01, 0x20,
+            0xAD, 0x02, 0x20,
+            0xA9, 0x00, 0x8D, 0x06, 0x20, 0x8D, 0x06, 0x20,
+            0xA2, 0x00);
+        label('chunk');
+        emit(0xA9, 0x06, 0x8D, 0x00, 0x80,
+            0xA5, 0x2F, 0x29, 0x0F, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A,
+            0x85, 0x30,
+            // Carry from scene * 32 selects manifest page $8A or $8B.
+            0xA9, 0x8A, 0x69, 0x00, 0x85, 0x31,
+            0x8A, 0xA8, 0xB1, 0x30,
+            0xC9, 0x40);
+        branch(0x90, 'bank5');
+        emit(0x38, 0xE9, 0x40, 0x18, 0x69, 0x8C, 0x85, 0x31,
+            0xA9, 0x06);
+        absolute(0x4C, 'copy');
+        label('bank5');
+        emit(0x18, 0x69, 0x80, 0x85, 0x31, 0xA9, 0x05);
+        label('copy');
+        emit(0x8D, 0x00, 0x80, 0xA9, 0x00, 0x85, 0x30, 0xA8);
+        label('page');
+        emit(0xB1, 0x30, 0x8D, 0x07, 0x20, 0xC8);
+        branch(0xD0, 'page');
+        emit(0xE8, 0xE0, 0x20); branch(0x90, 'chunk');
+        // Restore executable bank 0 before re-enabling NMI. Otherwise an
+        // immediate vblank edge could enter bank-0 code in an asset bank.
+        emit(0xA9, 0x00, 0x8D, 0x00, 0x80,
+            0xA5, 0x2F, 0x85, 0x2E,
+            0xA9, 0x1E, 0x8D, 0x01, 0x20,
+            0xA9, 0x00, 0x8D, 0x05, 0x20, 0x8D, 0x05, 0x20,
+            0xA9, 0x80, 0x8D, 0x00, 0x20,
+            0x68, 0x85, 0x31, 0x68, 0x85, 0x30,
+            0x68, 0xA8, 0x68, 0xAA, 0x68, 0x60);
+
+        if(base + bytes.length > limit) throw new Error('Scene-graphics loader exceeds reserved bank 7 space');
+        for(const ref of references) {
+            const target = typeof ref.target === 'string' ? labels.get(ref.target) : ref.target;
+            if(target === undefined) throw new Error(`Unknown scene-graphics label: ${ref.target}`);
+            if(ref.relative) {
+                const delta = target - (base + ref.at + 1);
+                if(delta < -128 || delta > 127) throw new Error('Scene-graphics branch is out of range');
+                bytes[ref.at] = delta & 0xFF;
+            } else { bytes[ref.at] = target & 0xFF; bytes[ref.at + 1] = target >> 8; }
+        }
+        Romfix.fixCodeInsert(romData, file(base), bytes);
+        // $80B2 is BEQ over this JSR; its operand at $80B3 stays intact.
+        Romfix.fixCodeInsert(romData, file(0x80B4), [0x20, base & 0xFF, base >> 8]);
+        return { start: base, end: base + bytes.length };
+    }
+
     static expandRomCode(newRomData){
         //修改头
         newRomData[0x4] = 0x08;
@@ -1902,8 +2415,8 @@ class Romfix{
             0xA5, 0x2F, 0x29, 0x01, 0xF0, 0x04, 0xA9, 0xA0, 0xD0, 0x02, 0xA9, 0x80, 0x85, 0x31, 0xA9, 0x00,
             0x85, 0x30, 0xAD, 0x02, 0x20, 0xA9, 0x00, 0x8D, 0x06, 0x20, 0x8D, 0x06, 0x20, 0xA2, 0x20, 0xA0,
             0x00, 0xB1, 0x30, 0x8D, 0x07, 0x20, 0xC8, 0xD0, 0xF8, 0xE6, 0x31, 0xCA, 0xD0, 0xF3, 0xA9, 0x1E,
-            0x8D, 0x01, 0x20, 0xA9, 0x00, 0x8D, 0x05, 0x20, 0x8D, 0x05, 0x20, 0xA9, 0x80, 0x8D, 0x00, 0x20,
-            0xA9, 0x00, 0x8D, 0x00, 0x80, 0x68, 0x85, 0x31, 0x68, 0x85, 0x30, 0x68, 0xA8, 0x68, 0xAA, 0x68,
+            0x8D, 0x01, 0x20, 0xA9, 0x00, 0x8D, 0x05, 0x20, 0x8D, 0x05, 0x20, 0xA9, 0x00, 0x8D, 0x00, 0x80,
+            0xA9, 0x80, 0x8D, 0x00, 0x20, 0x68, 0x85, 0x31, 0x68, 0x85, 0x30, 0x68, 0xA8, 0x68, 0xAA, 0x68,
             0x60,
         ];
         const fixedTitleAddr  = Romfix.fixCodeInsert(newRomData, ppuMoveCodeAddr, loadGraphicsFromPRG);

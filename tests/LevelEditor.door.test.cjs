@@ -18,7 +18,7 @@ function setup(wide = false) {
     const classes = new Function('document', 'navigator', 'i18n', 'testApp', 'Romfix',
         `${source}\napp = testApp; return {Config, Level, DataConverter, LevelFile, LevelEditor, RomEditor, App};`)(
         document, { userAgent: '' }, { t: key => key }, app,
-        { expandRomCode() {}, fixOriginalRom() {} });
+        { expandRomCode() {}, fixOriginalRom() {}, restoreSceneGraphicsSource() {} });
     const { Config, LevelEditor } = classes;
     const editor = Object.create(LevelEditor.prototype);
     const draws = [], outlines = [];
