@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
 
-test('bird/fish previews decode preserved frames in the selected scene palette', async () => {
+test('bird/fish previews decode preserved frames in the protagonist palette for every scene', async () => {
     const rom = new Uint8Array(0x20010);
     const requests = [];
     const source = ['Config', 'ResourceManager']
@@ -39,7 +39,7 @@ test('bird/fish previews decode preserved frames in the selected scene palette',
         assert.equal(requests[scene], scene === 4);
         for (const row of image.pixels) {
             for (const pixel of row) {
-                assert.equal(pixel.color, `scene-${scene}-color-${scene === 4 ? 21 : 22}`);
+                assert.equal(pixel.color, `scene-${scene}-color-${scene === 4 ? 17 : 18}`);
             }
         }
     }

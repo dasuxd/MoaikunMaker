@@ -263,7 +263,8 @@ class ResourceManager{
 
                 let metatileoffset = 0;
                 if(itemConfig.isSprite || key === 'enemy_9' || key === 'door'){
-                    if(key === 'player'){
+                    if(key === 'player' || key === 'enemy_12'){
+                        // Birds and flying fish share the protagonist's palette.
                         color = palette.slice(16,  20);
                     }else if(key === 'enemy_9'){
                         color = palette.slice(4, 8);

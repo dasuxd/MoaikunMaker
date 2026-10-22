@@ -301,6 +301,8 @@ class Romfix{
      * 16x16 frames occupy sprite tiles $AA-$B1. Native enemy-type tables end
      * at 11, so this object bypasses their AI, collision-damage and animation
      * dispatch while retaining map probes, movement, facing and projection.
+     * Rideable-platform physics live at $F600-$F7FF; native per-enemy Y
+     * velocity/action bytes are private to this type and reset with the level.
      * Fixed bank 7 $FD00-$FDC1 is cleared former level storage. The scene CHR
      * uploader follows at $FDC2; pause code begins at $FED9.
      */
@@ -310,6 +312,7 @@ class Romfix{
         const base = 0xFD00, limit = 0xFDC2;
         if(romData.subarray(file(base), file(limit)).some(byte => byte !== 0))
             throw new Error('Reserved bird/fish area in bank 7 is occupied');
+        const platform = Romfix.addBirdFishPlatform(romData);
         const bytes = [], labels = new Map(), references = [];
         const emit = (...values) => bytes.push(...values);
         const label = name => labels.set(name, base + bytes.length);
@@ -327,14 +330,13 @@ class Romfix{
         label('nativeFace'); absolute(0x4C, 0xA97C);
 
         label('update');
-        // Ignore enemy-only stun/death effects and hold the authored height.
-        emit(0xA9, 0x01, 0x9D, 0x06, 0x05,
-            0xA9, 0x00, 0x9D, 0x4E, 0x05, 0x9D, 0x6F, 0x04,
-            0xBD, 0x76, 0x05, 0x0A, 0x0A, 0x0A, 0x0A, 0x09, 0x08,
-            0x9D, 0x33, 0x04, 0x85, 0x02,
+        // Initialize once, then keep live height and the previous world X.
+        absolute(0x20, platform.init);
+        emit(0xBD, 0x16, 0x05, 0x9D, 0x26, 0x05,
+            0xBD, 0x33, 0x04, 0x85, 0x02,
             0xBD, 0x16, 0x05, 0x85, 0x00,
             0xBD, 0x0E, 0x05, 0x85, 0x01);
-        absolute(0x20, 0x9330);
+        absolute(0x20, platform.walls);
         emit(0xBD, 0x56, 0x05, 0xC9, 0x04); branch(0xF0, 'right');
         emit(0xA5, 0xAD); branch(0xF0, 'move');
         emit(0xA5, 0xAE); branch(0xD0, 'animate');
@@ -353,6 +355,7 @@ class Romfix{
         absolute(0x20, 0xAFB0);
 
         label('animate');
+        absolute(0x20, platform.update);
         emit(0xFE, 0x66, 0x05, 0xBD, 0x66, 0x05, 0xC9, 0x08);
         branch(0x90, 'draw');
         emit(0xA9, 0x00, 0x9D, 0x66, 0x05, 0xFE, 0x5E, 0x05,
@@ -373,7 +376,7 @@ class Romfix{
         emit(0xC9, 0x2F); branch(0xB0, 'nativeRender');
         emit(0x38, 0xE9, 0x2D, 0x0A, 0x0A, 0x18, 0x69, 0xAA, 0x85, 0x10,
             0x18, 0x69, 0x02, 0x85, 0x11,
-            0xA9, 0x01, 0x85, 0x12, 0x85, 0x13);
+            0xA9, 0x00, 0x85, 0x12, 0x85, 0x13); // Player sprite palette.
         absolute(0x4C, 0x8951);
         label('nativeRender');
         emit(0x0A); branch(0xB0, 'largeRender');
@@ -396,13 +399,170 @@ class Romfix{
         Romfix.fixCodeInsert(romData, file(0x8932), [0x4C, render & 0xFF, render >> 8]);
     }
 
+    /** One-way, rideable birds/fish. Two distinct landings commit one tile. */
+    static addBirdFishPlatform(romData){
+        const base = 0xF600, limit = 0xF800;
+        const file = cpu => cpu - 0x8000 + 0x10 + (cpu >= 0xC000 ? 6 * 0x4000 : 0);
+        if(romData.subarray(file(base), file(limit)).some(byte => byte !== 0))
+            throw new Error('Reserved bird/fish platform area in bank 7 is occupied');
+        const bytes = [], labels = new Map(), references = [];
+        const emit = (...values) => bytes.push(...values);
+        const label = name => labels.set(name, base + bytes.length);
+        const absolute = (opcode, destination) => {
+            emit(opcode); references.push({at: bytes.length, destination}); emit(0, 0);
+        };
+        const branch = (opcode, destination) => {
+            emit(opcode); references.push({at: bytes.length, destination, relative: true}); emit(0);
+        };
+        // $053E rider latch; $0546 committed Y; $056E temporary 8px step;
+        // $057E recovery timer; $0526 previous X for horizontal carrying.
+        label('init');
+        emit(0xBD, 0x06, 0x05); branch(0xD0, 'initialized');
+        emit(0xBD, 0x76, 0x05, 0x0A, 0x0A, 0x0A, 0x0A, 0x09, 0x08,
+            0x9D, 0x33, 0x04, 0x9D, 0x46, 0x05,
+            0xA9, 0x00, 0x9D, 0x3E, 0x05, 0x9D, 0x6E, 0x05, 0x9D, 0x7E, 0x05);
+        label('initialized');
+        emit(0xA9, 0x01, 0x9D, 0x06, 0x05,
+            0xA9, 0x00, 0x9D, 0x4E, 0x05, 0x9D, 0x6F, 0x04, 0x60);
+
+        label('detach'); emit(0xA9, 0x00, 0x9D, 0x3E, 0x05);
+        absolute(0x4C, 'vertical');
+        label('update');
+        emit(0xA5, 0x56, 0xC9, 0x03); branch(0xD0, 'detach');
+        emit(0xA5, 0xC0, 0xC9, 0x03); branch(0xB0, 'detach');
+        emit(0xA5, 0xC7); branch(0x30, 'detach');
+        absolute(0x20, 'overlap'); branch(0x90, 'detach');
+        emit(0xBD, 0x3E, 0x05); branch(0xF0, 'landing');
+        // A rider stays latched until an actual jump or a walk off the edge.
+        emit(0xA5, 0xC0, 0xC9, 0x01); branch(0xF0, 'vertical');
+        label('landing');
+        emit(0xA5, 0xC0, 0xC9, 0x02); branch(0xD0, 'detach');
+        // Descending feet must cross the top this frame, not the sides/bottom.
+        emit(0x18, 0xAD, 0x1E, 0x04, 0x69, 0x10, 0x85, 0x02,
+            0xA5, 0x7D, 0x69, 0x00); branch(0xD0, 'detach');
+        emit(0xA5, 0x02, 0x38, 0xFD, 0x33, 0x04); branch(0x90, 'detach');
+        emit(0x85, 0x00, 0xA5, 0xC7, 0x18, 0x69, 0x01, 0xC5, 0x00);
+        branch(0x90, 'detach');
+        emit(0xA9, 0x01, 0x9D, 0x3E, 0x05, 0x85, 0xC0,
+            0xA9, 0x00, 0x85, 0xC4, 0x85, 0xC7, 0x85, 0xC8,
+            0x85, 0xDA, 0x85, 0x5B,
+            0xBD, 0x46, 0x05, 0xC9, 0xE8); branch(0xB0, 'vertical');
+        emit(0xBD, 0x6E, 0x05); branch(0xD0, 'commit');
+        emit(0xA9, 0x08, 0x9D, 0x6E, 0x05,
+            0xA9, 0x5A, 0x9D, 0x7E, 0x05);
+        absolute(0x4C, 'vertical');
+        label('commit');
+        emit(0x18, 0xBD, 0x46, 0x05, 0x69, 0x10, 0x9D, 0x46, 0x05,
+            0xA9, 0x00, 0x9D, 0x6E, 0x05, 0x9D, 0x7E, 0x05);
+        absolute(0x4C, 'vertical');
+        label('vertical');
+        // Ease one pixel/frame to each half-step. Count the recovery delay
+        // only at the lower target, so both a quick and a full jump can land.
+        emit(0x18, 0xBD, 0x46, 0x05, 0x7D, 0x6E, 0x05, 0xDD, 0x33, 0x04);
+        branch(0xF0, 'atTarget'); branch(0x90, 'rise');
+        // A floor takes over support when the carrier sinks below it.
+        emit(0xBD, 0x3E, 0x05); branch(0xF0, 'sink');
+        absolute(0x20, 0x9BE3); branch(0x90, 'sink');
+        emit(0xA9, 0x00, 0x9D, 0x3E, 0x05);
+        label('sink');
+        emit(0xFE, 0x33, 0x04); absolute(0x4C, 'carry');
+        label('rise');
+        // Wait under a ceiling instead of lifting the rider into solid tiles.
+        emit(0xBD, 0x3E, 0x05); branch(0xF0, 'riseFree');
+        absolute(0x20, 0x9BD5); branch(0xB0, 'carry');
+        label('riseFree'); emit(0xDE, 0x33, 0x04); absolute(0x4C, 'carry');
+        label('atTarget');
+        emit(0xBD, 0x7E, 0x05); branch(0xF0, 'carry');
+        emit(0xDE, 0x7E, 0x05); branch(0xD0, 'carry');
+        emit(0xA9, 0x00, 0x9D, 0x6E, 0x05);
+        label('carry');
+        emit(0xBD, 0x3E, 0x05); branch(0xD0, 'carryRider'); emit(0x60);
+        label('carryRider');
+        emit(0x38, 0xBD, 0x33, 0x04, 0xE9, 0x10, 0x8D, 0x1E, 0x04,
+            0xA9, 0x00, 0xE9, 0x00, 0x85, 0x7D,
+            0xA9, 0x00, 0x85, 0xC4, 0x85, 0xC7, 0x85, 0xC8,
+            0x38, 0xBD, 0x16, 0x05, 0xFD, 0x26, 0x05);
+        branch(0xF0, 'return');
+        emit(0x85, 0x00); branch(0x30, 'carryLeft');
+        emit(0x18, 0xA5, 0xC2, 0x65, 0x00, 0x85, 0xC2,
+            0xA5, 0xC1, 0x69, 0x00); absolute(0x4C, 'carryPage');
+        label('carryLeft');
+        emit(0x18, 0xA5, 0xC2, 0x65, 0x00, 0x85, 0xC2,
+            0xA5, 0xC1, 0x69, 0xFF);
+        label('carryPage'); emit(0x25, 0x3D, 0x85, 0xC1);
+        // Native body probes prevent a moving platform from carrying a
+        // standing player through walls. Roll back only the carried pixel.
+        // The movement delta, rather than an unsigned comparison, handles seams.
+        emit(0xBD, 0x16, 0x05, 0x38, 0xFD, 0x26, 0x05); branch(0x30, 'probeLeft');
+        absolute(0x20, 0x9BBD); absolute(0x4C, 'probeResult');
+        label('probeLeft'); absolute(0x20, 0x9BB9);
+        label('probeResult'); branch(0x90, 'return');
+        emit(0x38, 0xBD, 0x16, 0x05, 0xFD, 0x26, 0x05, 0x85, 0x00);
+        branch(0x30, 'rollbackLeft');
+        emit(0x38, 0xA5, 0xC2, 0xE5, 0x00, 0x85, 0xC2,
+            0xA5, 0xC1, 0xE9, 0x00); absolute(0x4C, 'rollbackPage');
+        label('rollbackLeft');
+        emit(0x38, 0xA5, 0xC2, 0xE5, 0x00, 0x85, 0xC2,
+            0xA5, 0xC1, 0xE9, 0xFF);
+        label('rollbackPage'); emit(0x25, 0x3D, 0x85, 0xC1);
+        label('return'); emit(0x60);
+
+        // Match world X modulo the actual map width, including either seam.
+        label('overlap');
+        emit(0x38, 0xA5, 0xC2, 0xFD, 0x16, 0x05, 0x85, 0x00,
+            0xA5, 0xC1, 0xFD, 0x0E, 0x05, 0x85, 0x01,
+            0x18, 0xA5, 0x00, 0x69, 0x0D, 0x85, 0x00,
+            0xA5, 0x01, 0x69, 0x00, 0x25, 0x3D);
+        branch(0xD0, 'miss');
+        emit(0xA5, 0x00, 0xC9, 0x1B); branch(0xB0, 'miss');
+        emit(0x38, 0x60); label('miss'); emit(0x18, 0x60);
+
+        // Native ground handling still owns jumping and walking. Supply its
+        // support probe while aboard, preserving X for the original caller.
+        label('support'); emit(0x8A, 0x48, 0xA2, 0x07);
+        label('supportLoop');
+        emit(0xBD, 0xFE, 0x04, 0xC9, 0x0C); branch(0xD0, 'nextSupport');
+        emit(0xBD, 0x3E, 0x05); branch(0xF0, 'nextSupport');
+        absolute(0x20, 'overlap'); branch(0xB0, 'supported');
+        label('nextSupport'); emit(0xCA); branch(0x10, 'supportLoop');
+        emit(0x68, 0xAA); absolute(0x4C, 0x9BE3);
+        label('supported'); emit(0x68, 0xAA, 0x38, 0x60);
+
+        // Native enemies use the center-row side probes ($AD/$AE). A bird
+        // between grid rows also overlaps the row above/below. Only this
+        // auxiliary combines its native upper/center/lower side samples;
+        // the shared probe and all other enemy dispatches remain unchanged.
+        label('walls'); absolute(0x20, 0x9330);
+        // At the aligned Y nibble 8 the other samples are vertical neighbors,
+        // not overlapping body rows. Keep the original side result there.
+        emit(0xA5, 0x02, 0x29, 0x0F, 0xC9, 0x08); branch(0xF0, 'wallsDone');
+        emit(0xA5, 0xAD, 0x05, 0xAF, 0x05, 0xB1, 0x85, 0xAD,
+            0xA5, 0xAE, 0x05, 0xB0, 0x05, 0xB2, 0x85, 0xAE);
+        label('wallsDone'); emit(0x60);
+
+        if(base + bytes.length > limit) throw new Error('Bird/fish platform exceeds reserved space');
+        for(const ref of references){
+            const target = typeof ref.destination === 'string' ? labels.get(ref.destination) : ref.destination;
+            if(target === undefined) throw new Error(`Unknown bird/fish platform label: ${ref.destination}`);
+            if(ref.relative){
+                const distance = target - (base + ref.at + 1);
+                if(distance < -128 || distance > 127) throw new Error(`Bird/fish platform branch out of range: ${ref.destination}`);
+                bytes[ref.at] = distance & 255;
+            }else{ bytes[ref.at] = target & 255; bytes[ref.at + 1] = target >> 8; }
+        }
+        Romfix.fixCodeInsert(romData, file(base), bytes);
+        const support = labels.get('support');
+        Romfix.fixCodeInsert(romData, file(0x9584), [0x20, support & 255, support >> 8]);
+        return {init: labels.get('init'), update: labels.get('update'), walls: labels.get('walls')};
+    }
+
     /**
      * Append a text page after all six native staff entries, before KONAMI.
      * $B5=4 is the native logo phase. Its $BC=0 entry shows our page first;
      * $BC=5 waits on the existing $BD timer, then enters native $C914.
      * Native logo substates 1–4, staff data, music and ending animation stay
      * untouched. Fixed bank 7 $F800–$FCFF is relocated, cleared level storage;
-     * coordinate helpers end at $F800 and pause helpers start at $FED9.
+     * coordinate/flight helpers end at $F800; pause helpers start at $FED9.
      */
     static configureCustomLevelCredit(romData, isExpanded, value) {
         const file = cpu => cpu - 0x8000 + 0x10 + (isExpanded ? 6 * 0x4000 : 0);
@@ -535,12 +695,12 @@ class Romfix{
      * Eight immutable enemy birth pages and a signed player Y high byte.
      * The high byte extends native 8.8 Y physics; negative Y is air above the
      * map, not a second vertical map. Keep native bottom death and velocities.
-     * Fixed bank 7 $F410–$F7FF is relocated level storage, cleared on export.
+     * Fixed bank 7 $F410–$F5FF is relocated level storage, cleared on export.
      */
     static fixExtendedCoordinates(romData, isExpanded = false){
         if(!isExpanded) throw new Error('Extended coordinates require an expanded ROM');
         const file = cpu => cpu - 0x8000 + 0x10 + (cpu >= 0xC000 ? 6 * 0x4000 : 0);
-        const base = 0xF410, limit = 0xF800;
+        const base = 0xF410, limit = 0xF600;
         if(romData.subarray(file(base), file(limit)).some(byte => byte !== 0))
             throw new Error('Reserved coordinate-patch area in bank 7 is occupied');
         const { enemySpawnPages: pages, playerYHigh: high } = Romfix.COORDINATE_RAM;
