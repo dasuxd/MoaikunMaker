@@ -107,7 +107,7 @@ class Config{
                 [{index: 0x95, reverse: false}, {index: 0x97, reverse: false}],
             ],
             disabledLevelType:[],
-            name: "Enemy 1"
+            name: "Sprite 1"
         },
         'enemy_2':{
             isSprite: true,
@@ -116,7 +116,7 @@ class Config{
                 [{index: 0x9D, reverse: false}, {index: 0x9F, reverse: false}],
             ],
             disabledLevelType:[],
-            name: "Enemy 2"
+            name: "Sprite 2"
         },
         'enemy_3':{
             isSprite: true,
@@ -127,7 +127,7 @@ class Config{
                 [{index: 0x79, reverse: false}, {index: 0x7B, reverse: false}],
             ],
             disabledLevelType:[],
-            name: "Enemy 3"
+            name: "Sprite 3"
         },
         'enemy_4':{
             isSprite: true,
@@ -136,7 +136,7 @@ class Config{
                 [{index: 0x61, reverse: false}, {index: 0x61, reverse: true}],
             ],
             disabledLevelType:[],
-            name: "Enemy 4"
+            name: "Sprite 4"
         },
         'enemy_5':{
             isSprite: true,
@@ -145,7 +145,7 @@ class Config{
                 [{index: 0xE1, reverse: false}, {index: 0xE1, reverse: true}],
             ],
             disabledLevelType:[],
-            name: "Enemy 5"
+            name: "Sprite 5"
         },
         'enemy_6':{
             isSprite: true,
@@ -154,7 +154,7 @@ class Config{
                 [ {index: 0x65, reverse: true},{index: 0x63, reverse: true}],
             ],
             disabledLevelType:[],
-            name: "Enemy 6"
+            name: "Sprite 6"
         },
         'enemy_7':{
             isSprite: true,
@@ -165,7 +165,7 @@ class Config{
                 [{index: 0xAF, reverse: false}, {index: 0xB1, reverse: false}, {index: 0xB7, reverse: false}, {index: 0xB9, reverse: false}],
             ],
             disabledLevelType:[0, 1, 2, 3, 4, 5, 6, 9, 10, 11],
-            name: "Enemy 7"
+            name: "Sprite 7"
         },
         'enemy_8':{
             isSprite: true,
@@ -176,7 +176,7 @@ class Config{
                 [{index: 0x79, reverse: false}, {index: 0x7B, reverse: false}],
             ],
             disabledLevelType:[],
-            name: "Enemy 8"
+            name: "Sprite 8"
         },
         // 'enemy_9':{
         //     isSprite: true,
@@ -197,7 +197,7 @@ class Config{
                 [{index: 0xE6, reverse: false}, {index: 0xE7, reverse: false}],
             ],
             disabledLevelType:[],
-            name: "Enemy 9"
+            name: "Sprite 9"
         },
         'enemy_10':{
             isSprite: true,
@@ -208,7 +208,7 @@ class Config{
                 [{index: 0x89, reverse: false}, {index: 0x8B, reverse: false}],
             ],
             disabledLevelType:[],
-            name: "Enemy 10"
+            name: "Sprite 10"
         },
         'enemy_11':{
             isSprite: true,
@@ -217,7 +217,7 @@ class Config{
                 [{index: 0xA1, reverse: false}, {index: 0xA3, reverse: false}],
             ],
             disabledLevelType:[],
-            name: "Enemy 11"
+            name: "Sprite 11"
         },
         'enemy_12':{
             isSprite: true,
@@ -226,7 +226,7 @@ class Config{
                 [{index: 0xAB, reverse: false}, {index: 0xAD, reverse: false}],
             ],
             disabledLevelType:[7, 8],
-            name: "Enemy 12"
+            name: "Sprite 12"
         },
         // These remaining types have no native enemy implementation.
         // 'enemy_13':{

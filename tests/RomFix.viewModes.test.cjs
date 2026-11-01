@@ -26,11 +26,16 @@ function syntheticMachine(cameraFollow = true) {
     data.set([0x20, 0xB9, 0x83], 0x8C7E - 0x8000 + 16);
     data.set([0x20, 0xB9, 0x83], 0x8C10 - 0x8000 + 16);
     Romfix.fixWideScreenLoopingCamera(data, true);
-    if (cameraFollow) Romfix.addViewModes(data, true);
+    const viewModes = cameraFollow ? Romfix.addViewModes(data, true) : null;
+    Romfix.addPauseControls(data, true, viewModes);
+    data[0x8B54 - 0x8000 + 16] = 0x60;
+    data[0x88D3 - 0x8000 + 16] = 0x60;
     // Native queue terminator writer, called at the very end of the NMI.
     data.set([0xA6, 0x1E, 0x9D, 0x00, 0x03, 0xE8, 0x86, 0x1E, 0x60],
         0x86B2 - 0x8000 + 16);
-    const nes = machine(data); nes.cpu.mem[0xF4] = 0; return nes;
+    const nes = machine(data);
+    nes.cpu.mem[0xF4] = nes.cpu.mem[0x2B] = nes.cpu.mem[0x1B] = 0;
+    return nes;
 }
 
 function call(nes, entry, carry = 1, stepLimit = 2000) {
@@ -317,23 +322,36 @@ test('pause free-look is always available in wide maps and only LOOP in narrow m
     for (const wide of [0, 1]) for (const view of [0, 1]) {
         m[0x3D] = wide;
         m[0x2A] = view;
+        m[0x2B] = 0;
         m[0x32] = 1;
+        m[0x6E] = 1;
         m[0xFD] = 2;
         m[0x9D] = 0;
         m[0xF6] = 2;
         m[0xC1] = 0;
         m[0xC2] = 38;
+        const metasprites = Array.from({length: 0x78}, (_, index) => (index * 17 + 3) & 255);
+        metasprites[0] = 0; // This synthetic ROM has no native player metasprite tables.
+        m.splice(0x400, metasprites.length, ...metasprites);
         call(nes, 0x8B4F);
+        m[0x2C] = 0x09; // Stand in for consumed native pattern-upload packets.
+        call(nes, target(m, 0x80C0));
         assert.equal(m[0xFD] | (m[0x9D] << 8), wide || view ? (wide ? 510 : 254) : 2);
+        assert.deepEqual(m.slice(0x400, 0x478), metasprites,
+            'pause hints leave every gameplay metasprite unchanged');
+        const hintTiles = new Set([...Romfix.PAUSE_HINT_GLYPHS].map((_, index) => Romfix.PAUSE_HINT_SPRITE_START + index * 2));
+        const hintCount = Array.from({length: 64}, (_, index) => index * 4)
+            .filter(offset => m[0x200 + offset] < 240 && hintTiles.has(m[0x201 + offset])).length;
+        assert.equal(hintCount, wide || view ? 6 : 14,
+            'free-look dismisses operation hints while PAUSED remains visible');
         if (wide || view) {
-            assert.equal(m[0x43C], 40);
-            assert.equal(m[0x400], 2);
             m[0xF6] = 1;
             call(nes, 0x8B4F);
             assert.equal(m[0xFD] | (m[0x9D] << 8), 2);
-            assert.equal(m[0x43C], 36);
+            assert.deepEqual(m.slice(0x400, 0x478), metasprites);
             m[0x32] = 0;
             call(nes, 0x8B4F);
+            m[0x2C] = 0x89; // Stand in for the complete native graphics restoration.
             assert.equal(m[0x32], 1, 'return begins while still paused');
             for(let i=0;i<140&&m[0x32];i++)call(nes,0x8B4F);
             assert.equal(m[0x32], 0, 'arrival resumes without another START press');
@@ -540,8 +558,16 @@ function start(data, view) {
         if(nes.cpu.mem[0x30]===12 && nes.cpu.mem[0x56]===3) {
             nes.frame();
             if(view) {
+                nes.buttonDown(1,jsnes.Controller.BUTTON_START); nes.frame();
+                nes.buttonUp(1,jsnes.Controller.BUTTON_START);
+                for(let i=0;i<80&&nes.cpu.mem[0x32]!==1;i++) nes.frame();
+                assert.equal(nes.cpu.mem[0x32],1,'pause before changing the view');
                 nes.buttonDown(1,jsnes.Controller.BUTTON_UP); nes.frame();
-                nes.buttonUp(1,jsnes.Controller.BUTTON_UP);
+                nes.buttonUp(1,jsnes.Controller.BUTTON_UP); nes.frame();
+                nes.buttonDown(1,jsnes.Controller.BUTTON_START); nes.frame();
+                nes.buttonUp(1,jsnes.Controller.BUTTON_START);
+                for(let i=0;i<160&&(nes.cpu.mem[0x32]||(nes.cpu.mem[0x2A]&0xC0));i++) nes.frame();
+                assert.equal(nes.cpu.mem[0x32],0,'camera return resumes gameplay');
                 for(let i=0;i<80;i++) nes.frame();
             }
             for(let i=0;i<140&&(nes.cpu.mem[0x2A]&128);i++)nes.frame();
@@ -739,9 +765,8 @@ realTest('disabled single-screen modes retain wide pause free-look in both direc
         nes.buttonDown(1, jsnes.Controller.BUTTON_START);
         nes.frame();
         nes.buttonUp(1, jsnes.Controller.BUTTON_START);
-        nes.frame();
-        nes.frame();
-        assert.equal(m[0x32], 0, 'native start button resumes gameplay');
+        for(let i = 0; i < 140 && m[0x32]; i++) nes.frame();
+        assert.equal(m[0x32], 0, 'native start button resumes gameplay after graphics restoration');
         assert.equal(cameraX(m), wide ? (worldX(m) - 128) & 511 : 0);
         if (wide) assert.equal(m[0x6E], 1, 'resume restores extra sprite groups');
         assert.equal(nes.cpu.REG_SP, 0x1FF);
@@ -1392,15 +1417,15 @@ realTest('re-export is byte-stable and original password digits and ending remai
 });
 
 // Runtime transitions are tested against the ring, independently of rendering.
-test('Up transitions take the shortest route, settle, and preserve vertical scroll', () => {
+test('selected-view transitions take the shortest route, settle, and preserve vertical scroll', () => {
     const nes = syntheticMachine(),m=nes.cpu.mem;
     m[0x56]=3; m[0x1F]=0; m[0xFC]=17;
     for(const wide of [0,1]) for(const mode of [0,1]) {
         const mask=wide?511:255;
         for(const current of [0,1,4,127,128,250,252,255,256,383,511].filter(x=>x<=mask)) {
             for(const world of [0,1,127,128,255,256,383,511].filter(x=>x<=mask)) {
-                m[0x3D]=wide;m[0x2A]=mode^1;m[0xFD]=current&255;m[0x9D]=current>>8;
-                m[0xC2]=world&255;m[0xC1]=world>>8;m[0xF4]=8;
+                m[0x3D]=wide;m[0x2A]=mode|0x80;m[0xFD]=current&255;m[0x9D]=current>>8;
+                m[0xC2]=world&255;m[0xC1]=world>>8;m[0xF4]=0;
                 const target=mode?(world-128)&mask:wide?Math.max(0,Math.min(255,world-128)):0;
                 let previous=current;
                 for(let frame=0;frame<140;frame++) {
@@ -1417,7 +1442,7 @@ test('Up transitions take the shortest route, settle, and preserve vertical scro
         }
     }
 });
-realTest('held Up toggles once; a second press restores fixed view with synchronized backgrounds',()=>{
+realTest('Up changes views only while paused and a held press toggles once with synchronized backgrounds',()=>{
     const nes=start(exportRescueStage(true,false),0),m=nes.cpu.mem;
     m[0xC2]=32; m[0xC1]=0;
     for(let i=0;i<100;i++)nes.frame();
@@ -1425,10 +1450,20 @@ realTest('held Up toggles once; a second press restores fixed view with synchron
     checkPages();
     const initialY=m[0xFC];let late=0;const write=nes.mmap.write.bind(nes.mmap);
     nes.mmap.write=(addr,value)=>{if((addr===0x2005||addr===0x2007)&&nes.ppu.scanline>=20&&nes.ppu.scanline<261)late++;return write(addr,value);};
+    nes.buttonDown(1,jsnes.Controller.BUTTON_UP);
+    for(let i=0;i<20;i++) {nes.frame();assert.equal(m[0x2A]&1,0,'gameplay Up leaves the view unchanged');}
+    nes.buttonUp(1,jsnes.Controller.BUTTON_UP);nes.frame();
     for(const mode of [1,0]) {
+        nes.buttonDown(1,jsnes.Controller.BUTTON_START);nes.frame();
+        nes.buttonUp(1,jsnes.Controller.BUTTON_START);nes.frame();
+        assert.equal(m[0x32],1);
         nes.buttonDown(1,jsnes.Controller.BUTTON_UP);
         for(let i=0;i<100;i++){nes.frame();checkPages();assert.equal(m[0x2A]&1,mode);assert.equal(m[0xFC],initialY);}
         nes.buttonUp(1,jsnes.Controller.BUTTON_UP);nes.frame();
+        nes.buttonDown(1,jsnes.Controller.BUTTON_START);nes.frame();
+        nes.buttonUp(1,jsnes.Controller.BUTTON_START);
+        for(let i=0;i<160&&(m[0x32]||(m[0x2A]&0xC0));i++){nes.frame();checkPages();assert.equal(m[0xFC],initialY);}
+        assert.equal(m[0x32],0);
         assert.equal(m[0x2A],mode);
         assert.equal(cameraX(m),mode?(worldX(m)-128)&255:0);
     }

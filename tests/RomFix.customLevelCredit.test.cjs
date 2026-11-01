@@ -57,7 +57,9 @@ realTest('empty and whitespace author produce the original ending without a cred
     const blank = exportRom('');
     for (const value of ['   ', '123中文!']) assert.deepEqual(exportRom(value), blank);
     assert.deepEqual(Array.from(blank.slice(fixed(0xC905), fixed(0xC90A))), [0xA5,0xBC,0x20,0x0D,0x83]);
-    assert.ok(blank.slice(fixed(0xF800), fixed(0xFD00)).every(v=>v===0));
+    // Bird motion follows the credit code/text; its font copies live in bank 1.
+    assert.ok(blank.slice(fixed(0xF800), fixed(0xF940)).every(v=>v===0));
+    assert.ok(blank.slice(0x6510, 0x6850).every(v=>v===0));
     const nes = ending(blank);
     until(nes, m=>m[0xB5]===4 && m[0xBC]===1);
     assert.equal(nes.cpu.mem[0xBB], 6, 'all six original staff entries precede the logo');
@@ -76,17 +78,21 @@ realTest('native bold name/tool font fits 28 letters, lasts fifteen seconds and 
         assert.deepEqual(data.slice(0x8010, 0x10010), blank.slice(0x8010, 0x10010),
             'font customization never edits the original graphics banks');
         const nes = ending(data), m = nes.cpu.mem;
-        let fontWrites = 0;
+        let fontWrites = 0, sourceBank = 0;
         const write = nes.mmap.write.bind(nes.mmap);
         nes.mmap.write = (address, value) => {
+            if (address >= 0x8000) sourceBank = value & 7;
             const ppuAddress = nes.ppu.vramAddress & 0x3FFF;
             if (address===0x2007 && m[0xB5]===4 && ppuAddress>=0x1800 && ppuAddress<0x19A0) {
                 fontWrites++;
                 assert.equal(nes.ppu.f_bgVisibility, 0, 'font uploads suspend rendering');
+                assert.equal(sourceBank, 1, 'both temporary and restored fonts are copied from bank 1');
             }
             return write(address, value);
         };
         until(nes, ram=>ram[0xB5]===4 && ram[0xBC]===5);
+        assert.equal(sourceBank, 0, 'executable bank 0 is restored before the credit page runs');
+        assert.deepEqual(m.slice(0x8000, 0x8010), Array.from(data.slice(0x10, 0x20)));
         assert.equal(m[0xBB], 6);
         // Give the NMI time to consume all six lines.
         nes.frame(); nes.frame();
@@ -127,6 +133,7 @@ realTest('native bold name/tool font fits 28 letters, lasts fifteen seconds and 
         assert.equal(m[0xFC], 0);
         assert.equal(m[0xFF] & 0x13, 0x10, 'page 0 and the complete background font');
         const duration = until(nes, ram=>ram[0xB5]===4 && ram[0xBC]===1);
+        assert.equal(sourceBank, 0, 'font restoration returns to executable bank 0 before the logo');
         assert.ok(duration >= 890 && duration <= 900, `credit lasts fifteen seconds: ${duration} frames`);
         until(nes, ram=>ram[0xB5]===4 && ram[0xBC]===2);
         nes.frame(); nes.frame();

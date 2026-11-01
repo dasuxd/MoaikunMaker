@@ -6,6 +6,29 @@ const jsnes = require('../js/lib/jsnes.min.js');
 const source = fs.readFileSync(path.join(__dirname, '../js/RomFix.js'), 'utf8');
 const Romfix = new Function(`${source}\nreturn Romfix;`)();
 
+test('scene uploader and bird/fish lift coexist before the pause helper in either installation order', () => {
+    const fixed = cpu => 0x1C010 + cpu - 0xC000;
+    const exported = [];
+    for(const liftFirst of [false, true]) {
+        const data = new Uint8Array(0x20010);
+        data.fill(0xA7, fixed(0xFED9), fixed(0xFF60));
+        let lift, loader;
+        if(liftFirst) {
+            lift = Romfix.addBirdFishLift(data);
+            loader = Romfix.installSceneGraphicsLoader(data);
+        }else{
+            loader = Romfix.installSceneGraphicsLoader(data);
+            lift = Romfix.addBirdFishLift(data);
+        }
+        assert.ok(loader.end <= lift, 'graphics upload cannot overlap the global bird event');
+        assert.equal(data[fixed(lift)], 0xBD, 'bird event entry remains intact');
+        assert.ok(data.slice(fixed(0xFED9), fixed(0xFF60)).every(value => value === 0xA7),
+            'both helpers preserve the neighboring pause code');
+        exported.push(data);
+    }
+    assert.deepEqual(exported[0], exported[1], 'installation order cannot overwrite either helper');
+});
+
 function call(nes, entry) {
     const c = nes.cpu;
     c.REG_SP = 0x1FF; c.REG_PC = 0xFF; c.irqRequested = false;

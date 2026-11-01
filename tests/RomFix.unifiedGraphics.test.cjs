@@ -51,13 +51,14 @@ function call(nes, address, accumulator = 0) {
     assert.fail(`CPU routine $${address.toString(16)} did not return`);
 }
 
-test('the unified layout reserves at least 64 consecutive background tiles for every scene', () => {
+test('the unified layout keeps an unused background tail for every scene', () => {
     const layout = Romfix.SCENE_GRAPHICS_LAYOUT;
     assert.equal(layout.version, 2);
     assert.equal(layout.foregroundStart, 0x60);
     assert.equal(layout.enemy9Start, 0x6C);
     assert.equal(layout.scene8MetatileStart, 0x96);
     assert.equal(layout.scene8SingleStart, 0xA2);
+    assert.equal(layout.reservedBackgroundStart, 0xBC);
     assert.equal(layout.reservedBackgroundEnd, 0x100);
     assert.ok(layout.reservedBackgroundStart >= layout.scene8SingleStart + 3);
     assert.ok(layout.reservedBackgroundEnd - layout.reservedBackgroundStart >= 64);
@@ -77,7 +78,7 @@ test('v1 scene metadata still restores source decorations and native graphics se
     assert.deepEqual(data, snapshot, 'restoring a source never changes the saved ROM');
 });
 
-realTest('all scene images share the empty tail and preserve foreground and moving-object artwork', () => {
+realTest('all scene images leave the background reserve empty while preserving original artwork', () => {
     const data = expandedSource(), snapshot = data.slice();
     const built = Romfix.buildSceneGraphics(data);
     const layout = Romfix.SCENE_GRAPHICS_LAYOUT;
@@ -85,15 +86,23 @@ realTest('all scene images share the empty tail and preserve foreground and movi
     assert.equal(built.scenes.length, 12);
     assert.deepEqual(built.layout, layout);
     assert.ok(built.sourceTables, 'native lookup tables must be preserved for subsequent exports');
+    assert.ok(built.patches.every(patch => patch.value < layout.reservedBackgroundStart),
+        'relocated native artwork never selects reserved background tiles');
     for (const scene of built.scenes) {
         const sourceBackground = 0x9010 + graphicsPages[scene.scene] * 0x2000;
         const reserved = scene.patterns.slice(0x1000 + layout.reservedBackgroundStart * 16,
             0x1000 + layout.reservedBackgroundEnd * 16);
-        assert.ok(reserved.every(value => value === 0), `scene ${scene.scene} has nonzero reserved pixels`);
+        assert.ok(reserved.every(value => value === 0),
+            `scene ${scene.scene} has nonzero unused reserved pixels`);
         for (let index = layout.reservedBackgroundStart; index < layout.reservedBackgroundEnd; index++) {
-            assert.ok(scene.freeBackgroundTiles.includes(index), `scene ${scene.scene}, tile ${index} is not free`);
-            assert.ok(!scene.usedBackgroundTiles.includes(index), `scene ${scene.scene}, tile ${index} is marked used`);
+            assert.equal(scene.freeBackgroundTiles.includes(index), true,
+                `scene ${scene.scene}, tile ${index} free status`);
+            assert.equal(scene.usedBackgroundTiles.includes(index), false,
+                `scene ${scene.scene}, tile ${index} used status`);
         }
+        const sourceSprites = 0x8010 + graphicsPages[scene.scene] * 0x2000;
+        assert.deepEqual(scene.patterns.slice(0x600, 0x840), data.slice(sourceSprites + 0x600, sourceSprites + 0x840),
+            `scene ${scene.scene}, enemy sprite space retains native pixels during gameplay`);
         for (let offset = 0; offset < 12; offset++) {
             assert.deepEqual(tile(scene.patterns, 0x1000, layout.foregroundStart + offset),
                 tile(data, sourceBackground, nativeForeground[scene.scene] + offset),
@@ -161,8 +170,9 @@ realTest('native tile preparation and the runtime uploader agree on all twelve f
             0x1000 + (layout.foregroundStart + 12) * 16)),
         native.slice(sourceBackground + nativeForeground[scene] * 16,
             sourceBackground + (nativeForeground[scene] + 12) * 16), `scene ${scene}, actual PPU foreground`);
-        assert.ok(nes.ppu.vramMem.slice(0x1000 + layout.reservedBackgroundStart * 16, 0x2000)
-            .every(value => value === 0), `scene ${scene}, actual PPU reserved tail`);
+        const reservedStart = 0x1000 + layout.reservedBackgroundStart * 16;
+        assert.ok(nes.ppu.vramMem.slice(reservedStart, 0x2000)
+            .every(value => value === 0), `scene ${scene}, actual PPU unused reserved tail`);
     }
 });
 

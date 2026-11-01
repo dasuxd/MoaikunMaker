@@ -67,9 +67,10 @@ function assertEnemyPatterns(nes, label) {
 function assertReservedBackgroundUntouched(nes, label) {
     const first = Romfix.SCENE_GRAPHICS_LAYOUT.reservedBackgroundStart;
     assert.ok(Number.isInteger(first) && first > 0 && first <= 0xFF);
-    const dirtyByte = nes.ppu.vramMem.slice(0x1000 + first * 16, 0x2000)
+    const reservedStart = 0x1000 + first * 16;
+    const dirtyByte = nes.ppu.vramMem.slice(reservedStart, 0x2000)
         .findIndex(value => value !== 0);
-    assert.equal(dirtyByte, -1, `${label}: reserved background CHR was written`);
+    assert.equal(dirtyByte, -1, `${label}: unused reserved background CHR was written`);
     const unexpectedTile = nes.ppu.vramMem.slice(0x2000, 0x2000 + 28 * 32)
         .findIndex(tile => tile >= first);
     assert.equal(unexpectedTile, -1,

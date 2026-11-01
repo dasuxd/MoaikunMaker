@@ -66,19 +66,28 @@ npx serve
 ### 2. Edit Levels
 
 - Select a level from the left sidebar
-- Use the right toolbar to choose tiles/enemies/special items
+- Use the right toolbar to choose tiles/sprites/special items
 - Left-click to place, right-click to delete
 - Adjust scene, wide screen, and other properties
+
+#### Bird and Flying Fish (Sprite 12)
+
+- Scene 4 uses flying fish; other supported scenes use birds. Scenes 7 and 8 are not supported. They share the player's palette, patrol horizontally, and turn at obstacles. The player can stand on them and ride along.
+- Landing on them from above makes them sink smoothly by half a tile (8 pixels), then rise back after about 90 frames. Jump and land again before they rise to sink another half tile and keep the full-tile drop. Each further pair of landings can lower them another tile. The bottom row permits only another half-tile drop; further landings cannot reach the next full row or postpone recovery. Standing still does not trigger more drops, and Up/Down no longer controls their height.
+- They continue patrolling on their own; Left and Right only move the player. Jump or walk off the edge normally to leave. Vertical movement checks terrain and the rider's headroom, stopping at obstacles. A floor cancels any unfinished descent; repeated blocked landings cannot build up a drop to replay beyond a ledge.
+- Hitting Tile 13 still makes ordinary monsters vulnerable. Birds and flying fish instead rise one tile, keep the new height, and fly away from the player's position at impact. They keep their direction if already heading away, at the same X, or equally distant around the looping map. Ascent respects ceilings and may leave the screen through the top. Fully departed objects disappear, then return to their birthplace after the native respawn delay and smoke animation. Spawning and defeated objects do not respond.
+- The horizontal fright boost lasts only for the ascent. Reaching its target, stopping beneath a ceiling, or a landing that interrupts ascent immediately restores normal 0.5-pixel patrol. The shortest horizontal distance at impact sets speed: under 32 pixels gives 2 pixels per update, 32–63 gives 1.5, 64–95 gives 1, and 96 or more gives 0.5. Another impact recalculates speed and adds another tile of ascent; respawning clears fright.
+- Contact is harmless. Headbutts, thrown stones, falling blocks or rocks, and explosions use the ordinary monster hit and death rules. They respawn at their birthplace after the native countdown. Initial spawns and respawns play the ordinary monster smoke animation before they start flying and can carry the player.
 
 ### 3. Test Levels
 
 - Click "🎮 Test Level" to run current level in emulator
 - Click "🎮 Test ROM" to test the complete game
 - All previews/downloads use expanded Mapper 2 ROMs (128 KiB PRG). The uploaded source stays intact.
-- “Up to switch view” is off by default and experimental. Off keeps fixed narrow maps and looping wide maps. On starts with fixed narrow / native bounded wide views; press Up during play to toggle centered looping follow, with a transition of at most 4 pixels per frame. Wide pause free-look remains available; narrow free-look requires looping view. Horizontal bat wrapping follows this setting.
-- The original `START / CONTINUE` password menu is restored. Test Level automatically chooses `START`; change view with Up after starting.
+- “Up while paused to switch view” is off by default and experimental. Off keeps fixed narrow maps and looping wide maps. On starts with fixed narrow / native bounded wide views; press Up while paused to toggle centered looping follow, with a transition of at most 4 pixels per frame. Wide pause free-look remains available; narrow free-look requires looping view. Horizontal bat wrapping follows this setting.
+- The original `START / CONTINUE` password menu is restored. Test Level automatically chooses `START`; with view switching enabled, change view with Up while paused.
 - With this option enabled, stage entry and returning from pause free-look also approach the target smoothly, at most 4 pixels per frame.
-- Resuming after free-look keeps gameplay and the timer paused until the camera reaches its target, then resumes automatically. Input during the return cannot unpause early.
+- Pausing keeps the player and background enemies visible, hides the other enemies, and uses their sprite graphics space for `PAUSED` and directional hints. `PAUSED` stays visible, and only direction icons blink slowly: left and right arrows at the screen edges indicate level viewing. When view switching is enabled, a blinking Up icon and steady `LOOP ON/OFF` text show the loop setting together on one line. Looking left or right hides the controls while `PAUSED` remains visible. The controls return on the next pause, or when Up changes the view and displays its latest setting. Resuming restores enemy graphics and keeps gameplay and the timer paused until the camera reaches its target, then resumes automatically. Input during the return cannot unpause early.
 - Click "⏹️ Stop Emulator" to return to editing
 - Shortcuts: `F5` tests the current level, `F6` stops the emulator, and `Ctrl + S` saves the level. A shortcut does nothing while its button is disabled.
 

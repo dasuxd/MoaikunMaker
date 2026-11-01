@@ -319,7 +319,7 @@
                                 <h3 data-i18n="tools">工具</h3>
                                 <div class="tool-tabs">
                                     <button class="tool-tab active" data-tab="tiles" data-i18n="tiles">图块</button>
-                                    <button class="tool-tab" data-tab="enemies" data-i18n="enemies">敌人</button>
+                                    <button class="tool-tab" data-tab="enemies" data-i18n="enemies">精灵</button>
                                     <button class="tool-tab" data-tab="special" data-i18n="special">特殊</button>
                                 </div>
 
@@ -351,7 +351,7 @@
                                     <label class="game-config-option">
                                         <input type="checkbox" id="cameraFollowCheckbox"
                                             aria-describedby="cameraFollowHint">
-                                        <span data-i18n="cameraFollow">📷 上键切换视角</span>
+                                        <span data-i18n="cameraFollow">📷 暂停时上键切换视角</span>
                                     </label>
                                 </div>
                                 <div class="game-config-author">
@@ -367,7 +367,7 @@
                                     </p>
                                 </div>
                                 <p class="game-config-hint" id="cameraFollowHint" data-i18n="cameraFollowHint">
-                                    按上键平滑切换视角，支持单屏和双屏；蝙蝠横向循环。尚未经过大量测试，请谨慎使用。
+                                    暂停时按上键平滑切换视角，支持单屏和双屏；蝙蝠横向循环。尚未经过大量测试，请谨慎使用。
                                 </p>
                                 <p class="game-config-hint" data-i18n="gameConfigHint">
                                     停用计时后，NPC 数量会显示在原计时器位置。
@@ -462,16 +462,16 @@
 
                 <div class="memory-segments" id="memorySegments"></div>
                 
-                <!-- 敌人数量统计 -->
+                <!-- 精灵数量统计 -->
                 <div style="margin-top: 20px;">
-                    <h3 data-i18n="enemyCount">👾 敌人数量统计</h3>
+                    <h3 data-i18n="enemyCount">👾 精灵数量统计</h3>
                     <div class="memory-bar-container">
                         <div class="memory-bar-fill" id="enemyCountBarFill" style="width: 0%"></div>
                         <div class="memory-bar-text" id="enemyCountBarText">0 / 78</div>
                     </div>
                     <div id="enemyCountWarning" style="display: none; margin-top: 10px; padding: 10px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; color: #856404; font-size: 13px;">
                         <strong>⚠️ <span data-i18n="warning">警告</span>:</strong>
-                        <span data-i18n="enemyCountWarning">敌人总数应保持在78个以下，否则敌人数据会覆盖其他数据，但目前没有测试到有哪些问题。</span>
+                        <span data-i18n="enemyCountWarning">精灵总数应保持在78个以下，否则精灵数据会覆盖其他数据，但目前没有测试到有哪些问题。</span>
                     </div>
                 </div>
             </div>
@@ -540,11 +540,11 @@
                     <div class="info-value" id="cpuAddress-old">-</div>
                 </div>
                 <div class="info-item">
-                    <div class="info-label" data-i18n="monsterRomAddress">怪物ROM地址</div>
+                    <div class="info-label" data-i18n="monsterRomAddress">精灵ROM地址</div>
                     <div class="info-value" id="monsterRomAddress-old">-</div>
                 </div>
                 <div class="info-item">
-                    <div class="info-label" data-i18n="monsterCpuAddress">怪物CPU地址</div>
+                    <div class="info-label" data-i18n="monsterCpuAddress">精灵CPU地址</div>
                     <div class="info-value" id="monsterCpuAddress-old">-</div>
                 </div>
                 <div class="info-item">
@@ -583,28 +583,28 @@
 
             <div class="hex-editor" style="display: block;">
                 <label for="monsterData" style="display: block; margin-bottom: 10px; font-weight: bold;">
-                    <span data-i18n="monsterDataLabel">👾 怪物数据</span> <span
+                    <span data-i18n="monsterDataLabel">👾 精灵数据</span> <span
                         style="color: #999; font-size: 12px; font-weight: normal;" data-i18n="readOnly">[只读参考]</span>
                     <br>
                     <span style="font-size: 11px; font-weight: normal; color: #666;" data-i18n="monsterDataFormat">
-                        (格式: 第1字节=怪物数*2+1, 后续为 [类型 位置] 对)
+                        (格式: 第1字节=精灵数*2+1, 后续为 [类型 位置] 对)
                     </span>
                 </label>
-                <!-- 怪物地址信息 -->
+                <!-- 精灵地址信息 -->
                 <div class="address-info-row" style="display: flex; gap: 20px; margin-bottom: 8px; font-size: 12px; color: #666; flex-wrap: wrap;">
                     <div style="display: flex; align-items: center; gap: 6px;">
-                        <span data-i18n="monsterRomAddress">怪物 ROM 地址:</span>
+                        <span data-i18n="monsterRomAddress">精灵 ROM 地址:</span>
                         <code id="monsterRomAddress" style="background: #fff3e0; padding: 2px 6px; border-radius: 3px; color: #F57C00; font-weight: 600; font-family: 'Courier New', monospace;">-</code>
                     </div>
                     <div style="display: flex; align-items: center; gap: 6px;">
-                        <span data-i18n="monsterCpuAddress">怪物 CPU 地址:</span>
+                        <span data-i18n="monsterCpuAddress">精灵 CPU 地址:</span>
                         <code id="monsterCpuAddress" style="background: #fff3e0; padding: 2px 6px; border-radius: 3px; color: #F57C00; font-weight: 600; font-family: 'Courier New', monospace;">-</code>
                     </div>
                 </div>
                 <textarea id="monsterData" class="hex-input"
                     style="min-height: 120px; background-color: #f5f5f5; cursor: default;"
                     data-i18n-placeholder="monsterDataPlaceholder"
-                    placeholder="输入怪物数据，如: 01 (无怪物) 或 03 01 DD (一个01类型怪物在DD位置)" readonly></textarea>
+                    placeholder="输入精灵数据，如: 01 (无精灵) 或 03 01 DD (一个01类型精灵在DD位置)" readonly></textarea>
             </div>
         </div>
     </div>
@@ -637,9 +637,9 @@
     <script src="js/lib/Sortable-1.15.0.min.js?v=up-view-cache-v3-base-check"></script>
     
     <!-- 语言文件 -->
-    <script src="js/lang/zh-CN.js?v=up-view-cache-v3-base-check"></script>
-    <script src="js/lang/en-US.js?v=up-view-cache-v3-base-check"></script>
-    <script src="js/lang/ja-JP.js?v=up-view-cache-v3-base-check"></script>
+    <script src="js/lang/zh-CN.js?v=sprite-labels-v1"></script>
+    <script src="js/lang/en-US.js?v=sprite-labels-v1"></script>
+    <script src="js/lang/ja-JP.js?v=sprite-labels-v1"></script>
     
     <!-- 国际化核心 -->
     <script src="js/i18n.js?v=up-view-cache-v3-base-check"></script>
@@ -649,8 +649,8 @@
     <!-- <script src="js/RamRecorder.js?v=ram-recording-v4-coordinate-ram"></script> -->
     <script src="js/NesEmulator.js?v=ram-recording-v1"></script>
     <script src="js/MobileGameController.js?v=up-view-cache-v3-base-check"></script>
-    <script src="js/Config.js?v=scene-chr-v2-unified"></script>
-    <script src="js/RomFix.js?v=scene-chr-v2-unified"></script>
+    <script src="js/Config.js?v=sprite-labels-v1"></script>
+    <script src="js/RomFix.js?v=bird-fright-ascent-v9"></script>
     <script src="js/OptimizedMap.js?v=up-view-cache-v3-base-check"></script>
     <script src="js/Enemy.js?v=up-view-cache-v3-base-check"></script>
     <script src="js/ResourceManager.js?v=scene-chr-v2-unified"></script>
@@ -659,7 +659,7 @@
     <script src="js/RomEditor.js?v=scene-chr-v2-unified"></script>
     <script src="js/DataConverter.js?v=up-view-cache-v3-base-check"></script>
     <script src="js/LevelFile.js?v=up-view-cache-v3-base-check"></script>
-    <script src="js/LevelEditor.js?v=enemy12-bird-fish-v1"></script>
+    <script src="js/LevelEditor.js?v=sprite-labels-v1"></script>
 
     <script src="js/app.js?v=up-view-cache-v3-base-check"></script>
 

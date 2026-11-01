@@ -30,7 +30,8 @@ function fixture(wide, count = 1, { scene = 11, pushRock = false, includeFace = 
     // Reinstall only the patch under test. Do not rebuild graphics or treat an
     // exported ROM as an original source for unrelated existing patches.
     data.fill(0, fixedAddress(0xF100), fixedAddress(0xF410));
-    Romfix.addViewModes(data, true);
+    const viewModes = Romfix.addViewModes(data, true);
+    Romfix.addPauseControls(data, true, viewModes);
     const map = Array.from({ length: 14 }, () => Array(wide ? 32 : 16).fill(0));
     map[12].fill(pushRock ? 5 : 4);
     map[13].fill(pushRock ? 5 : 4);
@@ -68,9 +69,21 @@ function start(data, view, { settleFrames = 31, waitForCamera = false } = {}) {
         // with a 34-byte flame packet, then mirror all 72 bytes at once.
         for (let settle = 0; settle < settleFrames; settle++) nes.frame();
         if (view) {
+            nes.buttonDown(1, jsnes.Controller.BUTTON_START);
+            nes.frame();
+            nes.buttonUp(1, jsnes.Controller.BUTTON_START);
+            for (let wait = 0; wait < 80 && memory[0x32] !== 1; wait++) nes.frame();
+            assert.equal(memory[0x32], 1, 'pause before selecting the gameplay view');
             nes.buttonDown(1, jsnes.Controller.BUTTON_UP);
             nes.frame();
             nes.buttonUp(1, jsnes.Controller.BUTTON_UP);
+            nes.frame();
+            nes.buttonDown(1, jsnes.Controller.BUTTON_START);
+            nes.frame();
+            nes.buttonUp(1, jsnes.Controller.BUTTON_START);
+            for (let wait = 0; wait < 160 &&
+                (memory[0x32] || (memory[0x2A] & 0xC0)); wait++) nes.frame();
+            assert.equal(memory[0x32], 0, 'resume after the camera returns');
             for (let settle = 0; settle < 80; settle++) nes.frame();
         }
         assert.equal(memory[0x2A], view);

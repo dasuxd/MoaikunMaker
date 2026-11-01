@@ -10,6 +10,14 @@ const tile = (data, offset, index) => data.slice(offset + index * 16, offset + (
 
 function fixture() {
     const data = new Uint8Array(0x20010);
+    for (let letter = 0; letter < 26; letter++) {
+        for (let row = 0; row < 8; row++) {
+            const y = row + 4, index = 0x16 + letter * 2 + (y >> 3);
+            const at = 0x8010 + index * 16 + (y & 7);
+            data[at] = (letter + row) & 0x11;
+            data[at + 8] = ((letter + 1) * 19 + row * 7) & 0xFF;
+        }
+    }
     for (let page = 1; page <= 3; page++) {
         for (let index = 0; index < 512; index++) {
             data.fill((page * 17 + index) & 255,
@@ -50,6 +58,7 @@ function compiledPatterns(data, scene) {
 test('scene builds preserve source data, share definition relocations, and clear every free tile', () => {
     const data = fixture(), snapshot = data.slice();
     const built = Romfix.buildSceneGraphics(data);
+    const reservedStart = Romfix.SCENE_GRAPHICS_LAYOUT.reservedBackgroundStart;
     assert.deepEqual(data, snapshot);
     assert.equal(built.scenes.length, 12);
     const decoration = offset => built.patches.find(patch => patch.fileAddr === fixed(0xCCF2) + offset).value;
@@ -64,11 +73,19 @@ test('scene builds preserve source data, share definition relocations, and clear
         assert.equal(scene.usedBackgroundTiles.length + scene.freeBackgroundTiles.length, 256);
         for (const index of scene.freeSpriteTiles) assert.ok(tile(scene.patterns, 0, index).every(value => value === 0));
         for (const index of scene.freeBackgroundTiles) assert.ok(tile(scene.patterns, 0x1000, index).every(value => value === 0));
+        assert.ok(scene.patterns.slice(0x1000 + reservedStart * 16, 0x2000)
+            .every(value => value === 0), `scene ${scene.scene}, background reserve stays empty`);
+        for (let index = reservedStart; index < 0x100; index++) {
+            assert.ok(scene.freeBackgroundTiles.includes(index));
+            assert.ok(!scene.usedBackgroundTiles.includes(index));
+        }
         for (const [index, originalTile] of Romfix.SCENE_GRAPHICS_ENEMY9_TILES.entries()) {
             assert.deepEqual(tile(scene.patterns, 0x1000, Romfix.SCENE_GRAPHICS_LAYOUT.enemy9Start + index),
                 tile(data, 0xF010, originalTile), 'Enemy 9 background patterns are always available');
         }
         const source = 0x8010 + pages[scene.scene] * 0x2000;
+        assert.deepEqual(scene.patterns.slice(0x600, 0x840), data.slice(source + 0x600, source + 0x840),
+            `scene ${scene.scene}, active enemy artwork is not replaced with pause letters`);
         if (scene.scene === 7 || scene.scene === 8) {
             assert.deepEqual(scene.patterns.slice(0, 0x1000), data.slice(source, source + 0x1000));
             assert.deepEqual(tile(scene.patterns, 0x1000, castle), tile(data, source + 0x1000, 0xD4));
@@ -86,6 +103,25 @@ test('scene builds preserve source data, share definition relocations, and clear
     assert.deepEqual(tile(built.scenes[1].patterns, 0x1000, second), tile(data, 0xB010, 0xD3));
     assert.deepEqual(tile(built.scenes[5].patterns, 0x1000, first), tile(data, 0xD010, 0xD2),
         'one shared relocation preserves the scene-specific original artwork');
+});
+
+test('scenery matching Enemy 9 pixels keeps a separate slot that remains visible during pause', () => {
+    const data = fixture(), layout = Romfix.SCENE_GRAPHICS_LAYOUT;
+    const matching = Uint8Array.from({length: 16}, (_, index) => (0x90 + index * 13) & 255);
+    const enemyTile = Romfix.SCENE_GRAPHICS_ENEMY9_TILES[0];
+    data.set(matching, 0xF010 + enemyTile * 16);
+    for(const page of new Set(pages)) data.set(matching, 0x9010 + page * 0x2000 + 0xD2 * 16);
+
+    const built = Romfix.buildSceneGraphics(data);
+    const target = built.patches.find(patch => patch.fileAddr === fixed(0xCCF2)).value;
+    assert.ok(target < layout.enemy9Start || target >= layout.enemy9Start + Romfix.SCENE_GRAPHICS_ENEMY9_TILES.length,
+        'identical scenery must not deduplicate into Enemy 9 slots hidden during pause');
+    for(const scene of built.scenes.filter(scene => scene.scene !== 1 && scene.scene !== 7 && scene.scene !== 8)) {
+        assert.deepEqual(tile(scene.patterns, 0x1000, target), matching,
+            `scene ${scene.scene}, separately allocated scenery preserves its pixels`);
+        assert.deepEqual(tile(scene.patterns, 0x1000, layout.enemy9Start), matching,
+            `scene ${scene.scene}, dedicated Enemy 9 pixels remain intact`);
+    }
 });
 
 test('scene compilation writes a lossless manifest, preserves original CHR and marker, and is repeatable', () => {
@@ -146,6 +182,8 @@ test('native scene artwork remains identical after relocating background decorat
             const value = native[layout + index], entries = wide ? [value] : [value >> 4, value & 15];
             for (const entry of entries) for (let offset = 0; offset < 16; offset++) {
                 const address = definitions + entry * 16 + offset;
+                assert.ok(data[address] < Romfix.SCENE_GRAPHICS_LAYOUT.reservedBackgroundStart,
+                    `scene ${scene}, geometry cannot select reserved background tiles`);
                 assert.deepEqual(tile(patterns, 0x1000, data[address]),
                     tile(native, 0x9010 + pages[scene] * 0x2000, native[address]), `scene ${scene}, definition byte ${address}`);
             }

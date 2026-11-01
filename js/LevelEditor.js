@@ -416,7 +416,7 @@ class LevelEditor {
     createEnemyButtons() {
         const container = document.getElementById('enemyButtons');
         for (let i = 1; i <= 12; i++) {
-            const btn = this.createButton("enemy", container, `Enemy ${i}`, i);
+            const btn = this.createButton("enemy", container, `Sprite ${i}`, i);
             this.enemyBtns.push(btn);
         }
     }
@@ -660,7 +660,7 @@ class LevelEditor {
         } else if (type === 'enemy') {
             const btn = document.getElementById(`enemy_${id}`);
             if (btn) btn.classList.add('active');
-            document.getElementById('currentTool').textContent = `Enemy ${id}`;
+            document.getElementById('currentTool').textContent = `Sprite ${id}`;
         } else if (type === 'player') {
             document.getElementById('playerBtn').classList.add('active');
             document.getElementById('currentTool').textContent = 'Player';
