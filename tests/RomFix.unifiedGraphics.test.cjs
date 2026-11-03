@@ -51,17 +51,19 @@ function call(nes, address, accumulator = 0) {
     assert.fail(`CPU routine $${address.toString(16)} did not return`);
 }
 
-test('the unified layout keeps an unused background tail for every scene', () => {
+test('the unified layout allocates the portal inside the shared background reserve', () => {
     const layout = Romfix.SCENE_GRAPHICS_LAYOUT;
     assert.equal(layout.version, 2);
     assert.equal(layout.foregroundStart, 0x60);
     assert.equal(layout.enemy9Start, 0x6C);
     assert.equal(layout.scene8MetatileStart, 0x96);
     assert.equal(layout.scene8SingleStart, 0xA2);
-    assert.equal(layout.reservedBackgroundStart, 0xBC);
+    assert.equal(layout.reservedBackgroundStart, 0xBA);
     assert.equal(layout.reservedBackgroundEnd, 0x100);
     assert.ok(layout.reservedBackgroundStart >= layout.scene8SingleStart + 3);
     assert.ok(layout.reservedBackgroundEnd - layout.reservedBackgroundStart >= 64);
+    assert.equal(layout.portalStart, 0xBA);
+    assert.equal(layout.portalTileCount, 70);
     assert.equal(Romfix.SCENE_GRAPHICS_ENEMY9_TILES.length, 42);
     assert.equal(new Set(Romfix.SCENE_GRAPHICS_ENEMY9_TILES).size, 42);
 });
@@ -78,7 +80,7 @@ test('v1 scene metadata still restores source decorations and native graphics se
     assert.deepEqual(data, snapshot, 'restoring a source never changes the saved ROM');
 });
 
-realTest('all scene images leave the background reserve empty while preserving original artwork', () => {
+realTest('all scene images add the portal in the reserve while preserving original artwork', () => {
     const data = expandedSource(), snapshot = data.slice();
     const built = Romfix.buildSceneGraphics(data);
     const layout = Romfix.SCENE_GRAPHICS_LAYOUT;
@@ -90,14 +92,14 @@ realTest('all scene images leave the background reserve empty while preserving o
         'relocated native artwork never selects reserved background tiles');
     for (const scene of built.scenes) {
         const sourceBackground = 0x9010 + graphicsPages[scene.scene] * 0x2000;
-        const reserved = scene.patterns.slice(0x1000 + layout.reservedBackgroundStart * 16,
-            0x1000 + layout.reservedBackgroundEnd * 16);
-        assert.ok(reserved.every(value => value === 0),
-            `scene ${scene.scene} has nonzero unused reserved pixels`);
+        assert.deepEqual(scene.patterns.slice(0x1000 + layout.portalStart * 16,
+            0x1000 + (layout.portalStart + layout.portalTileCount) * 16), Romfix.getPortalPatterns(Romfix.getPortalColorSchemes(data, scene.scene)));
         for (let index = layout.reservedBackgroundStart; index < layout.reservedBackgroundEnd; index++) {
-            assert.equal(scene.freeBackgroundTiles.includes(index), true,
+            const portal = index >= layout.portalStart && index < layout.portalStart + layout.portalTileCount;
+            if (!portal) assert.ok(tile(scene.patterns, 0x1000, index).every(value => value === 0));
+            assert.equal(scene.freeBackgroundTiles.includes(index), !portal,
                 `scene ${scene.scene}, tile ${index} free status`);
-            assert.equal(scene.usedBackgroundTiles.includes(index), false,
+            assert.equal(scene.usedBackgroundTiles.includes(index), portal,
                 `scene ${scene.scene}, tile ${index} used status`);
         }
         const sourceSprites = 0x8010 + graphicsPages[scene.scene] * 0x2000;
@@ -162,6 +164,8 @@ realTest('native tile preparation and the runtime uploader agree on all twelve f
             assert.deepEqual([memory[0x83], memory[0x85], memory[0x84], memory[0x86]],
                 [start, start + 1, start + 2, start + 3], `scene ${scene}, Tile ${id}`);
         }
+        call(nes, 0x9162, 14);
+        assert.deepEqual([memory[0x83], memory[0x85], memory[0x84], memory[0x86]], [0x2A, 0x2B, 0x2A, 0x2B]);
         memory[0x2F] = 0x80 + scene;
         call(nes, loader.start);
         assert.equal(memory[0x2E], memory[0x2F]);
@@ -170,9 +174,13 @@ realTest('native tile preparation and the runtime uploader agree on all twelve f
             0x1000 + (layout.foregroundStart + 12) * 16)),
         native.slice(sourceBackground + nativeForeground[scene] * 16,
             sourceBackground + (nativeForeground[scene] + 12) * 16), `scene ${scene}, actual PPU foreground`);
-        const reservedStart = 0x1000 + layout.reservedBackgroundStart * 16;
-        assert.ok(nes.ppu.vramMem.slice(reservedStart, 0x2000)
-            .every(value => value === 0), `scene ${scene}, actual PPU unused reserved tail`);
+        for (let index = layout.reservedBackgroundStart; index < layout.reservedBackgroundEnd; index++) {
+            if (index >= layout.portalStart && index < layout.portalStart + layout.portalTileCount) continue;
+            assert.ok(nes.ppu.vramMem.slice(0x1000 + index * 16, 0x1010 + index * 16)
+                .every(value => value === 0), `scene ${scene}, actual PPU unused reserved tile ${index}`);
+        }
+        assert.deepEqual(Uint8Array.from(nes.ppu.vramMem.slice(0x1000 + layout.portalStart * 16,
+            0x1000 + (layout.portalStart + layout.portalTileCount) * 16)), Romfix.getPortalPatterns(Romfix.getPortalColorSchemes(data, scene)));
     }
 });
 

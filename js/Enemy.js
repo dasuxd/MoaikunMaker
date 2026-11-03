@@ -2,9 +2,8 @@ class Enemy{
     constructor(enemyId, x, y){
         // enemyId 编码格式（十六进制）：
         // 例如：0x48 = 72(十进制) = 0100 1000(二进制)
-        // 高4位(bit 7-4): 屏幕索引 (0=第一屏, 8=第二屏，对应二进制的bit 7)
-        // 低4位中的bit 6: 朝向 (0=正常, 1=反向，即0x40)
-        // 低4位中的bit 3-0: 角色ID (0-15)
+        // bit 7: 屏幕索引；bit 6: 朝向。
+        // bit 5-4: 传送门配对编号 (0-3)；bit 3-0: 角色ID (0-15)。
         this.enemyId = enemyId;
         
         // 使用掩码解析enemyId
@@ -16,13 +15,18 @@ class Enemy{
     }
 
     reverseFacing(){
+        if (this.getRealId() === 13) {
+            this.enemyId = (this.enemyId & 0xCF) | (((this.enemyId + 0x10) & 0x30));
+            return;
+        }
         // 切换朝向：翻转bit 6 (0x40掩码)
         this.enemyId ^= 0x40;  // XOR操作翻转朝向位
     }
 
-    render(ctx, images){
+    render(ctx, images, covered = false, exit = false){
             let enemyName = Config.ENEMY_PREFIX + this.getRealId();
             let img = images.get(enemyName);
+            if (this.getRealId() === 13) img = images.get(`enemy_13_pair_${this.getPortalPairId()}${exit ? '_exit' : ''}${covered ? '_covered' : ''}`) || img;
             if (img) {
                 const sizeConfig = Config.RESOURCE_IMG_CONFIG[enemyName];
                 if (sizeConfig) {
@@ -35,7 +39,7 @@ class Enemy{
                     // 保存当前canvas状态
                     ctx.save();
                     
-                    if (!Enemy.getFacing(this.enemyId)) {
+                    if (this.getRealId() !== 13 && !Enemy.getFacing(this.enemyId)) {
                         // 镜像绘制：先移动到图像右边缘，然后水平翻转
                         ctx.translate((this.x + widthInTiles) * Config.TILE_SIZE, 0);
                         ctx.scale(-1, 1);
@@ -85,6 +89,10 @@ class Enemy{
 
     getRealId(){
         return this.enemyId & 0x0F;
+    }
+
+    getPortalPairId(){
+        return ((this.enemyId >> 4) & 3) + 1;
     }
 
     static getRealId(enemyId){

@@ -13,6 +13,10 @@ test('bird/fish previews decode preserved frames in the protagonist palette for 
         `${source}\nreturn { Config, ResourceManager };`)(
         { romEditor: { getRomAddrByOriginalRomAddr: address => address } },
         {
+            SCENE_GRAPHICS_LAYOUT: {portalStart: 0xC0},
+            getPortalPatterns() { return new Uint8Array(960); },
+            getPortalColorSchemes() { return Array.from({length: 4}, (_, i) => ({background: i, sprite: i})); },
+            getPortalFrameTiles() { return [0xC0, 0xC2, 0xC1, 0xC3]; },
             getFlightSpriteFrames(data, isFish) {
                 assert.equal(data, rom);
                 requests.push(isFish);

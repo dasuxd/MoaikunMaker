@@ -2,6 +2,8 @@
  * 中文（简体）翻译
  */
 const translations_zhCN = {
+    "portalHelp": "同编号的两扇门配对，再次点击可换组。入口自动传送角色、怪物、图块和活动道具。出口被占用时等待，约每 5 秒换向。喷火装置和通关门固定。红色问号表示配对未完成。",
+    "portalExitClearance": "传送门与通关门之间需要留出至少一格空隙。",
     "romUnsupportedVersion": "该编辑器 ROM 的版本尚不受支持。",
     "romUnsupportedStructure": "ROM 结构不兼容或文件不完整。",
     "romMigrationFailed": "ROM 更换未完成，旧关卡和草稿仍保留。",

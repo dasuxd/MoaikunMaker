@@ -79,6 +79,16 @@ npx serve
 - The horizontal fright boost lasts only for the ascent. Reaching its target, stopping beneath a ceiling, or a landing that interrupts ascent immediately restores normal 0.5-pixel patrol. The shortest horizontal distance at impact sets speed: under 32 pixels gives 2 pixels per update, 32–63 gives 1.5, 64–95 gives 1, and 96 or more gives 0.5. Another impact recalculates speed and adds another tile of ascent; respawning clears fright.
 - Contact is harmless. Headbutts, thrown stones, falling blocks or rocks, and explosions use the ordinary monster hit and death rules. They respawn at their birthplace after the native countdown. Initial spawns and respawns play the ordinary monster smoke animation before they start flying and can carry the player.
 
+#### Portal prototype (Sprite 13)
+
+- Place Sprite 13 in one 16×16 cell. Four Clu Clu Land frames and two contracted versions occupy reserved CHR `$C0–$FB`, preserving existing artwork.
+- Portals normally draw in the background with no hardware sprites. A covering map tile or falling object enables two 8×16 overlay sprites until the background can return. Both paths use native scene colors and leave collision tiles unchanged. Normal frames advance every eight game updates; busy background updates are queued.
+- Each portal retains one of the eight level object slots. Pause freezes its state and leaves background portals visible; covered overlays hide with native enemies. Several covered portals on one row can still exceed the NES eight-sprites-per-scanline limit.
+- Exactly two portals with the same number form a pair. Click an existing portal to cycle numbers 1–4. Editor labels show A/B; a red ? means the group is not a valid pair. A starts as entry. Each group uses the same native palette scheme and a persistent numeral 1–4. Different groups use available scene colors; some colors are similar or only approximate between background and overlay, so numerals identify pairs reliably.
+- Entry and exit swap every 300 game updates (about five seconds). The entry animates. The exit shows a stationary numbered rim with a transparent center, so cargo stays visible. During the final second the entry contracts, pauses, and expands while transport is disabled. Players automatically travel near the active entry center; staying at the exit allows a return after the next changeover.
+- A successful transfer plays the last three poses of the original enemy disappearance at the entry over 16 game updates. When the player travels, the camera pans toward the exit during those updates.
+- All 15 tiles, including walls and rescue heads, live enemies, projectiles and bombs can travel. Falling tiles transfer at a whole cell and resume support checks. Occupied exits wait. Fire statues and the level exit stay fixed. Leave a cell between a portal and the 2×2 exit. Overlapping portals from older levels take display priority.
+
 ### 3. Test Levels
 
 - Click "🎮 Test Level" to run current level in emulator

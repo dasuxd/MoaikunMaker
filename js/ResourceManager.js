@@ -262,13 +262,13 @@ class ResourceManager{
                 let color = []
 
                 let metatileoffset = 0;
-                if(itemConfig.isSprite || key === 'enemy_9' || key === 'door'){
+                if(itemConfig.isSprite || key === 'enemy_9' || key === 'enemy_13' || key === 'door'){
                     if(key === 'player' || key === 'enemy_12'){
                         // Birds and flying fish share the protagonist's palette.
                         color = palette.slice(16,  20);
                     }else if(key === 'enemy_9'){
                         color = palette.slice(4, 8);
-                    }else if(key === 'door'){
+                    }else if(key === 'door' || key === 'enemy_13'){
                         color = palette.slice(24,  28);
                     }else{
                         color = palette.slice(20,  24);
@@ -306,6 +306,26 @@ class ResourceManager{
                             row.map(tile => ({ ...tile, index: tile.index - 0xAA })))
                     };
                     img = await this.parseRomImgSync(frames, previewConfig, color, levelType, 0, 0);
+                } else if (key === 'enemy_13') {
+                    const schemes = Romfix.getPortalColorSchemes(romData, levelType);
+                    const patterns = Romfix.getPortalPatterns(schemes);
+                    for (let group = 0; group < 4; group++) for (const exit of [false, true]) {
+                        const tiles = Romfix.getPortalFrameTiles(group, exit ? 6 : 0);
+                        const previewConfig = {...itemConfig, imgBlockIndex: [tiles.slice(0, 2), tiles.slice(2)]
+                            .map(row => row.map(index => ({index: index - Romfix.SCENE_GRAPHICS_LAYOUT.portalStart, reverse: false})))};
+                        for (const covered of [false, true]) {
+                            const start = covered ? 16 + schemes[group].sprite * 4 : schemes[group].background * 4;
+                            const preview = await this.parseRomImgSync(patterns, previewConfig,
+                                palette.slice(start, start + 4), levelType, 0, 0);
+                            levelImgs.set(`enemy_13_pair_${group + 1}${exit ? '_exit' : ''}${covered ? '_covered' : ''}`, preview);
+                            if (group === 0 && !covered && !exit) img = preview;
+                        }
+                    }
+                } else if (key === 'tile_14') {
+                    // Compiled scenes can share the native spike's two columns.
+                    const base = [5, 6, 9, 10, 11].includes(levelType) ? 0xD010
+                        : (levelType === 7 || levelType === 8) ? 0xF010 : 0xB010;
+                    img = await this.parseRomImgSync(romData, itemConfig, color, levelType, 0, base);
                 } else if (key === 'enemy_9') {
                     // The fire-breathing statue uses background palette 1.
                     // Read preserved castle source art across both layouts.

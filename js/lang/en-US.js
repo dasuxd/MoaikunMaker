@@ -2,6 +2,8 @@
  * English (US) Translation
  */
 const translations_enUS = {
+    "portalHelp": "Two matching numbers form a pair. Click again to change groups. Entrances transport players, enemies, tiles and active items when the exit is clear. Direction swaps about every 5 seconds. Fire statues and level exits stay in place. A red ? marks an incomplete pair.",
+    "portalExitClearance": "Leave at least one cell between a portal and the level exit.",
     "romUnsupportedVersion": "This editor ROM version is not supported yet.",
     "romUnsupportedStructure": "Unsupported ROM structure or incomplete file.",
     "romMigrationFailed": "ROM replacement failed. Existing levels and drafts are preserved.",

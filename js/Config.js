@@ -228,15 +228,17 @@ class Config{
             disabledLevelType:[7, 8],
             name: "Sprite 12"
         },
+          // Editor preview uses the same colors as the background portal and its occlusion overlay.
+        'enemy_13':{
+            isSprite: true,
+            imgBlockIndex:[
+                [{index: 0xC0, reverse: false}, {index: 0xC2, reverse: false}],
+                [{index: 0xC1, reverse: false}, {index: 0xC3, reverse: false}],
+            ],
+            disabledLevelType:[],
+            name: "Sprite 13"
+        },
         // These remaining types have no native enemy implementation.
-        // 'enemy_13':{
-        //     isSprite: true,
-        //     imgBlockIndex:[
-        //         [{index: 0xA0, reverse: false}, {index: 0xA2, reverse: false}],
-        //         [{index: 0xA1, reverse: false}, {index: 0xA3, reverse: false}],
-        //     ],
-        //     disabledLevelType:[]
-        // },
         // 'enemy_14':{
         //     isSprite: true,
         //     imgBlockIndex:[

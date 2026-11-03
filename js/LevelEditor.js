@@ -163,6 +163,10 @@ class LevelEditor {
         for(let key in Config.RESOURCE_IMG_CONFIG){
             this.images.set(key,  ResourceManager.getInstance().getResource(this.currentBgId, key));
         }
+        for (let group = 1; group <= 4; group++) for (const suffix of ['', '_covered']) {
+            const key = `enemy_13_pair_${group}${suffix}`;
+            this.images.set(key, ResourceManager.getInstance().getResource(this.currentBgId, key));
+        }
 
         this.images.set(Config.BG, ResourceManager.getInstance().getResource(this.currentBgId, Config.BG));
 
@@ -415,7 +419,7 @@ class LevelEditor {
      */
     createEnemyButtons() {
         const container = document.getElementById('enemyButtons');
-        for (let i = 1; i <= 12; i++) {
+        for (let i = 1; i <= 13; i++) {
             const btn = this.createButton("enemy", container, `Sprite ${i}`, i);
             this.enemyBtns.push(btn);
         }
@@ -811,6 +815,17 @@ class LevelEditor {
 
         // The cursor anchors the bottom-left cell of the 2x2 door.
         const doorWidth = this.isWideScreen ? Config.GRID_WIDTH : Config.GRID_WIDTH / 2;
+        const nearExit = (px, py, door) => {
+            if (!door) return false;
+            const dx = (px - door.x + doorWidth + 1) % doorWidth;
+            return dx < 4 && py >= door.y - 1 && py <= door.y + 2;
+        };
+        if ((this.currentTool === 'enemy' && Enemy.getRealId(this.currentEnemyId) === 13 && nearExit(x, y, this.doorPos))
+            || (this.currentTool === 'door' && this.enemies?.some(enemy =>
+                enemy.getRealId() === 13 && nearExit(enemy.x, enemy.y, {x, y: y - 1})))) {
+            warningMessage = i18n.t('portalExitClearance');
+            isProhibitedArea = true;
+        }
         if(this.currentTool === 'door' &&
             (x < 0 || x + 1 >= doorWidth || y < 1 || y >= Config.GRID_HEIGHT)){
             warningMessage = i18n.t('prohibitedDoorAreaWarning');
@@ -848,10 +863,6 @@ class LevelEditor {
             }
             this.mapData[y][x] = this.currentTileId;
         } else if (this.currentTool === 'enemy' && this.currentEnemyId) {
-            if(this.enemies.length >= Config.MAX_ENEMIES_PER_LEVEL){
-                app.showMessage('warning', i18n.t("forbiddenPlaceEnemyWarning"));
-                return;
-            }
             // Place enemy (check if already exists)
             const existingIndex = this.enemies.findIndex(e => e.x === x && e.y === y);
             const realId = Enemy.getRealId(this.currentEnemyId);
@@ -864,12 +875,17 @@ class LevelEditor {
                     this.currentEnemyId = this.enemies[existingIndex].enemyId;
                 }else{
                     //
-                    let screenEnemyId = x > Config.GRID_WIDTH / 2 ? (this.currentEnemyId | 0x80) : (this.currentEnemyId & 0x7F);
+                    let screenEnemyId = x >= Config.GRID_WIDTH / 2 ? (this.currentEnemyId | 0x80) : (this.currentEnemyId & 0x7F);
                     this.enemies[existingIndex] = new Enemy(screenEnemyId, x, y);
                 }
             } else {
+                if (this.enemies.length >= Config.MAX_ENEMIES_PER_LEVEL) {
+                    app.showMessage('warning', i18n.t("forbiddenPlaceEnemyWarning"));
+                    return;
+                }
                 // Add new enemy
-                this.enemies.push(new Enemy(this.currentEnemyId, x, y));
+                const screenEnemyId = x >= Config.GRID_WIDTH / 2 ? (this.currentEnemyId | 0x80) : (this.currentEnemyId & 0x7F);
+                this.enemies.push(new Enemy(screenEnemyId, x, y));
             }
 
             //bug info
@@ -1107,9 +1123,27 @@ class LevelEditor {
             );
         }
         
-        // 6. Draw enemies
+        const pairs = [[], [], [], []];
         for (const enemy of this.enemies) {
-            enemy.render(this.ctx, this.images);
+            if (enemy.getRealId() === 13) pairs[enemy.getPortalPairId() - 1].push(enemy);
+        }
+        for (const enemy of this.enemies) {
+            const pair = enemy.getRealId() === 13 && pairs[enemy.getPortalPairId() - 1];
+            const exit = pair && pair.length === 2 && pair[1] === enemy;
+            enemy.render(this.ctx, this.images, Boolean(this.mapData[enemy.y]?.[enemy.x]), exit);
+        }
+        // Pair labels are editor overlays only; A starts as entry, B as exit.
+        for (const group of pairs) for (const portal of group) {
+            const valid = group.length === 2;
+            const label = `${portal.getPortalPairId()}${valid ? (group[0] === portal ? 'A' : 'B') : '?'}`;
+            const x = portal.x * Config.TILE_SIZE, y = portal.y * Config.TILE_SIZE;
+            this.ctx.save();
+            this.ctx.font = 'bold 11px sans-serif';
+            this.ctx.textAlign = 'left'; this.ctx.textBaseline = 'top';
+            this.ctx.fillStyle = valid ? 'rgba(0,0,0,0.8)' : '#9b2525';
+            this.ctx.fillRect(x, y, 19, 13);
+            this.ctx.fillStyle = '#fff'; this.ctx.fillText(label, x + 2, y + 1);
+            this.ctx.restore();
         }
 
         // If not wide scene, draw mask
@@ -1254,10 +1288,14 @@ class LevelEditor {
 
             }
 
-            const facingReverse = Enemy.getFacing(this.currentEnemyId);
+            const facingReverse = realId === 13 || Enemy.getFacing(this.currentEnemyId);
             // If reversed, draw image reversed
 
-            const img = this.images.get(enemyName);
+            const group = ((this.currentEnemyId >> 4) & 3) + 1;
+            const exit = realId === 13 && this.enemies.filter(enemy =>
+                enemy.getRealId() === 13 && enemy.getPortalPairId() === group && (enemy.x !== x || enemy.y !== y)).length === 1;
+            const portalKey = `enemy_13_pair_${group}${exit ? '_exit' : ''}${this.mapData[y]?.[x] ? '_covered' : ''}`;
+            const img = (realId === 13 && this.images.get(portalKey)) || this.images.get(enemyName);
             
             if (img) {
                 if(!facingReverse){

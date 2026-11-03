@@ -67,10 +67,15 @@ function assertEnemyPatterns(nes, label) {
 function assertReservedBackgroundUntouched(nes, label) {
     const first = Romfix.SCENE_GRAPHICS_LAYOUT.reservedBackgroundStart;
     assert.ok(Number.isInteger(first) && first > 0 && first <= 0xFF);
-    const reservedStart = 0x1000 + first * 16;
-    const dirtyByte = nes.ppu.vramMem.slice(reservedStart, 0x2000)
-        .findIndex(value => value !== 0);
-    assert.equal(dirtyByte, -1, `${label}: unused reserved background CHR was written`);
+    const {portalStart, portalTileCount} = Romfix.SCENE_GRAPHICS_LAYOUT;
+    for (let index = first; index < 0x100; index++) {
+        if (index >= portalStart && index < portalStart + portalTileCount) continue;
+        assert.ok(nes.ppu.vramMem.slice(0x1000 + index * 16, 0x1010 + index * 16)
+            .every(value => value === 0), `${label}: unused reserved background CHR was written`);
+    }
+    assert.deepEqual(Uint8Array.from(nes.ppu.vramMem.slice(0x1000 + portalStart * 16,
+        0x1000 + (portalStart + portalTileCount) * 16)), Romfix.getPortalPatterns(Romfix.getPortalColorSchemes(original, nes.cpu.mem[0x3E])),
+        `${label}: Enemy 9 preserves the portal artwork`);
     const unexpectedTile = nes.ppu.vramMem.slice(0x2000, 0x2000 + 28 * 32)
         .findIndex(tile => tile >= first);
     assert.equal(unexpectedTile, -1,

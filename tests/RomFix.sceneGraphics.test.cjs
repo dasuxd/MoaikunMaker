@@ -2,7 +2,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
-const Romfix = new Function(fs.readFileSync(path.join(__dirname, '../js/RomFix.js'), 'utf8') +
+const Romfix = new Function(['Config', 'RomFix'].map(name =>
+    fs.readFileSync(path.join(__dirname, '../js', name + '.js'), 'utf8')).join('\n') +
     '\nreturn Romfix;')();
 const fixed = cpu => 0x1C010 + cpu - 0xC000;
 const pages = [1, 1, 1, 1, 1, 2, 2, 3, 3, 2, 2, 2];
@@ -73,11 +74,13 @@ test('scene builds preserve source data, share definition relocations, and clear
         assert.equal(scene.usedBackgroundTiles.length + scene.freeBackgroundTiles.length, 256);
         for (const index of scene.freeSpriteTiles) assert.ok(tile(scene.patterns, 0, index).every(value => value === 0));
         for (const index of scene.freeBackgroundTiles) assert.ok(tile(scene.patterns, 0x1000, index).every(value => value === 0));
-        assert.ok(scene.patterns.slice(0x1000 + reservedStart * 16, 0x2000)
-            .every(value => value === 0), `scene ${scene.scene}, background reserve stays empty`);
+        const {portalStart, portalTileCount} = built.layout;
+        assert.deepEqual(scene.patterns.slice(0x1000 + portalStart * 16,
+            0x1000 + (portalStart + portalTileCount) * 16), Romfix.getPortalPatterns(Romfix.getPortalColorSchemes(data, scene.scene)));
         for (let index = reservedStart; index < 0x100; index++) {
-            assert.ok(scene.freeBackgroundTiles.includes(index));
-            assert.ok(!scene.usedBackgroundTiles.includes(index));
+            const portal = index >= portalStart && index < portalStart + portalTileCount;
+            assert.equal(scene.freeBackgroundTiles.includes(index), !portal);
+            assert.equal(scene.usedBackgroundTiles.includes(index), portal);
         }
         for (const [index, originalTile] of Romfix.SCENE_GRAPHICS_ENEMY9_TILES.entries()) {
             assert.deepEqual(tile(scene.patterns, 0x1000, Romfix.SCENE_GRAPHICS_LAYOUT.enemy9Start + index),
