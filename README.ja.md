@@ -96,10 +96,10 @@ npx serve
 - 「🎮 ステージテスト」をクリックして、エミュレータで現在のレベルを実行
 - 「🎮 ROMテスト」をクリックして、完全なゲームをテスト
 - テスト・ダウンロードはすべて拡張 Mapper 2 ROM（PRG 128 KiB）を使用します。アップロード元のファイルは変更しません。
-- 「一時停止中に上キーで視点切替」は初期状態でオフの実験機能です。オフでは単画面固定・横長画面ループ追従を維持します。オンでは単画面固定・横長画面の原版境界停止から開始し、一時停止中に上キーでループ追従へ切り替えます。切替は1フレーム最大4ピクセル。横長画面の一時停止中の左右閲覧は常に使用でき、単画面ではループ追従時のみ使用できます。コウモリの横方向ループもこの設定に従います。
-- 原版の `START / CONTINUE` とパスワード機能を復元しました。ステージテストは `START` を選び、視点切替が有効な場合は一時停止中に上キーで切り替えます。
+- 実験機能「ポーズメニューのカメラ設定」は初期状態でオフです。無効時は単画面固定・横長画面ループ追従です。有効時は中央でループ追従し、設定画面の `CENTER CAMERA` をオフにすると単画面固定・横長画面の境界停止に切り替わります。タイトルに戻るとオンに戻ります。横長画面では常に、単画面ではループ追従時にポーズ中の左右閲覧ができます。コウモリの横方向ループはプロジェクト設定に従います。
+- 原版の `START / CONTINUE` とパスワード機能を使用できます。ステージテストでは自動で `START` を選びます。
 - この設定がオンの場合、ステージ開始時と一時停止中の閲覧から戻るときも、1フレーム最大4ピクセルで滑らかに目標へ移動します。
-- 一時停止中は主人公と背景として描かれる敵を残し、ほかの敵を非表示にして、敵のスプライト画像領域に `PAUSED` と方向アイコンを表示します。`PAUSED` は常時表示し、方向アイコンだけがゆっくり点滅します。画面の左右端にある矢印で左右の閲覧を案内し、視点切替が有効な場合は点滅する上方向アイコンと常時表示の `LOOP ON/OFF` を同じ行に表示します。左右の閲覧を始めると操作ヒントは消えますが、`PAUSED` は表示を続けます。次の一時停止、または上キーで視点を切り替えた際に操作ヒントと最新の状態を再表示します。再開時は敵の画像を復元し、カメラが戻るまでゲームとタイマーを一時停止して、到着後に自動で再開します。移動中のキー入力では途中解除されません。
+- Start でポーズすると中央で `PAUSED` がゆっくり点滅し、右上に `↑ MENU` が表示されます。左右の閲覧を始めると画面端の矢印が消えます。↑ で設定画面を開き、A で切り替えます。ON は青、OFF は赤です。カメラ設定が無効な場合は `NO OPTIONS` と表示します。B でポーズ中のマップに戻り、Start で再開します。カメラが戻るまでゲームとタイマーは停止します。
 - 「⏹️ エミュレータ停止」をクリックして、編集に戻る
 - ショートカット：`F5` でステージをテスト、`F6` でエミュレータを停止、`Ctrl + S` でステージを保存します。ボタンが無効なときはショートカットも動作しません。
 
@@ -113,11 +113,9 @@ npx serve
 ### 4. 保存と共有
 
 - 新しいブラウザキャッシュは、旧キャッシュを削除せずROM・ステージ・下書きを一度コピーします。ROM内部より新しい個別ステージキャッシュを優先します。
-- 編集済みROMはバージョン記録と局所的なパッチ・配置の特徴で判定し、ファイル全体のハッシュは使用しません。互換性のある画像差替版も使用できます。新版・旧版の出力や版不明の拡張ROMを再読み込みした場合、赤い警告を表示したまま編集・テスト・エクスポートを継続できます。バージョン記録は再パッチの安全性を保証しません。
-- 全ステージをバックアップしてから「未編集ROMに交換・ステージ保持」を使用してください。順序・数・敵・下書き・未保存の編集・設定を保持します。検証やキャッシュ保存に失敗しても、旧プロジェクトは保持されます。
+- 編集にはオリジナルの Mapper 3 ROM または互換性のある画像差し替え版を使用します。テストとダウンロードのたびに拡張 ROM を生成します。再編集用にはステージパックを保存してください。旧版で出力した ROM しかない場合は、先に旧エディタでステージを書き出してください。
 
 - **💾 ステージ保存** - 変更をメモリに保存
-- **📝 ROMに書き込み** - すべての変更をROMデータに書き込む
 - **⬇️ ROMダウンロード** - 変更されたROMファイルをダウンロード
 - **🔗 ステージ共有** - 共有リンクを生成し、友達にコピーして送信
 - **📤 現在のステージを書き出す** - 未保存の変更を含む現在の編集を `.moailevel` で保存
@@ -144,38 +142,28 @@ npx serve
 
 ## 📁 プロジェクト構造
 
-```
-moaikun-maker/
-├── index.html              # メインページ
-├── css/
-│   ├── style.css          # メインスタイル
-│   ├── level_editor.css   # エディタスタイル
-│   └── sortable.css       # ソート可能コンポーネントスタイル
+```text
+MoaikunMaker/
+├── index.html
+├── css/  (style, level-editor, level-library, playtest)
 ├── js/
-│   ├── app.js             # メインアプリケーションロジック
-│   ├── Config.js          # 設定
-│   ├── DataConverter.js   # データ変換
-│   ├── Enemy.js           # 敵の設定
-│   ├── i18n.js            # 国際化メインファイル
-│   ├── Level.js           # レベルデータ構造
-│   ├── LevelEditor.js     # レベルエディタ
-│   ├── MobileGameController.js # モバイルゲームコントローラー
-│   ├── NesEmulator.js     # エミュレータラッパー
-│   ├── ResourceManager.js # リソース管理
-│   ├── RomCache.js        # ROMキャッシング
-│   ├── RomEditor.js       # ROM編集
-│   ├── lang/              # 言語ファイルディレクトリ
-│   │   ├── zh-CN.js       # 簡体字中国語
-│   │   ├── en-US.js       # 英語
-│   │   └── ja-JP.js       # 日本語
-│   └── lib/               # サードパーティライブラリ
-│       └── jsnes.min.js   # NESエミュレータコア
-├── tests/                # エミュレータ状態テスト
-│   └── NesEmulator.quickSave.test.cjs
-└── README.md              # プロジェクトドキュメント
+│   ├── app.js
+│   ├── app/       (ProjectLoader, LevelLibrary, LevelExchange, PlaytestController)
+│   ├── project/   (Project, ProjectCache, LevelFile, GameSettings)
+│   ├── level/     (Level, Enemy, LevelCodec, SceneTileRules, EditorGrid)
+│   ├── rom/       (BaseRom, RomLayout, LevelLayout, buildRom, expandMapper, Asm6502)
+│   │   └── patches/  (applyPatches, BirdFish, Portal, Camera, ViewModes, ...)
+│   ├── graphics/  (GraphicsCatalog, SpritePatterns, SceneCompiler, ResourceManager)
+│   ├── editor/    (LevelEditor, LevelCanvas, EditorToolbar)
+│   ├── emulator/  (NesEmulator, MobileGameController)
+│   ├── debug/     (RamRecorder)
+│   ├── i18n.js
+│   ├── lang/
+│   └── lib/
+└── tests/  (rom, project, editor, emulator, debug, helpers)
 ```
 
-`node --test tests/NesEmulator.quickSave.test.cjs` でクイックセーブを検証できます。
+`node --test tests/emulator/NesEmulator.quickSave.test.cjs` でクイックセーブを検証できます。
 
 ## ⚖️ 法的通知
 

@@ -4,13 +4,13 @@
 const translations_enUS = {
     "portalHelp": "Two matching numbers form a pair. Click again to change groups. Entrances transport players, enemies, tiles and active items when the exit is clear. Direction swaps about every 5 seconds. Fire statues and level exits stay in place. A red ? marks an incomplete pair.",
     "portalExitClearance": "Leave at least one cell between a portal and the level exit.",
-    "romUnsupportedVersion": "This editor ROM version is not supported yet.",
+
     "romUnsupportedStructure": "Unsupported ROM structure or incomplete file.",
     "romMigrationFailed": "ROM replacement failed. Existing levels and drafts are preserved.",
     "romMigrationSuccess": "Replaced the ROM base, keeping {count} levels and all drafts.",
     "romRequiresOriginal": "Choose a ROM not modified by the editor. Compatible artwork variants are supported. Your levels have not been overwritten.",
-    "romContinueLegacy": "Keep using legacy ROM",
-    "romUploadOriginal": "Replace base, keep levels",
+
+
     // Top Bar
     'title': 'Moai-kun Maker',
     'topBarSubtitle': 'NES Level Editor',
@@ -31,6 +31,12 @@ const translations_enUS = {
     'memoryUsage': '💾 Memory Usage',
     
     // Toolbar
+    'resetLevel': 'Restore original level',
+    'resetLevelConfirm': 'Discard edits to level {number} and overwrite its saved data with level {number} from the original ROM?',
+    'clearExtendedLevelConfirm': 'Level {number} is an extra level. Clear its terrain and enemies, keep only the player and one exit, and overwrite its saved data?',
+    'originalLevelMissing': 'This ROM has no original data for level {number}.',
+    'levelRestored': 'Restored the original level {number}.',
+    'levelCleared': 'Cleared level {number}, keeping the player and exit.',
     'config': '🛠️',
     'dragToMove': 'Drag to Move',
     'operations': 'Operations',
@@ -40,20 +46,20 @@ const translations_enUS = {
     'selectScene': 'Select Scene',
     'scene': 'Scene',
     'wideScene': '📺 Wide Screen',
-    'romExpansion': '🔧 Expand ROM',
-    'romExpansionTooltip': 'Converts the game ROM from mapper3 to mapper2\nExpands game content and adds new features\nNote: There may be brief screen glitches during scene transitions, but it does not affect gameplay',
+
+
     'disableTimer': '⏱️ Disable Timer',
     'showNpcCount': '🗿 Show NPC Count',
-    "cameraFollow": "📷 Up while paused to switch view",
-    "cameraFollowHint": "While paused, press Up to smoothly switch single- or double-screen views. Bats wrap horizontally. Experimental; use with caution.",
+    "cameraFollow": "📷 Camera option in pause menu",
+    "cameraFollowHint": "Press Up while paused to open Settings. A toggles centered follow on narrow and wide maps. Enables horizontal bat wrapping. Experimental.",
     'gameConfigHint': 'When the timer is disabled, the NPC count uses the timer position.',
     'shiftMapLeft': 'Shift Map Left',
     'shiftMapRight': 'Shift Map Right',
     'romAlreadyExpanded': 'Current ROM is already expanded version (mapper2), no conversion needed',
-    'romExpansionEnabled': '🔧 ROM expansion mode enabled, level capacity and sprite limits increased',
-    'romExpansionDisabled': '🔧 ROM expansion mode disabled, reverted to original ROM limits',
-    'romAutoExpandedForImportWarning': 'The ROM was automatically converted to an expanded ROM because the imported level content is too large.',
-    "modifiedRomDesignWarning": "This ROM is already modified or its version is unrecognized. Further editing may cause bugs or broken game mechanics. Upload a clean base ROM to retain your levels. Back up now using Export All Levels in the level menu.",
+
+
+
+
     'clearMap': 'Clear Map',
     'exportData': 'Export Data',
     'applyToRom': 'Apply to ROM Editor',

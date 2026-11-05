@@ -94,10 +94,10 @@ npx serve
 - Click "🎮 Test Level" to run current level in emulator
 - Click "🎮 Test ROM" to test the complete game
 - All previews/downloads use expanded Mapper 2 ROMs (128 KiB PRG). The uploaded source stays intact.
-- “Up while paused to switch view” is off by default and experimental. Off keeps fixed narrow maps and looping wide maps. On starts with fixed narrow / native bounded wide views; press Up while paused to toggle centered looping follow, with a transition of at most 4 pixels per frame. Wide pause free-look remains available; narrow free-look requires looping view. Horizontal bat wrapping follows this setting.
-- The original `START / CONTINUE` password menu is restored. Test Level automatically chooses `START`; with view switching enabled, change view with Up while paused.
+- The experimental “Camera option in pause menu” is off by default. When disabled, narrow maps use a fixed view and wide maps wrap. When enabled, levels start with centered looping follow. Turn off `CENTER CAMERA` in Settings for a fixed narrow or bounded wide view; returning to the title resets it to ON. Wide maps always allow pause free-look. Narrow maps allow it in looping view. Horizontal bat wrapping follows the project option.
+- Test Level automatically chooses `START` from the original `START / CONTINUE` password menu.
 - With this option enabled, stage entry and returning from pause free-look also approach the target smoothly, at most 4 pixels per frame.
-- Pausing keeps the player and background enemies visible, hides the other enemies, and uses their sprite graphics space for `PAUSED` and directional hints. `PAUSED` stays visible, and only direction icons blink slowly: left and right arrows at the screen edges indicate level viewing. When view switching is enabled, a blinking Up icon and steady `LOOP ON/OFF` text show the loop setting together on one line. Looking left or right hides the controls while `PAUSED` remains visible. The controls return on the next pause, or when Up changes the view and displays its latest setting. Resuming restores enemy graphics and keeps gameplay and the timer paused until the camera reaches its target, then resumes automatically. Input during the return cannot unpause early.
+- Press Start to pause. `PAUSED` blinks in the center and `↑ MENU` stays at the top right. The side arrows disappear once you start looking around. Press Up for Settings and A to toggle the camera. ON is blue and OFF is red. Projects with the camera option disabled show `NO OPTIONS`. Press B to return to the paused map, then Start to resume. Gameplay and the timer stay frozen until the camera returns.
 - Click "⏹️ Stop Emulator" to return to editing
 - Shortcuts: `F5` tests the current level, `F6` stops the emulator, and `Ctrl + S` saves the level. A shortcut does nothing while its button is disabled.
 
@@ -111,11 +111,9 @@ npx serve
 ### 4. Save & Share
 
 - A new browser cache copies old ROM, level and draft records once without deleting the old cache. Separate cached edits take priority over embedded ROM levels.
-- Editor outputs are recognized by version records and local patch/layout features, not a whole-file hash; compatible artwork variants are accepted. Reimported current outputs, legacy outputs and unrecognized expanded ROMs all show a persistent red warning while allowing editing/testing/exporting. An output version does not make an already patched ROM a safe base for rebuilding patches.
-- Export all levels as a backup, then use “Upload clean ROM, keep levels” to replace the base while retaining level order/count, enemies, drafts, unsaved edits and settings. A failed validation or cache commit retains the old project.
+- Use an original Mapper 3 ROM or a compatible artwork variant as the base. Playtests and downloads build a fresh expanded ROM. Save a level pack to continue editing. If you only have an older exported ROM, use the older editor to export its levels first.
 
 - **💾 Save Level** - Save changes to memory
-- **📝 Write ROM** - Write all changes to ROM data
 - **⬇️ Download ROM** - Download modified ROM file
 - **🔗 Share Level** - Generate share link, copy and send to friends
 - **📤 Export Current Level** - Export the current edit, including unsaved changes, as `.moailevel`
@@ -142,38 +140,28 @@ npx serve
 
 ## 📁 Project Structure
 
-```
-moaikun-maker/
-├── index.html              # Main page
-├── css/
-│   ├── style.css          # Main styles
-│   ├── level_editor.css   # Editor styles
-│   └── sortable.css       # Sortable component styles
+```text
+MoaikunMaker/
+├── index.html
+├── css/  (style, level-editor, level-library, playtest)
 ├── js/
-│   ├── app.js             # Main application logic
-│   ├── Config.js          # Configuration
-│   ├── DataConverter.js   # Data conversion
-│   ├── Enemy.js           # Enemy configuration
-│   ├── i18n.js            # Internationalization main file
-│   ├── Level.js           # Level data structure
-│   ├── LevelEditor.js     # Level editor
-│   ├── MobileGameController.js # Mobile game controller
-│   ├── NesEmulator.js     # Emulator wrapper
-│   ├── ResourceManager.js # Resource management
-│   ├── RomCache.js        # ROM caching
-│   ├── RomEditor.js       # ROM editing
-│   ├── lang/              # Language files directory
-│   │   ├── zh-CN.js       # Simplified Chinese
-│   │   ├── en-US.js       # English
-│   │   └── ja-JP.js       # Japanese
-│   └── lib/               # Third-party libraries
-│       └── jsnes.min.js   # NES emulator core
-├── tests/                # Emulator state tests
-│   └── NesEmulator.quickSave.test.cjs
-└── README.md              # Project documentation
+│   ├── app.js
+│   ├── app/       (ProjectLoader, LevelLibrary, LevelExchange, PlaytestController)
+│   ├── project/   (Project, ProjectCache, LevelFile, GameSettings)
+│   ├── level/     (Level, Enemy, LevelCodec, SceneTileRules, EditorGrid)
+│   ├── rom/       (BaseRom, RomLayout, LevelLayout, buildRom, expandMapper, Asm6502)
+│   │   └── patches/  (applyPatches, BirdFish, Portal, Camera, ViewModes, ...)
+│   ├── graphics/  (GraphicsCatalog, SpritePatterns, SceneCompiler, ResourceManager)
+│   ├── editor/    (LevelEditor, LevelCanvas, EditorToolbar)
+│   ├── emulator/  (NesEmulator, MobileGameController)
+│   ├── debug/     (RamRecorder)
+│   ├── i18n.js
+│   ├── lang/
+│   └── lib/
+└── tests/  (rom, project, editor, emulator, debug, helpers)
 ```
 
-Run `node --test tests/NesEmulator.quickSave.test.cjs` to check quick saves.
+Run `node --test tests/emulator/NesEmulator.quickSave.test.cjs` to check quick saves.
 
 ## ⚖️ Legal Notice
 

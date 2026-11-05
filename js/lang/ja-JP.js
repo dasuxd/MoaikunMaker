@@ -4,13 +4,13 @@
 const translations_jaJP = {
     "portalHelp": "同じ番号の2個がペアになります。再クリックで番号を変更。出口が空いていると主人公・敵・タイル・動作中のアイテムを転送します。約5秒ごとに方向が変わります。火を吐く像とゴールは固定です。赤い？はペア未成立です。",
     "portalExitClearance": "ポータルとゴールの間は1マス以上空けてください。",
-    "romUnsupportedVersion": "このエディタ ROM の版は未対応です。",
+
     "romUnsupportedStructure": "ROM の構造が未対応、またはファイルが不完全です。",
     "romMigrationFailed": "ROM の交換に失敗しました。既存のステージと下書きは保持されています。",
     "romMigrationSuccess": "ROM を交換し、{count} ステージと全下書きを保持しました。",
     "romRequiresOriginal": "エディタで未編集の ROM を選択してください。互換性のある画像差し替え版も使用できます。ステージは上書きされていません。",
-    "romContinueLegacy": "旧 ROM を使い続ける",
-    "romUploadOriginal": "ROM 交換・ステージ保持",
+
+
     // Top Bar
     'title': 'Moai-kun Maker',
     'topBarSubtitle': 'NES ステージエディター',
@@ -31,6 +31,12 @@ const translations_jaJP = {
     'memoryUsage': '💾 メモリ使用状況',
     
     // Toolbar
+    'resetLevel': '原版のステージに戻す',
+    'resetLevelConfirm': 'ステージ {number} の編集内容を破棄し、保存済みのデータを原版 ROM の同じ番号のステージで上書きしますか？',
+    'clearExtendedLevelConfirm': 'ステージ {number} は追加ステージです。地形と敵を消去し、プレイヤーと出口を一つだけ残して保存済みのデータを上書きしますか？',
+    'originalLevelMissing': 'この ROM にはステージ {number} の原版データがありません。',
+    'levelRestored': 'ステージ {number} を原版に戻しました。',
+    'levelCleared': 'ステージ {number} のプレイヤーと出口を残して消去しました。',
     'config': '🛠️',
     'dragToMove': 'ドラッグで移動',
     'operations': '操作',
@@ -40,20 +46,20 @@ const translations_jaJP = {
     'selectScene': 'シーン選択',
     'scene': 'シーン',
     'wideScene': '📺 ワイドスクリーン',
-    'romExpansion': '🔧 ROMを拡張',
-    'romExpansionTooltip': 'ゲームROMをmapper3からmapper2に変換します\nゲームコンテンツを拡張し、新機能を追加します\n注意：シーン切り替え時に一時的な画面の乱れが発生する場合がありますが、ゲームプレイには影響しません',
+
+
     'disableTimer': '⏱️ タイマーを無効化',
     'showNpcCount': '🗿 NPC数を表示',
-    "cameraFollow": "📷 一時停止中に上キーで視点切替",
-    "cameraFollowHint": "一時停止中に上キーで視点を滑らかに切り替えます。単画面・横長画面に対応し、コウモリは横方向にループします。十分な検証が済んでいません。",
+    "cameraFollow": "📷 ポーズメニューのカメラ設定",
+    "cameraFollowHint": "ポーズ中に ↑ で設定を開き、A でカメラの中央追従を切り替えます。単画面・横長画面に対応し、コウモリの横方向ループも有効になります。実験機能です。",
     'gameConfigHint': 'タイマーを無効にすると、NPC数は元のタイマー位置に表示されます。',
     'shiftMapLeft': 'マップを左へ',
     'shiftMapRight': 'マップを右へ',
     'romAlreadyExpanded': '現在のROMはすでに拡張版（mapper2）です。変換は不要です',
-    'romExpansionEnabled': '🔧 ROM拡張モードが有効になりました。ステージ容量とスプライトの上限が拡大されました',
-    'romExpansionDisabled': '🔧 ROM拡張モードが無効になりました。元のROM制限に戻りました',
-    'romAutoExpandedForImportWarning': 'ステージ内容が多いため、ROMを拡張ROMへ自動変換しました。',
-    "modifiedRomDesignWarning": "編集済みまたは版不明の ROM を検出しました。再編集すると不具合やゲーム動作の破損が起きる可能性があります。未編集 ROM に交換してもステージは保持されます。ステージメニューから全ステージをエクスポートして保存してください。",
+
+
+
+
     'clearMap': 'マップクリア',
     'exportData': 'データエクスポート',
     'applyToRom': 'ROMエディタに適用',

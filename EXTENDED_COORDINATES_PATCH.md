@@ -1,7 +1,7 @@
 # 出生屏幕与玩家 Y 扩展补丁
 
 新导出的扩展 ROM 始终安装这组钩子，与“单屏视角模式”开关无关。
-实现位于 `Romfix.fixExtendedCoordinates()`，不依赖浏览器 RAM 观察器。
+实现位于 `Coordinates.fixExtendedCoordinates()`，不依赖浏览器 RAM 观察器。
 
 ## RAM 分配
 
@@ -14,7 +14,7 @@
 选址依据是本地原版代码核查及用户提供的运行观察：这段 RAM 被 `$802B`
 和 `$82EF` 初始化清零，已观察场景没有读取；原版相关指令及数组也没有
 发现对所分配地址的业务引用。观察覆盖不是穷尽证明，后续仍可继续测试。
-地址集中定义在 `Romfix.COORDINATE_RAM`。RAM 观察窗口把九个已分配字节
+地址集中定义在 `Coordinates.COORDINATE_RAM`。RAM 观察窗口把九个已分配字节
 标为保留，详情说明其用途；历史数据不删除、不改写。
 
 ## 运行行为
@@ -56,7 +56,7 @@ OAM 构建时隐藏超出坐标页的玩家及拳头。
 不重叠。安装前检查区域占用、容量和相对跳转范围，检查成功后再写钩子。
 重新导出会重建这组助手。ROM 格式和银行切换方式不变。
 
-`tests/RomFix.extendedCoordinates.test.cjs` 覆盖带符号积分、小数进位、弹簧、
+`tests/rom/extendedCoordinates.test.cjs` 覆盖带符号积分、小数进位、弹簧、
 顶部探测、底部死亡、精灵隐藏、八个出生屏幕、跨屏复活、出生点阻挡、
 完整敌人更新帧及死亡重载。新增验证最高砖面站立、再次跳跃、走下砖面，
 并通过实际 B 键攻击触发敌人死亡，不缩短倒计时，等待敌人重新显示在
@@ -66,7 +66,7 @@ OAM 构建时隐藏超出坐标页的玩家及拳头。
 
 ```powershell
 $env:MOAIKUN_TEST_ROM = '本机原版 ROM 的完整路径'
-node --test tests/RomFix.extendedCoordinates.test.cjs tests/RomFix.viewModes.test.cjs
+node --test tests/rom/extendedCoordinates.test.cjs tests/rom/viewModes.test.cjs
 ```
 
 已启动的游戏仍运行旧导出；使用新版脚本重新开始测试或导出 ROM 后生效。

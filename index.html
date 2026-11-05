@@ -14,8 +14,9 @@
     <title>Moai-kun Maker</title>
     <link rel="shortcut icon" href="favicon.ico" />
     <link rel="stylesheet" href="css/style.css?v=up-view-cache-v3-base-check">
-    <link rel="stylesheet" href="css/sortable.css?v=up-view-cache-v3-base-check">
-    <link rel="stylesheet" href="css/level_editor.css?v=up-view-cache-v3-base-check">
+    <link rel="stylesheet" href="css/level-library.css?v=up-view-cache-v3-base-check">
+    <link rel="stylesheet" href="css/playtest.css">
+    <link rel="stylesheet" href="css/level-editor.css?v=level-reset">
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-096V7R6G3R"></script>
     <script>
@@ -36,9 +37,9 @@
         <div class="welcome-content">
             <!-- 语言切换按钮 -->
             <div class="welcome-lang-switcher">
-                <button class="lang-btn" onclick="switchLanguage('zh-CN')" title="中文">中</button>
-                <button class="lang-btn" onclick="switchLanguage('en-US')" title="English">EN</button>
-                <button class="lang-btn" onclick="switchLanguage('ja-JP')" title="日本語">日</button>
+                <button class="lang-btn" data-action="switchLanguage" data-value="zh-CN" title="中文">中</button>
+                <button class="lang-btn" data-action="switchLanguage" data-value="en-US" title="English">EN</button>
+                <button class="lang-btn" data-action="switchLanguage" data-value="ja-JP" title="日本語">日</button>
             </div>
 
             <h1 data-i18n="welcomeTitle">🎮 欢迎使用 Moai-kun Maker</h1>
@@ -65,7 +66,7 @@
                     📤 上传 ROM 开始使用
                 </label>
                 <button type="button" class="welcome-upload-btn recovery-export-btn"
-                    id="recoveryExportBtn" onclick="exportLevelPack()" data-i18n="exportCachedRecovery"
+                    id="recoveryExportBtn" data-action="exportLevelPack" data-i18n="exportCachedRecovery"
                     style="display: none;">
                     🛟 导出缓存中的关卡
                 </button>
@@ -82,19 +83,9 @@
             </div>
         </div>
 
-        <div class="top-bar-warning" id="modifiedRomWarning" role="status" aria-live="polite" hidden>
-            <span class="top-bar-warning-icon" aria-hidden="true">⚠️</span>
-            <span id="modifiedRomWarningText" data-i18n="modifiedRomDesignWarning">检测到已修改或无法识别版本的 ROM，继续编辑可能产生异常或损坏游戏机制。建议上传原版，您的关卡数据将保留；请立即从关卡列表菜单导出全部关卡备份。</span>
-            <div class="rom-migration-actions">
-                <button type="button" onclick="app.requestOriginalRom()" data-i18n="romUploadOriginal">上传原版并保留关卡</button>
-                <button type="button" id="continueLegacyRomBtn" onclick="app.continueLegacyRom()" data-i18n="romContinueLegacy">继续使用旧 ROM</button>
-                <button type="button" onclick="exportLevelPack()" data-i18n="exportLevelPack">导出全部关卡</button>
-            </div>
-        </div>
-
         <div class="top-bar-actions">
             <!-- 移动端菜单按钮 -->
-            <button class="mobile-menu-btn" id="mobileMenuBtn" onclick="toggleMobileMenu()">
+            <button class="mobile-menu-btn" id="mobileMenuBtn" data-action="toggleMobileMenu">
                 <span class="menu-icon">☰</span>
             </button>
 
@@ -103,17 +94,17 @@
                 <label for="fileInput" class="dropdown-item">
                     <span data-i18n="selectRom">📁 选择 ROM 文件</span>
                 </label>
-                <button class="dropdown-item" id="clearCacheBtnMobile" onclick="clearCache(); toggleMobileMenu();">
+                <button class="dropdown-item" id="clearCacheBtnMobile" data-action="clearCache" data-close-menu>
                     <span data-i18n="clearCache">🗑️ 清除缓存</span>
                 </button>
                 <div class="dropdown-divider"></div>
-                <button class="dropdown-item" onclick="switchLanguage('zh-CN'); toggleMobileMenu();">
+                <button class="dropdown-item" data-action="switchLanguage" data-value="zh-CN" data-close-menu>
                     <span>🇨🇳 中文</span>
                 </button>
-                <button class="dropdown-item" onclick="switchLanguage('en-US'); toggleMobileMenu();">
+                <button class="dropdown-item" data-action="switchLanguage" data-value="en-US" data-close-menu>
                     <span>🇬🇧 English</span>
                 </button>
-                <button class="dropdown-item" onclick="switchLanguage('ja-JP'); toggleMobileMenu();">
+                <button class="dropdown-item" data-action="switchLanguage" data-value="ja-JP" data-close-menu>
                     <span>🇯🇵 日本語</span>
                 </button>
             </div>
@@ -129,9 +120,9 @@
 
             <!-- 语言切换按钮 -->
             <div class="language-switcher">
-                <button class="lang-btn" onclick="switchLanguage('en-US')" title="English">EN</button>
-                <button class="lang-btn" onclick="switchLanguage('zh-CN')" title="中文">中</button>
-                <button class="lang-btn" onclick="switchLanguage('ja-JP')" title="日本語">日</button>
+                <button class="lang-btn" data-action="switchLanguage" data-value="en-US" title="English">EN</button>
+                <button class="lang-btn" data-action="switchLanguage" data-value="zh-CN" title="中文">中</button>
+                <button class="lang-btn" data-action="switchLanguage" data-value="ja-JP" title="日本語">日</button>
             </div>
         </div>
     </div>
@@ -153,12 +144,12 @@
             <div class="sidebar-level-tabs" role="tablist" aria-label="Level library">
                 <button type="button" id="formalLevelsTab" class="sidebar-level-tab active"
                     role="tab" aria-selected="true" aria-controls="formalLevelsPanel"
-                    onclick="switchLevelLibraryTab('formal')" data-i18n="formalLevelsTab">
+                    data-action="switchLevelLibraryTab" data-value="formal" data-i18n="formalLevelsTab">
                     🎮 正式关卡
                 </button>
                 <button type="button" id="draftLevelsTab" class="sidebar-level-tab"
                     role="tab" aria-selected="false" aria-controls="draftLevelsPanel"
-                    onclick="switchLevelLibraryTab('drafts')">
+                    data-action="switchLevelLibraryTab" data-value="drafts">
                     <span data-i18n="draftLevelsTab">📦 草稿/分享</span>
                     <span id="draftCountBadge" class="draft-count-badge">0</span>
                 </button>
@@ -180,18 +171,18 @@
                 </div>
 
                 <div class="level-order-controls" style="margin: 12px 15px;">
-                    <button class="btn-edit-order" id="editLevelsBtn" onclick="startEditLevels()"
+                    <button class="btn-edit-order" id="editLevelsBtn" data-action="startEditLevels"
                         style="width: 100%; padding: 10px; background: #4CAF50; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;"
                         data-i18n="editLevels">
                         ✏️ 编辑关卡组
                     </button>
                     <div class="order-action-buttons" id="editLevelsActionButtons" style="display: none; gap: 8px;">
-                        <button class="btn-cancel-order" onclick="cancelEditLevels()"
+                        <button class="btn-cancel-order" data-action="cancelEditLevels"
                             style="flex: 1; padding: 10px; background: #f44336; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;"
                             data-i18n="cancel">
                             ❌ 取消
                         </button>
-                        <button class="btn-save-order" onclick="saveLevels()"
+                        <button class="btn-save-order" data-action="saveLevels"
                             style="flex: 1; padding: 10px; background: #2196F3; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;"
                             data-i18n="saveLevelsEdit">
                             ✔️ 保存关卡配置
@@ -201,15 +192,15 @@
 
                 <div class="level-file-controls">
                     <button type="button" class="level-file-btn level-file-export" id="exportCurrentLevelBtn"
-                        onclick="exportCurrentLevel()" data-i18n="exportCurrentLevel">
+                        data-action="exportCurrentLevel" data-i18n="exportCurrentLevel">
                         📤 导出当前关卡
                     </button>
                     <button type="button" class="level-file-btn level-file-import" id="importLevelBtn"
-                        onclick="openLevelFilePicker('formal')" data-i18n="importLevel">
+                        data-action="openLevelFilePicker" data-value="formal" data-i18n="importLevel">
                         📥 导入关卡
                     </button>
                     <button type="button" class="level-file-btn level-file-pack" id="exportLevelPackBtn"
-                        onclick="exportLevelPack()" data-i18n="exportLevelPack">
+                        data-action="exportLevelPack" data-i18n="exportLevelPack">
                         🧰 导出全部
                     </button>
                 </div>
@@ -222,15 +213,15 @@
                 aria-labelledby="draftLevelsTab" hidden>
                 <div class="draft-file-controls">
                     <button type="button" class="level-file-btn level-file-import"
-                        onclick="openLevelFilePicker('drafts')" data-i18n="importDraftLevel">
+                        data-action="openLevelFilePicker" data-value="drafts" data-i18n="importDraftLevel">
                         📥 导入草稿
                     </button>
                     <button type="button" class="level-file-btn level-file-export" id="exportCurrentDraftBtn"
-                        onclick="exportCurrentDraft()" data-i18n="exportCurrentDraft" disabled>
+                        data-action="exportCurrentDraft" data-i18n="exportCurrentDraft" disabled>
                         📤 导出当前草稿
                     </button>
                     <button type="button" class="level-file-btn level-file-pack" id="exportAllDraftsBtn"
-                        onclick="exportAllDrafts()" data-i18n="exportAllDrafts" disabled>
+                        data-action="exportAllDrafts" data-i18n="exportAllDrafts" disabled>
                         🧰 导出全部草稿
                     </button>
                 </div>
@@ -257,18 +248,18 @@
                     <div class="toolbar draggable-mode" id="toolbar">
                         <div class="toolbar-header" id="toolbarHeader">
                             <span class="toolbar-title" data-i18n="config">🛠️</span>
-                            <button class="toolbar-mode-toggle" id="toolbarModeToggle" onclick="toggleToolbarMode()">📌</button>
+                            <button class="toolbar-mode-toggle" id="toolbarModeToggle" data-action="toggleToolbarMode">📌</button>
                         </div>
-                        <div class="toolbar-content">
-                            <div class="toolbar-section-tabs" role="tablist">
-                                <button type="button" class="toolbar-section-tab active"
-                                    data-toolbar-tab="operations" role="tab" aria-selected="true"
-                                    data-i18n="operations">操作</button>
-                                <button type="button" class="toolbar-section-tab"
-                                    data-toolbar-tab="gameConfig" role="tab" aria-selected="false"
-                                    data-i18n="gameConfig">游戏配置</button>
-                            </div>
+                        <div class="toolbar-section-tabs" role="tablist">
+                            <button type="button" class="toolbar-section-tab active"
+                                data-toolbar-tab="operations" role="tab" aria-selected="true"
+                                data-i18n="operations">操作</button>
+                            <button type="button" class="toolbar-section-tab"
+                                data-toolbar-tab="gameConfig" role="tab" aria-selected="false"
+                                data-i18n="gameConfig">游戏配置</button>
+                        </div>
 
+                        <div class="toolbar-content">
                             <section class="toolbar-section-panel active" id="operationsPanel"
                                 role="tabpanel">
                                 <div class="scene-controls">
@@ -310,13 +301,10 @@
                                     </button>
                                 </div>
 
-                                <button class="action-btn" id="clearBtn" style="display: none;"
-                                    data-i18n="clearMap">清空地图</button>
+                                <button type="button" class="map-shift-btn reset-level-btn" id="resetLevelBtn"
+                                    data-action="resetLevel" data-i18n="resetLevel" disabled>还原为原版关卡</button>
                                 <button class="action-btn" id="exportBtn" style="display: none;"
                                     data-i18n="exportData">导出数据</button>
-                                <button class="action-btn" id="applyToRomBtn" style="display: none;"
-                                    data-i18n="applyToRom">应用到 ROM 编辑器</button>
-                                <h3 data-i18n="tools">工具</h3>
                                 <div class="tool-tabs">
                                     <button class="tool-tab active" data-tab="tiles" data-i18n="tiles">图块</button>
                                     <button class="tool-tab" data-tab="enemies" data-i18n="enemies">精灵</button>
@@ -352,7 +340,7 @@
                                     <label class="game-config-option">
                                         <input type="checkbox" id="cameraFollowCheckbox"
                                             aria-describedby="cameraFollowHint">
-                                        <span data-i18n="cameraFollow">📷 暂停时上键切换视角</span>
+                                        <span data-i18n="cameraFollow">📷 暂停菜单相机选项</span>
                                     </label>
                                 </div>
                                 <div class="game-config-author">
@@ -368,7 +356,7 @@
                                     </p>
                                 </div>
                                 <p class="game-config-hint" id="cameraFollowHint" data-i18n="cameraFollowHint">
-                                    暂停时按上键平滑切换视角，支持单屏和双屏；蝙蝠横向循环。尚未经过大量测试，请谨慎使用。
+                                    暂停时按 ↑ 打开菜单，用 A 切换镜头居中。支持单屏和双屏，并启用蝙蝠横向循环。此功能仍在测试中。
                                 </p>
                                 <p class="game-config-hint" data-i18n="gameConfigHint">
                                     停用计时后，NPC 数量会显示在原计时器位置。
@@ -434,23 +422,20 @@
             <!-- </div> -->
 
             <div class="button-group">
-                <button class="btn-test" id="testLevelBtn" onclick="testLevel()" disabled data-i18n="testLevel">🎮 测试关卡</button>
-                <button class="btn-test" id="testBtn" onclick="testROM()" disabled data-i18n="testRom">🎮 测试
+                <button class="btn-test" id="testLevelBtn" data-action="testLevel" disabled data-i18n="testLevel">🎮 测试关卡</button>
+                <button class="btn-test" id="testBtn" data-action="testROM" disabled data-i18n="testRom">🎮 测试
                     ROM</button>
-                <button class="btn-stop" id="stopEmulatorBtn" onclick="stopEmulator()" disabled
+                <button class="btn-stop" id="stopEmulatorBtn" data-action="stopEmulator" disabled
                     data-i18n="stopEmulator">⏹️ 结束模拟</button>
 
             </div>
 
             <div class="button-group">
-                <button class="btn-save" id="saveBtn" onclick="saveLevel()" disabled data-i18n="saveLevel">💾
+                <button class="btn-save" id="saveBtn" data-action="saveLevel" disabled data-i18n="saveLevel">💾
                     保存关卡</button>
-
-                <!-- <button class="btn-write" id="writeRomBtn" onclick="writeToROM()" disabled data-i18n="writeToRom">📝 写入
-                    ROM</button> -->
-                <button class="btn-download" id="downloadBtn" onclick="downloadROM()" disabled
+                <button class="btn-download" id="downloadBtn" data-action="downloadROM" disabled
                     data-i18n="downloadRom">⬇️ 下载 ROM</button>
-                <button class="btn-download" id="shareBtn" onclick="shareLevel()" data-i18n="shareLevel">🔗
+                <button class="btn-download" id="shareBtn" data-action="shareLevel" data-i18n="shareLevel">🔗
                     分享关卡</button>
             </div>
             <div class="memory-overview" id="memoryOverview">
@@ -617,15 +602,15 @@
             <p data-i18n="unsavedChangesMessage">当前编辑内容尚未写入正式关卡。请选择如何处理。</p>
             <div class="level-modal-actions">
                 <button type="button" class="level-modal-btn level-modal-cancel"
-                    onclick="resolveUnsavedChanges('cancel')" data-i18n="cancelSwitch">
+                    data-action="resolveUnsavedChanges" data-value="cancel" data-i18n="cancelSwitch">
                     取消
                 </button>
                 <button type="button" class="level-modal-btn level-modal-discard"
-                    onclick="resolveUnsavedChanges('discard')" data-i18n="discardChanges">
+                    data-action="resolveUnsavedChanges" data-value="discard" data-i18n="discardChanges">
                     丢弃
                 </button>
                 <button type="button" class="level-modal-btn level-modal-draft"
-                    onclick="resolveUnsavedChanges('draft')" data-i18n="saveToDrafts">
+                    data-action="resolveUnsavedChanges" data-value="draft" data-i18n="saveToDrafts">
                     保存到草稿箱
                 </button>
             </div>
@@ -638,31 +623,57 @@
     <script src="js/lib/Sortable-1.15.0.min.js?v=up-view-cache-v3-base-check"></script>
     
     <!-- 语言文件 -->
-    <script src="js/lang/zh-CN.js?v=portal-cargo-v6"></script>
-    <script src="js/lang/en-US.js?v=portal-cargo-v6"></script>
-    <script src="js/lang/ja-JP.js?v=portal-cargo-v6"></script>
+    <script src="js/lang/zh-CN.js?v=level-reset"></script>
+    <script src="js/lang/en-US.js?v=level-reset"></script>
+    <script src="js/lang/ja-JP.js?v=level-reset"></script>
     
     <!-- 国际化核心 -->
     <script src="js/i18n.js?v=up-view-cache-v3-base-check"></script>
     
     <script src="js/lib/jsnes.min.js?v=up-view-cache-v3-base-check"></script>
     <!-- RAM 观察记录测试功能已停用；需要恢复时取消下方注释。 -->
-    <!-- <script src="js/RamRecorder.js?v=ram-recording-v4-coordinate-ram"></script> -->
-    <script src="js/NesEmulator.js?v=ram-recording-v1"></script>
-    <script src="js/MobileGameController.js?v=up-view-cache-v3-base-check"></script>
-    <script src="js/Config.js?v=portal-pair-colors-v3"></script>
-    <script src="js/RomFix.js?v=portal-cargo-v6"></script>
-    <script src="js/OptimizedMap.js?v=up-view-cache-v3-base-check"></script>
-    <script src="js/Enemy.js?v=portal-pair-colors-v3"></script>
-    <script src="js/ResourceManager.js?v=portal-solid-v4"></script>
-    <script src="js/RomCache.js?v=up-view-cache-v3-base-check"></script>
-    <script src="js/Level.js?v=up-view-cache-v3-base-check"></script>
-    <script src="js/RomEditor.js?v=scene-chr-v2-unified"></script>
-    <script src="js/DataConverter.js?v=up-view-cache-v3-base-check"></script>
-    <script src="js/LevelFile.js?v=up-view-cache-v3-base-check"></script>
-    <script src="js/LevelEditor.js?v=portal-cargo-v6"></script>
-
-    <script src="js/app.js?v=up-view-cache-v3-base-check"></script>
+    <!-- <script src="js/debug/RamRecorder.js?v=ram-recording-v4-coordinate-ram"></script> -->
+    <script src="js/emulator/NesEmulator.js"></script>
+    <script src="js/emulator/MobileGameController.js"></script>
+    <script src="js/level/EditorGrid.js"></script>
+    <script src="js/project/GameSettings.js"></script>
+    <script src="js/rom/RomLayout.js"></script>
+    <script src="js/graphics/GraphicsCatalog.js"></script>
+    <script src="js/graphics/SceneCompiler.js"></script>
+    <script src="js/graphics/SpritePatterns.js"></script>
+    <script src="js/rom/Asm6502.js"></script>
+    <script src="js/rom/expandMapper.js"></script>
+    <script src="js/rom/patches/applyPatches.js"></script>
+    <script src="js/rom/patches/BirdFish.js"></script>
+    <script src="js/rom/patches/Camera.js"></script>
+    <script src="js/rom/patches/Coordinates.js"></script>
+    <script src="js/rom/patches/Credits.js"></script>
+    <script src="js/rom/patches/Hud.js"></script>
+    <script src="js/rom/patches/PauseSettings.js"></script>
+    <script src="js/rom/patches/Pause.js"></script>
+    <script src="js/rom/patches/Portal.js"></script>
+    <script src="js/rom/patches/SceneRuntime.js"></script>
+    <script src="js/rom/patches/Terrain.js"></script>
+    <script src="js/rom/patches/ViewModes.js"></script>
+    <script src="js/level/SceneTileRules.js"></script>
+    <script src="js/level/Enemy.js"></script>
+    <script src="js/graphics/ResourceManager.js"></script>
+    <script src="js/project/ProjectCache.js"></script>
+    <script src="js/level/Level.js"></script>
+    <script src="js/rom/BaseRom.js"></script>
+    <script src="js/rom/LevelLayout.js"></script>
+    <script src="js/rom/buildRom.js"></script>
+    <script src="js/project/Project.js"></script>
+    <script src="js/level/LevelCodec.js"></script>
+    <script src="js/project/LevelFile.js"></script>
+    <script src="js/editor/LevelCanvas.js"></script>
+    <script src="js/editor/EditorToolbar.js"></script>
+    <script src="js/editor/LevelEditor.js"></script>
+    <script src="js/app/ProjectLoader.js"></script>
+    <script src="js/app/LevelLibrary.js"></script>
+    <script src="js/app/LevelExchange.js"></script>
+    <script src="js/app/PlaytestController.js"></script>
+    <script src="js/app.js"></script>
 
     <!-- 消息提示容器 -->
     <div id="messageContainer" class="message-container"></div>

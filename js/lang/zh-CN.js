@@ -4,13 +4,13 @@
 const translations_zhCN = {
     "portalHelp": "同编号的两扇门配对，再次点击可换组。入口自动传送角色、怪物、图块和活动道具。出口被占用时等待，约每 5 秒换向。喷火装置和通关门固定。红色问号表示配对未完成。",
     "portalExitClearance": "传送门与通关门之间需要留出至少一格空隙。",
-    "romUnsupportedVersion": "该编辑器 ROM 的版本尚不受支持。",
+
     "romUnsupportedStructure": "ROM 结构不兼容或文件不完整。",
     "romMigrationFailed": "ROM 更换未完成，旧关卡和草稿仍保留。",
     "romMigrationSuccess": "已更换 ROM 底板，并保留 {count} 个关卡和全部草稿。",
     "romRequiresOriginal": "请选择未经编辑器修改的原版 ROM；兼容的换皮版本也可以使用。原有关卡没有被覆盖。",
-    "romContinueLegacy": "继续使用旧 ROM",
-    "romUploadOriginal": "上传原版并保留关卡",
+
+
     // Top Bar
     'title': 'Moai-kun Maker',
     'topBarSubtitle': 'NES 关卡编辑器',
@@ -31,6 +31,12 @@ const translations_zhCN = {
     'memoryUsage': '💾 内存使用情况',
     
     // Toolbar
+    'resetLevel': '还原为原版关卡',
+    'resetLevelConfirm': '将清空第 {number} 关的编辑内容，并用原版 ROM 中的第 {number} 关覆盖已保存的数据。确定还原吗？',
+    'clearExtendedLevelConfirm': '第 {number} 关是扩展关卡。将清空地形和怪物，只留下角色和一扇通关门，并覆盖已保存的数据。确定清空吗？',
+    'originalLevelMissing': '当前 ROM 中没有第 {number} 关的原版数据。',
+    'levelRestored': '第 {number} 关已还原为原版。',
+    'levelCleared': '第 {number} 关已清空，保留了角色和通关门。',
     'config': '🛠️',
     'dragToMove': '拖动移动',
     'operations': '操作',
@@ -40,20 +46,20 @@ const translations_zhCN = {
     'selectScene': '选择场景',
     'scene': '场景',
     'wideScene': '📺 宽场景',
-    'romExpansion': '🔧 拓展 ROM',
-    'romExpansionTooltip': '把游戏 ROM 从 mapper3 转换为 mapper2\n可以扩大游戏内容, 可以添加新功能\n注意：场景切换的时候可能有瞬间的花屏，不过不影响体验',
+
+
     'disableTimer': '⏱️ 停用计时',
     'showNpcCount': '🗿 显示 NPC 数量',
-    "cameraFollow": "📷 暂停时上键切换视角",
-    "cameraFollowHint": "暂停时按上键平滑切换视角，支持单屏和双屏；蝙蝠横向循环。尚未经过大量测试，请谨慎使用。",
+    "cameraFollow": "📷 暂停菜单相机选项",
+    "cameraFollowHint": "暂停时按 ↑ 打开菜单，用 A 切换镜头居中。支持单屏和双屏，并启用蝙蝠横向循环。此功能仍在测试中。",
     'gameConfigHint': '停用计时后，NPC 数量会显示在原计时器位置。',
     'shiftMapLeft': '地图左移',
     'shiftMapRight': '地图右移',
     'romAlreadyExpanded': '当前 ROM 已经是扩展版本（mapper2），无需再次转换',
-    'romExpansionEnabled': '🔧 ROM 拓展模式已开启，关卡容量和精灵数量上限已扩大',
-    'romExpansionDisabled': '🔧 ROM 拓展模式已关闭，已恢复为原始 ROM 限制',
-    'romAutoExpandedForImportWarning': '由于导入关卡内容过多，已自动转换为拓展 ROM。',
-    "modifiedRomDesignWarning": "检测到已修改或无法识别版本的 ROM，继续编辑可能产生异常或损坏游戏机制。建议上传原版，您的关卡数据将保留；请立即从关卡列表菜单导出全部关卡备份。",
+
+
+
+
     'clearMap': '清空地图',
     'exportData': '导出数据',
     'applyToRom': '应用到 ROM 编辑器',

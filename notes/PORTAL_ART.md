@@ -15,7 +15,7 @@ implemented as described below.
   bottom-left, bottom-right order.
 - Running this ROM in JSNES confirmed background frames `$50–$53`, `$54–$57`,
   `$58–$5B`, `$5C–$5F`, changing every eight game frames during active play.
-- `Romfix.PORTAL_CHR_HEX` contains those exact source bytes. No source
+- `SpritePatterns.PORTAL_CHR_HEX` contains those exact source bytes. No source
   ROM is bundled, modified, or required when using the editor.
 
 ## Integration
@@ -47,6 +47,11 @@ and sprite palette choices. Editor previews use both sets of choices too.
 
 Sprite 13 normally renders into the background with its metasprite set to
 zero. Covering map tiles and falling metatiles enable two overlay sprites.
+An occupied entrance uses the same fixed, transparent-center numbered outline
+as an exit, exposing the stone or other tile beneath it. Its animation clock
+continues normally. Once the cell clears, the original filled animation is
+painted into the background again. The outline also takes precedence over the
+departure poses while the cell is occupied; it does not add sprites or CHR tiles.
 Odd tile IDs select the background CHR table in 8x16 mode, from `$C1/$C3`
 through the group-specific left columns and shared right columns. Metasprites
 `$2F–$4A` extend the existing bird renderer, which
@@ -103,10 +108,10 @@ a fixed-bank guard at $F7C8 before producing a metatile packet.
 The worker lives in unused bank 1 at CPU `$A900` (file `$6910`), after the
 pause/credit font data. The fixed-bank wrapper maps bank 1 only for RAM work,
 then restores bank 0 before invoking native rendering/falling routines.
-The wrapper briefly disables NMI through PPUCTRL during the bank switch,
-clears a missed vblank via PPUSTATUS, then restores PPUCTRL in bank 0. This
-avoids late drawing and leaves the original NMI handler and its cycle budget
-intact, including the existing `$F0xx` loader guard.
+An NMI during the portal worker checks `$05EE` before entering bank 0. The
+wrapper sets this flag before switching banks and clears it after restoring bank 0.
+This keeps portal updates from writing the next camera page to PPUCTRL
+during visible scanlines. The existing `$F0xx` loader guard still applies.
 
 New RAM `$05E6–$05ED` stores groups; `$05EE–$05F7` stores bank-switch and
 transport scratch state, and `$05F8` stores the background scheduling cursor,

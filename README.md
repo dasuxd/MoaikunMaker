@@ -96,11 +96,11 @@ npx serve
 - 点击"🎮 测试关卡"在模拟器中运行当前关卡
 - 点击"🎮 测试 ROM"测试完整游戏
 - 所有测试和下载 ROM 统一使用扩容布局（Mapper 2，128 KiB PRG），上传的原版或兼容换皮版文件不会被改写。
-- 游戏配置中的“暂停时上键切换视角”默认关闭。功能尚未经过大量实机测试，请谨慎使用。关闭时，单屏固定、双屏循环跟随，保留原来经过测试的双屏暂停左右查看功能。
-- 勾选后，游戏从普通视角开始。暂停时每按一次上方向键，单屏在固定与循环跟随之间切换；双屏在原版边缘停止的跟随与循环跟随之间切换。切换、关卡开场和暂停查看后的归位均以每帧最多 4 像素沿最短方向平滑移动，关卡和敌人坐标不变。重试/下一关保留选择，回到标题重新开始恢复普通视角。
+- 游戏配置中的“暂停菜单相机选项”默认关闭。关闭时单屏固定、双屏循环跟随。
+- 启用后默认居中循环跟随。在暂停菜单中用 A 切换 `CENTER CAMERA`。ON 使镜头居中循环跟随，OFF 恢复单屏固定或双屏边缘停止。恢复游戏时镜头每帧最多移动 4 像素。重试和进入下一关保留选择，回到标题重置为 ON。
 - 双屏暂停后始终可以按左右查看；单屏仅循环跟随时可以查看。启用该功能时，蝙蝠穿越左右边界、到上下边界移除；关闭时保留原版蝙蝠边界规则。
-- 暂停时保留主角和场景中的背景敌人，隐藏其他敌人，借用敌人的精灵图形空间显示 `PAUSED` 和方向图标提示。`PAUSED` 保持显示，只有方向图标缓慢闪烁：屏幕两侧的左右箭头提示左右查看；启用视角切换后还在同一行显示上方向图标和保持显示的 `LOOP ON/OFF`，标明循环跟随是否开启。开始左右查看后操作提示隐藏，`PAUSED` 仍保持显示；下次暂停或按上键切换时重新显示操作提示和最新状态。按 Start 后先恢复敌人图形并让相机归位，到位后自动恢复运动和计时；归位过程中按键不会提前解除暂停。
-- 标题恢复原来的 `START / CONTINUE`，密码选关保留。“测试关卡”只有一个按钮，自动选择 `START`；启用视角切换后可在暂停时按上键切换，无需独立预览选项。
+- 按 Start 暂停后，`PAUSED` 在屏幕中央缓慢闪动，右上角保留 `↑ MENU`。左右箭头提示可查看的方向，开始查看后隐藏。按 ↑ 打开设置页，蓝色 ON、红色 OFF 表示当前值。未启用相机选项时显示 `NO OPTIONS`。按 B 返回暂停地图，再按 Start 继续。镜头归位期间游戏和计时保持暂停。
+- 标题保留原版 `START / CONTINUE` 和密码选关。“测试关卡”自动选择 `START`。
 - 点击"⏹️ 结束模拟"返回编辑
 - 快捷键：`F5` 测试关卡，`F6` 结束模拟，`Ctrl + S` 保存关卡。按钮不可用时，快捷键也不会执行操作。
 
@@ -114,11 +114,9 @@ npx serve
 ### 4. 保存与分享
 
 - 浏览器使用新的项目缓存，首次加载会复制旧缓存中的 ROM、独立关卡数据和草稿，不删除旧缓存。关卡缓存中的最新修改优先于 ROM 内的旧数据。
-- 识别编辑器 ROM 使用版本记录及局部补丁/布局特征，不使用整份 ROM 的 MD5，因此兼容仅更换美术的版本。新版导出、旧版导出或无法识别版本的扩容 ROM 重新导入时均显示持续红色警告，可选择继续使用，编辑、测试和下载仍然可用。版本标记不代表底板可以安全重复修补。
-- 建议先在关卡列表导出全部关卡，再点击“上传原版并保留关卡”。替换成功会保留顺序、数量、敌人、草稿、当前未保存的修改和游戏配置；文件验证或缓存写入失败会保留原项目。
+- 编辑底板使用原版 Mapper 3 ROM 或布局兼容的纯换皮版。试玩和下载每次从底板生成扩容 ROM。要继续编辑，请保存关卡包。若仅持有旧导出的 ROM，请先用旧版导出关卡包。
 
 - **💾 保存关卡** - 保存修改到内存
-- **📝 写入 ROM** - 将所有修改写入 ROM 数据
 - **⬇️ 下载 ROM** - 下载修改后的 ROM 文件
 - **🔗 分享关卡** - 生成分享链接，复制发送给朋友
 - **📤 导出当前关卡** - 将当前编辑（包括未保存内容）导出为 `.moailevel`
@@ -145,40 +143,50 @@ npx serve
 
 ## 📁 项目结构
 
-```
-moaikun-maker/
-├── index.html              # 主页面
-├── css/
-│   ├── style.css          # 主样式
-│   ├── level_editor.css   # 编辑器样式
-│   └── sortable.css       # 排序组件样式
+```text
+MoaikunMaker/
+├── index.html
+├── css/  (style, level-editor, level-library, playtest)
 ├── js/
-│   ├── app.js             # 主应用逻辑
-│   ├── Config.js          # 配置文件
-│   ├── DataConverter.js   # 数据转换
-│   ├── Enemy.js           # 敌人配置
-│   ├── i18n.js            # 国际化主文件
-│   ├── Level.js           # 关卡数据结构
-│   ├── LevelEditor.js     # 关卡编辑器
-│   ├── MobileGameController.js # 移动端游戏控制器
-│   ├── NesEmulator.js     # 模拟器封装
-│   ├── ResourceManager.js # 资源管理
-│   ├── RomCache.js        # ROM 缓存
-│   ├── RomEditor.js       # ROM 编辑
-│   ├── lang/              # 语言文件目录
-│   │   ├── zh-CN.js       # 简体中文
-│   │   ├── en-US.js       # 英文
-│   │   └── ja-JP.js       # 日文
-│   └── lib/               # 第三方库
-│       └── jsnes.min.js   # NES 模拟器核心
-├── tests/                # 模拟器状态测试
-│   └── NesEmulator.quickSave.test.cjs
-└── README.md              # 项目说明
+│   ├── app.js
+│   ├── app/       (ProjectLoader, LevelLibrary, LevelExchange, PlaytestController)
+│   ├── project/   (Project, ProjectCache, LevelFile, GameSettings)
+│   ├── level/     (Level, Enemy, LevelCodec, SceneTileRules, EditorGrid)
+│   ├── rom/       (BaseRom, RomLayout, LevelLayout, buildRom, expandMapper, Asm6502)
+│   │   └── patches/  (applyPatches, BirdFish, Portal, Camera, ViewModes, ...)
+│   ├── graphics/  (GraphicsCatalog, SpritePatterns, SceneCompiler, ResourceManager)
+│   ├── editor/    (LevelEditor, LevelCanvas, EditorToolbar)
+│   ├── emulator/  (NesEmulator, MobileGameController)
+│   ├── debug/     (RamRecorder)
+│   ├── i18n.js
+│   ├── lang/
+│   └── lib/
+└── tests/  (rom, project, editor, emulator, debug, helpers)
 ```
 
-运行 `node --test tests/NesEmulator.quickSave.test.cjs` 验证即时存档。
+### 从代码入口找功能
 
-运行 `node --test tests/*.test.cjs` 验证全部测试。视角补丁的完整游戏回归需要自备原版 ROM：在 PowerShell 中先设置 `$env:MOAIKUN_TEST_ROM = '原版 ROM 的完整路径'`，再运行测试。未设置时只跳过依赖原版 ROM 的回归，摄像机、精灵、调色板、绘制指令和暂停的机器码测试仍会运行。
+编辑一个关卡时，`LevelEditor` 通过 `LevelCodec` 得到地图和敌人记录，保存到 `Project`。下载、单关试玩和整盘试玩共用 `buildRom`，每次用底包和当前项目重新生成 Mapper 2 ROM。关卡包与草稿包走独立的文件格式，恢复它们不需要解析旧版导出 ROM。
+
+| 位置 | 文件和职责 |
+| --- | --- |
+| 页面 | `index.html` 定义页面、控件和脚本加载顺序。`app.js` 装配控制器，连接页面事件、当前编辑内容、设置和容量显示。 |
+| app | `ProjectLoader` 校验底包、恢复缓存并切换项目。`LevelLibrary` 管理正式关卡、排序、草稿和未保存编辑。`LevelExchange` 处理导入、导出和分享链接。`PlaytestController` 从项目构建试玩 ROM，协调模拟器、试玩界面与移动控件。 |
+| project | `Project` 保存底包、关卡顺序、启用数量和游戏选项。`GameSettings` 定义选项默认值和规范化规则。`ProjectCache` 读写 IndexedDB 及迁移旧缓存。`LevelFile` 定义、校验和读写单关、关卡包及草稿包。 |
+| level | `Level` 表示一关的记录与地址。`Enemy` 解释敌人编号、方向、所在屏和传送门配对。`LevelCodec` 转换编辑器数据与 ROM 的地图压缩、敌人格式。`SceneTileRules` 处理各场景图块的还原与优化。`EditorGrid` 定义编辑网格尺寸等常量。 |
+| rom | `BaseRom` 校验输入并读取原版关卡。`RomLayout` 定义地址和容量上限。`LevelLayout` 计算地图、敌人的排布与占用。`buildRom` 写入新映像、关卡和演示关指针。`expandMapper` 安装扩容所需的银行切换代码。`Asm6502` 生成机器码并解析标签、检查跳转和区段边界。 |
+| rom/patches | `applyPatches` 负责安装顺序和补丁间的入口传递。`BirdFish` 处理飞鸟、飞鱼。`Portal` 处理传送与显示。`Coordinates` 扩展坐标。`Camera` 修复宽屏相机和环绕。`ViewModes` 安装视角模式。`Pause` 接入暂停操作，`PauseSettings` 绘制设置页并恢复地图。 |
+| rom/patches（续） | `Terrain` 修复地形承重、压碎和推石。`Hud` 配置计时和剩余救援数。`Credits` 写入制作标识和关卡作者。`SceneRuntime` 安装游戏运行时的场景图形加载、动画及背景修正。 |
+| graphics | `GraphicsCatalog` 定义资源索引和图形布局。`SpritePatterns` 提供精灵图块与飞行动画帧。`SceneCompiler` 将各场景图形编入输出 ROM。`ResourceManager` 将底包图形解码为编辑器预览。 |
+| editor | `LevelEditor` 处理选择、放置、删除等编辑操作。`LevelCanvas` 绘制地图、对象和选中状态。`EditorToolbar` 生成图块与敌人按钮，处理工具分类和拖动。 |
+| emulator、debug | `NesEmulator` 管理 jsnes、音视频、输入和存档。`MobileGameController` 处理触控手柄及菜单。`RamRecorder` 记录试玩期间的 RAM 变化。 |
+| 语言、样式、依赖 | `i18n.js` 选择语言并更新界面，`zh-CN.js`、`en-US.js`、`ja-JP.js` 分别保存对应文案。`style.css` 管理页面外壳，`level-editor.css`、`level-library.css`、`playtest.css` 分别负责编辑、关卡列表和试玩界面。`jsnes.min.js` 和 `Sortable-1.15.0.min.js` 分别提供模拟与排序。 |
+
+原来的 `RomFix.js` 同时承担扩容、补丁安装、图形编译和旧 ROM 修复。现在改动一个玩法可以从对应的补丁文件和 `tests/rom` 下同主题的用例入手。原来散落在 `RomEditor` 和界面中的地址、容量计算归到 `LevelLayout`，使界面显示与导出结果使用同一套规则。原来的 `Config` 拆到 ROM、游戏设置、图形和编辑网格各自的模块。
+
+运行 `node --test tests/emulator/NesEmulator.quickSave.test.cjs` 验证即时存档。
+
+运行 `node --test "tests/*/*.test.cjs"` 执行测试。完整游戏回归从环境变量 `MOAIKUN_TEST_ROM` 读取自备的原版 ROM 路径。浏览器回归还需要 `PLAYWRIGHT_MODULE` 指向可加载的 Playwright 模块；使用本机 Edge 时设置 `PLAYWRIGHT_CHANNEL=msedge`。缺少相应依赖时，测试报告会标出跳过的用例。
 
 ## ⚖️ 法律声明
 

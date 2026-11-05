@@ -310,90 +310,18 @@ body {
     white-space: nowrap;
 }
 
-.top-bar-warning {
-    min-width: 100px;
-    max-width: 920px;
-    height: 34px;
-    flex: 1 1 480px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 0 10px;
-    overflow: hidden;
-    color: #8a4b08;
-    background: #fff8e7;
-    border: 1px solid #f0d59b;
-    border-radius: 9px;
-    box-shadow: 0 2px 7px rgba(143, 91, 18, 0.08);
-    font-size: 11px;
-    font-weight: 650;
-    line-height: 1;
-}
 
-.top-bar-warning[hidden] {
-    display: none;
-}
 
-.top-bar-warning-icon {
-    flex: 0 0 auto;
-    font-size: 14px;
-}
 
-.top-bar-warning-viewport {
-    min-width: 0;
-    flex: 1;
-    overflow: hidden;
-    mask-image: linear-gradient(
-        to right,
-        transparent 0,
-        black 10px,
-        black calc(100% - 10px),
-        transparent 100%
-    );
-}
 
-.top-bar-warning-track {
-    width: max-content;
-    display: flex;
-    align-items: center;
-    will-change: transform;
-}
 
-.top-bar-warning-copy {
-    display: block;
-    white-space: nowrap;
-}
 
-.top-bar-warning-copy[aria-hidden="true"] {
-    display: none;
-}
 
-.top-bar-warning.is-overflowing .top-bar-warning-track {
-    animation: topBarWarningMarquee var(--top-bar-warning-duration, 24s)
-        linear infinite;
-}
 
-.top-bar-warning.is-overflowing .top-bar-warning-copy {
-    padding-right: 48px;
-}
 
-.top-bar-warning.is-overflowing .top-bar-warning-copy[aria-hidden="true"] {
-    display: block;
-}
 
-.top-bar-warning:hover .top-bar-warning-track {
-    animation-play-state: paused;
-}
 
-@keyframes topBarWarningMarquee {
-    from {
-        transform: translateX(0);
-    }
 
-    to {
-        transform: translateX(-50%);
-    }
-}
 
 .top-bar-actions {
     min-width: 0;
@@ -603,10 +531,6 @@ body {
         display: flex;
     }
 
-    .top-bar-warning {
-        min-width: 72px;
-        padding: 0 8px;
-    }
 }
 
 @media (max-width: 380px) {
@@ -629,15 +553,7 @@ body {
         font-size: 14px;
     }
 
-    .top-bar-warning {
-        min-width: 48px;
-        gap: 5px;
-        padding: 0 5px;
-    }
 
-    .top-bar-warning-icon {
-        font-size: 12px;
-    }
 }
 
 h1 {
@@ -1612,44 +1528,4 @@ button {
         transition: none;
     }
 
-    .top-bar-warning.is-overflowing .top-bar-warning-track {
-        animation-duration: 60s;
-    }
 }
-
-/* Legacy ROM use is an informed choice; keep the warning readable and quiet. */
-.top-bar:has(.top-bar-warning:not([hidden])) {
-    height: auto;
-    min-height: var(--top-bar-height);
-    padding-top: 8px;
-    padding-bottom: 8px;
-    flex-wrap: wrap;
-    row-gap: 8px;
-}
-.top-bar-warning {
-    order: 3;
-    flex: 1 1 100%;
-    max-width: none;
-    height: auto;
-    min-height: 34px;
-    padding: 8px 10px;
-    flex-wrap: wrap;
-    color: #a51d2d;
-    background: #fff0f1;
-    border-color: #e8a0a9;
-    line-height: 1.45;
-    overflow: visible;
-}
-#modifiedRomWarningText { flex: 1 1 260px; }
-.rom-migration-actions { display: flex; flex-wrap: wrap; gap: 6px; }
-.rom-migration-actions button {
-    border: 1px solid #df99a3;
-    border-radius: 5px;
-    color: inherit;
-    background: #fff;
-    padding: 4px 8px;
-    font: inherit;
-    cursor: pointer;
-}
-.rom-migration-actions button:hover { background: #ffe2e6; }
-.rom-migration-actions button[hidden] { display: none; }

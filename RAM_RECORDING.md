@@ -101,7 +101,7 @@ session ID，不会互相覆盖累计计数。停用仅停止观察，不删除�
 
 ## 实现与删除
 
-独立实现、界面、样式、三种语言文本和存储都在 `js/RamRecorder.js`。
+独立实现、界面、样式、三种语言文本和存储都在 `js/debug/RamRecorder.js`。
 仅在开启时临时观察 `cpu.mem` 与指令/帧执行；覆盖普通读写、双字节读取、
 间接跳转、栈、中断与精灵 DMA。浏览器检查 RAM、复制存档不计入游戏访问。
 快速存读档期间卸载观察，结束后重新接到当前内存数组；累计记录不回退。
@@ -113,10 +113,10 @@ session ID，不会互相覆盖累计计数。停用仅停止观察，不删除�
 
 ## 验证
 
-`node --test tests/*.test.cjs` 包含模拟指令与完整模拟器状态一致性检查。
+`node --test tests/*/*.test.cjs` 包含模拟指令与完整模拟器状态一致性检查。
 
 设置 `PLAYWRIGHT_MODULE` 为已安装 Playwright 模块的路径后，运行
-`node --test tests/RamRecorder.browser.test.cjs`。可用
+`node --test tests/debug/RamRecorder.browser.test.cjs`。可用
 `PLAYWRIGHT_CHANNEL=chrome` 指定浏览器。测试使用单独的临时浏览器配置，
 不读取用户 ROM，不接触用户浏览器数据库。覆盖刷新、真实浏览器重启、
 提交失败的副本恢复、两标签页、快速存读档、项目缓存清除及备份重复导入。
