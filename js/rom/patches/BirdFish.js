@@ -150,7 +150,8 @@ class BirdFish {
     static addBirdFishMotion(romData){
         // The ending fonts live in bank 1; its fixed-bank text/code ends at
         // $F940. Keep this worker below the sprite portal preview at $FB00.
-        const base = 0xF940, limit = 0xFB00;
+        // $FAE0-$FAFF is reserved for Terrain's optional solid-crush lookup.
+        const base = 0xF940, limit = 0xFAE0;
         const file = RomLayout.programOffset;
         if(romData.subarray(file(base), file(limit)).some(byte => byte !== 0))
             throw new Error('Reserved bird/fish motion area in bank 7 is occupied');

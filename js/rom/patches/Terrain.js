@@ -31,6 +31,37 @@ class Terrain {
     }
 
     /**
+     * Extend the native occupied-cell death action to Tiles 1-6 and 12.
+     * Turning in midair can leave horizontal inertia pointing behind the
+     * player, past the facing-based wall probe. Kill once the player's
+     * anchor enters these solids, just as for Tiles 7, 8, 10 and 13.
+     * Tile 12's native spring animation (player state 4) legitimately moves
+     * the anchor into the spring while compressing. A lookup wrapper at
+     * $FAE0-$FAFF exempts only that tile/state pair; other solids still kill.
+     * Movement and collision code stay native. To disable the table changes
+     * AND wrapper, comment out this call in applyPatches.js and rebuild from
+     * the original ROM. Tile 13's patch is independent.
+     */
+    static enableSolidTileCrush(romData){
+        const file = RomLayout.programOffset;
+        // Relocated level storage, immediately after the bird motion worker.
+        const base = 0xFAE0, limit = 0xFB00;
+        if(romData.subarray(file(base), file(limit)).some(byte => byte !== 0))
+            throw new Error('Reserved solid-crush area in bank 7 is occupied');
+        const {bytes, emit, label, branch, resolve} = Asm6502.block(base, limit);
+        emit(0xC0, 12); branch(0xD0, 'native'); // CPY #Tile12
+        emit(0xA5, 0xC0, 0xC9, 4); branch(0xD0, 'native');
+        emit(0xA9, 0, 0x60); // Normal spring compression: no occupied-cell action.
+        label('native'); emit(0xB9, 0xA9, 0xC0, 0x60); // LDA $C0A9,Y; RTS
+        resolve();
+        Asm6502.writeBytes(romData, file(base), bytes);
+        // Replace only the action lookup; preserve X/Y and the native dispatch.
+        Asm6502.writeBytes(romData, file(0x9877), [0x20, base & 255, base >> 8]);
+        const actions = file(0xC0A9);
+        for(const tile of [1, 2, 3, 4, 5, 6, 12]) romData[actions + tile] = 0x01;
+    }
+
+    /**
      * Fix round-rock pushes that cross a horizontal map boundary.
      *
      * The original rock-specific code normalizes X with 0x0F in one place and

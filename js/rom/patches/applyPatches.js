@@ -5,6 +5,8 @@ function applyPatches(romData, gameConfig) {
     Terrain.fixTile7SupportFall(romData);
     Terrain.enableTile13SupportFall(romData);
     Terrain.enableTile13Crush(romData);
+    // Comment out this call to disable the extra wall-clip deaths, then rebuild the ROM.
+    Terrain.enableSolidTileCrush(romData);
     SceneRuntime.fixSpecialLevelAnimations(romData);
     SceneRuntime.fixWideScreenEnemy9Background(romData);
     if (gameConfig.cameraFollow) Camera.fixBatHorizontalWrap(romData);
