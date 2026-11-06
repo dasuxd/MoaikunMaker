@@ -62,6 +62,41 @@ class Terrain {
     }
 
     /**
+     * Tiles 5-9 share the break handler at $A4F3. Its unconditional $98FF
+     * snap is appropriate beside solids, but teleports a player overlapping
+     * passable Tile 9. The dispatch at $8326 preserves Y = target tile ID.
+     * Give only Tile 9 the same erase/debris/support-removal/sound sequence
+     * without the snap; all other IDs resume the original handler at $A4F6.
+     * The animation also snaps on its next tick at $94A9. Mark this hit in
+     * $55's unused sign bit so that call skips only the Tile 9 hit. Native
+     * consumers otherwise test $55 for zero; the next hit/miss overwrites it.
+     * $FEB8-$FED8 is relocated level storage after the bird lift worker.
+     * Disable by commenting out this call in applyPatches.js and rebuilding.
+     */
+    static fixTile9BreakAlignment(romData){
+        const file = RomLayout.programOffset;
+        const base = 0xFEB8, limit = 0xFED9;
+        if(romData.subarray(file(base), file(limit)).some(byte => byte !== 0))
+            throw new Error('Reserved Tile 9 break area in bank 7 is occupied');
+        const {bytes, labels, emit, label, absolute, branch, resolve} = Asm6502.block(base, limit);
+        emit(0xC0, 9); branch(0xD0, 'solid');
+        // CPY #9 left carry set; rotate native action 2 into nonzero marker $81.
+        emit(0x66, 0x55);
+        absolute(0x20, 0x9623); // Erase the target tile and update the background.
+        absolute(0x20, 0xA19E); // Native debris.
+        absolute(0x20, 0xA5E5); // Register unsupported tiles above the target.
+        absolute(0x4C, 0xA4FF); // Native sound/return, skipping only JSR $98FF.
+        label('solid'); absolute(0x20, 0x9623); absolute(0x4C, 0xA4F6);
+        label('animationAlign'); emit(0x24, 0x55); branch(0x30, 'done');
+        absolute(0x4C, 0x98FF); label('done'); emit(0x60);
+        resolve();
+        Asm6502.writeBytes(romData, file(base), bytes);
+        Asm6502.writeBytes(romData, file(0xA4F3), [0x4C, base & 255, base >> 8]);
+        const align = labels.get('animationAlign');
+        Asm6502.writeBytes(romData, file(0x94A9), [0x20, align & 255, align >> 8]);
+    }
+
+    /**
      * Fix round-rock pushes that cross a horizontal map boundary.
      *
      * The original rock-specific code normalizes X with 0x0F in one place and

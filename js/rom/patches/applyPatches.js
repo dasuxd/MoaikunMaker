@@ -7,6 +7,8 @@ function applyPatches(romData, gameConfig) {
     Terrain.enableTile13Crush(romData);
     // Comment out this call to disable the extra wall-clip deaths, then rebuild the ROM.
     Terrain.enableSolidTileCrush(romData);
+    // Comment out this call to restore Tile 9's original break-time position snap.
+    Terrain.fixTile9BreakAlignment(romData);
     SceneRuntime.fixSpecialLevelAnimations(romData);
     SceneRuntime.fixWideScreenEnemy9Background(romData);
     if (gameConfig.cameraFollow) Camera.fixBatHorizontalWrap(romData);

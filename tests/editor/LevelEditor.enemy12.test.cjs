@@ -4,18 +4,24 @@ const test = require('node:test');
 const {EditorGrid, GraphicsCatalog, LevelCanvas, Enemy, LevelEditor} = require('../helpers/source.cjs').load(
     ['EditorGrid', 'GraphicsCatalog', 'LevelCanvas', 'Enemy', 'LevelEditor'],
     {document: {addEventListener() {}, getElementById() {return {};}}});
-test('the 2x2 exit and its surrounding ring exclude portal placement in either order', () => {
+test('only the 2x2 exit excludes portals; edges and corners allow placement in either order', () => {
     for (const wide of [false, true]) {
         const e = Object.create(LevelEditor.prototype);
         e.isWideScreen = wide; e._currentBgId = '0'; e.currentTileId = null;
-        e.currentTool = 'enemy'; e.currentEnemyId = 0x3D; e.doorPos = {x: 0, y: 4};
+        e.currentEnemyId = 0x3D;
         const width = wide ? 32 : 16;
-        for (const x of [width - 1, 0, 1, 2]) for (const y of [3, 4, 5, 6])
-            assert.ok(e.isProhibitedArea(x, y));
-        assert.equal(e.isProhibitedArea(3, 5), false);
-        e.currentTool = 'door'; e.enemies = [new Enemy(13, width - 1, 3)];
-        assert.ok(e.isProhibitedArea(0, 5));
-        assert.equal(e.isProhibitedArea(1, 5), false);
+        for (const doorX of [0, 6, width - 2]) {
+            e.doorPos = {x: doorX, y: 4};
+            for (const offsetX of [-1, 0, 1, 2]) for (const offsetY of [-1, 0, 1, 2]) {
+                const x = (doorX + offsetX + width) % width, y = 4 + offsetY;
+                const overlaps = [0, 1].includes(offsetX) && [0, 1].includes(offsetY);
+                const context = `wide=${wide}, door=${doorX}, portal=${x},${y}`;
+                e.currentTool = 'enemy';
+                assert.equal(e.isProhibitedArea(x, y), overlaps, `portal placement: ${context}`);
+                e.currentTool = 'door'; e.enemies = [new Enemy(0x3D, x, y)];
+                assert.equal(e.isProhibitedArea(doorX, 5), overlaps, `door placement: ${context}`);
+            }
+        }
     }
 });
 

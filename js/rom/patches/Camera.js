@@ -45,9 +45,9 @@ class Camera {
         const resetCameraCpuAddr = 0xFF60;
         const mainTitleResetCpuAddr = 0xFF6D;
         const endingResetCpuAddr = 0xFF73;
-        // Expansion loaders end at $F0D1; the bank-safe NMI starts at $F0E2.
+        // Expansion loaders end at $F0D6; the bank-safe NMI starts at $F0E2.
         // $FF79-$FF7F belongs to the rescue HUD and must remain untouched.
-        const gameOverResetCpuAddr = 0xF0D2;
+        const gameOverResetCpuAddr = 0xF0D7;
 
         /**
          * CPU $FF60-$FF78: shared non-gameplay camera reset and two wrappers.

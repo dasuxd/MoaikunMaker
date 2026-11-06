@@ -3,7 +3,7 @@
  */
 const translations_jaJP = {
     "portalHelp": "同じ番号の2個がペアになります。再クリックで番号を変更。出口が空いていると主人公・敵・タイル・動作中のアイテムを転送します。約5秒ごとに方向が変わります。火を吐く像とゴールは固定です。赤い？はペア未成立です。",
-    "portalExitClearance": "ポータルとゴールの間は1マス以上空けてください。",
+    "portalExitClearance": "ポータルはゴールの2×2マスに重ねて配置できません。",
 
     "romUnsupportedStructure": "ROM の構造が未対応、またはファイルが不完全です。",
     "romMigrationFailed": "ROM の交換に失敗しました。既存のステージと下書きは保持されています。",

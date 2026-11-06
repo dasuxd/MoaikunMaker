@@ -106,6 +106,10 @@ function expandMapper(newRomData){
         0xEA
     ]
     Asm6502.writeBytes(newRomData, jsrLoadLevelAddr, jsrLoadLevelCode);
+    // The native decoder advances only its eight-bit Y index at $A91F.
+    // Dense custom maps can exceed 256 encoded bytes. Advance in the helper
+    // instead, carrying Y's wrap into the source pointer's high byte ($01).
+    newRomData[RomLayout.programOffset(0xA91F)] = 0xEA;
     const loadLevelCode = [
         0xA9, 0x04,
         0x8D, 0x00, 0x80,
@@ -114,6 +118,9 @@ function expandMapper(newRomData){
         0xA9, 0x00,
         0x8D, 0x00, 0x80,
         0x68,
+        0xC8,                   // INY
+        0xD0, 0x02,             // BNE ready
+        0xE6, 0x01,             // INC $01
         0xC9, 0xFF,
         0x60
     ]
@@ -311,12 +318,14 @@ function expandMapper(newRomData){
         0x68,
         0x60
     ]
-    Asm6502.writeBytes(newRomData, timerRoutineAddr, timerRoutine);
+    const loadersEnd = Asm6502.writeBytes(newRomData, timerRoutineAddr, timerRoutine);
+    if (loadersEnd > RomLayout.programOffset(0xF0D7))
+        throw new Error('Expansion loaders overlap the camera-reset reservation');
 
     /*
      * Keep NMI execution out of a switchable PRG bank.
      *
-     * The expanded-ROM data helpers at $F004-$F0D1 temporarily map bank 1
+     * The expanded-ROM data helpers at $F004-$F0D6 temporarily map bank 1
      * or bank 4 at $8000-$BFFF. If NMI starts before a helper restores
      * bank 0, the original vector at $807C points into data instead of
      * executable code.

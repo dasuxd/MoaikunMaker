@@ -481,14 +481,13 @@ class LevelEditor {
 
         // The cursor anchors the bottom-left cell of the 2x2 door.
         const doorWidth = this.isWideScreen ? EditorGrid.GRID_WIDTH : EditorGrid.GRID_WIDTH / 2;
-        const nearExit = (px, py, door) => {
+        const overlapsExit = (px, py, door) => {
             if (!door) return false;
-            const dx = (px - door.x + doorWidth + 1) % doorWidth;
-            return dx < 4 && py >= door.y - 1 && py <= door.y + 2;
+            return px >= door.x && px < door.x + 2 && py >= door.y && py < door.y + 2;
         };
-        if ((this.currentTool === 'enemy' && Enemy.getRealId(this.currentEnemyId) === 13 && nearExit(x, y, this.doorPos))
+        if ((this.currentTool === 'enemy' && Enemy.getRealId(this.currentEnemyId) === 13 && overlapsExit(x, y, this.doorPos))
             || (this.currentTool === 'door' && this.enemies?.some(enemy =>
-                enemy.getRealId() === 13 && nearExit(enemy.x, enemy.y, {x, y: y - 1})))) {
+                enemy.getRealId() === 13 && overlapsExit(enemy.x, enemy.y, {x, y: y - 1})))) {
             warningMessage = i18n.t('portalExitClearance');
             isProhibitedArea = true;
         }

@@ -102,9 +102,9 @@ class BirdFish {
 
     /** Tile 13 scatters live birds/fish upward instead of stunning them. */
     static addBirdFishLift(romData, motion = BirdFish.addBirdFishMotion(romData)){
-        // Scene graphics end before $FE60; the pause-frame wrapper starts at
-        // $FED9. This region is relocated level storage, cleared on export.
-        const base = 0xFE60, limit = 0xFED9;
+        // Scene graphics end before $FE60; Terrain's optional Tile 9 break
+        // helper starts at $FEB8, followed by pause at $FED9. Cleared on export.
+        const base = 0xFE60, limit = 0xFEB8;
         const file = RomLayout.programOffset;
         if(romData.subarray(file(base), file(limit)).some(byte => byte !== 0))
             throw new Error('Reserved bird/fish lift area in bank 7 is occupied');
