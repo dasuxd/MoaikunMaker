@@ -32,9 +32,12 @@ test('editor backgrounds preserve all scene artwork after runtime tile relocatio
 
 test('Tile 1-3 previews retain theme artwork with the new common PPU positions', { skip: !original }, async () => {
     const editor = new Project(); editor.loadROM(original);
-    const native = new ResourceManager(); native.loadPalettes(original);
+    const native = new ResourceManager();
     native.createImage = async (pixels, width, height) => ({pixels, width, height});
-    await native.loadBgResources(original);
+    native.loadBgImg = async () => {};
+    // Exercise the production preview entry, including the shared bomb and
+    // rescue palette preparation before portal colour schemes are selected.
+    await native.initResources(original);
     const data = editor.getROMData();
     for (let scene = 0; scene < 12; scene++) {
         const patterns = getScenePatternData(data, scene);

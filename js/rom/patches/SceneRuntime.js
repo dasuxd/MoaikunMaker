@@ -124,6 +124,7 @@ class SceneRuntime {
          * still overwritten so exporting over any earlier patch version has a
          * deterministic result and cannot leave unrelated stale machine code.
          * fixWideScreenEnemy9Background() subsequently reuses $FFC0-$FFCF.
+         * RemoteBomb.install() reuses $DA15-$DA2D for its post-physics bridge.
          */
         const animationMapFilterCode = [
             0xBD, 0xE2, 0xD9, 0x48, 0x29, 0x0F, 0x85, 0x01, 0x68, 0x4A, 0x4A, 0x4A,

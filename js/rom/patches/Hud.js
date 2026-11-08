@@ -20,155 +20,101 @@ class Hud {
         );
     }
 
-    /**
-     * Show the number of unreleased Moai as a two-digit HUD value.
-     *
-     * The original game already maintains the exact live count in $43:
-     * initialization counts map tile $0F and rescuing one decrements it. Its
-     * two-digit item renderer also has an unused layout mode. Move that mode's
-     * coordinates four character cells right to $E0/$E8.
-     *
-     * The original $96F5-$9704 table is equivalent to:
-     *
-     *     y < 11 ? 0 : y + $76
-     *
-     * Replace its lookup with that exact calculation, then reuse the freed
-     * sixteen bytes for the second half of the icon renderer. Its seven-byte
-     * entry fits in verified fixed-bank padding at $FF79-$FF7F. This preserves
-     * both movement lookup results instead of overwriting them as the previous
-     * $96EB helper did.
-     */
-    static addRemainingRescueCountHud(
-        romData,
-        useTimerPosition = false
-    ){
-        const bank0RomAddr = (cpuAddr) => 0x10 + (cpuAddr - 0x8000);
-        const fixedBankShift = 0x18000;
-        const fixedBankRomAddr = (cpuAddr) =>
-            0x4010 + (cpuAddr - 0xC000) + fixedBankShift;
-        const hudIconRendererEntryCpuAddr = 0xFF79;
-        const hudIconRendererBodyCpuAddr = 0x96F5;
-        const timerPositionIconRendererCpuAddr = 0xB6A4;
-        const remainingCountWrapperCpuAddr = 0xB760;
-        const remainingCountTailCpuAddr = 0xFFE1;
-        const remainingCountY = useTimerPosition ? 0x07 : 0x18;
-        const remainingIconRendererCpuAddr = useTimerPosition
-            ? timerPositionIconRendererCpuAddr
-            : hudIconRendererEntryCpuAddr;
-        const remainingDigitX = useTimerPosition
-            ? [0xA8, 0xB0]
-            : [0xE0, 0xE8];
+    static CLOCK = 0x5FD;
+    static SWITCH_TICKS = 120;
+    static ENTRY = 0x8800; // Bank 6, after penguin worker, before CHR manifest.
+    static BRIDGE = 0xFFDA; // Native reset returns at $FFD9; vectors begin $FFFA.
 
-        /**
-         * CPU $96A3-$96AC: preserve the original $96F5,Y table exactly while
-         * freeing its sixteen data bytes for executable code.
-         *
-         * CMP leaves carry set for Y >= 11, so ADC #$75 produces Y + $76.
-         * Values below 11 take the original early-return path at $96E4.
-         */
-        Asm6502.writeBytes(romData, bank0RomAddr(0x96A3), [
-            0xA5, 0xC2,             // LDA playerYLow
-            0x29, 0x0F,             // AND #$0F
-            0xC9, 0x0B,             // CMP #11
-            0x90, 0x39,             // BCC $96E4
-            0x69, 0x75,             // ADC #$75 => Y + $76
-        ]);
+    // Exact pixels from 3333.png / 44444.png, encoded in NES ink order:
+    // transparent, main colour, white, outline. Upper 8 rows stay transparent
+    // so the artwork aligns with the native HUD digits in the lower tile.
+    static iconPatterns(kind) {
+        const rows = kind === 'remote' ? [
+            '00000030', '01111323', '11211131', '12111111',
+            '33333333', '22323232', '13333331', '01111110'
+        ] : [
+            '03333330', '03111113', '31331333', '31211123',
+            '31211123', '31333313', '31322313', '03111130'
+        ];
+        const bytes = new Uint8Array(32);
+        rows.forEach((row, y) => [...row].forEach((ink, x) => {
+            bytes[y + 16] |= (Number(ink) & 1) << (7 - x);
+            bytes[y + 24] |= (Number(ink) >> 1) << (7 - x);
+        }));
+        return bytes;
+    }
 
-        Asm6502.writeBytes(romData, bank0RomAddr(0x891B), [
-            0x20,
-            remainingCountWrapperCpuAddr & 0xFF,
-            (remainingCountWrapperCpuAddr >> 8) & 0xFF,
-        ]);
-
-        /**
-         * CPU $B758-$B76E: original item icon plus remaining-count wrapper.
-         */
-        Asm6502.writeBytes(romData, bank0RomAddr(0xB758), [
-            0xA9, 0x07,             // originalIcon: LDA #$07
-            0xA0, 0x01,             // LDY #itemPalette
-            0x20,
-            hudIconRendererEntryCpuAddr & 0xFF,
-            (hudIconRendererEntryCpuAddr >> 8) & 0xFF,
-            0x60,                   // RTS
-
-            0x20, 0x2A, 0xB7,       // wrapper: JSR $B72A (original item HUD)
-            0xA9, remainingCountY,  // LDA #remainingCountY
-            0xA0, 0x00,             // LDY #playerPalette
-            0x20,
-            remainingIconRendererCpuAddr & 0xFF,
-            (remainingIconRendererCpuAddr >> 8) & 0xFF,
-            0x4C, 0xE1, 0xFF,       // JMP prepareRemainingCount
-            0xEA, 0xEA,             // padding before $B76F
-        ]);
-
-        Asm6502.writeBytes(
-            romData,
-            fixedBankRomAddr(hudIconRendererEntryCpuAddr),
-            [
-                0x9D, 0x00, 0x02,       // STA OAM Y
-                0x98,                   // TYA
-                0x4C,
-                hudIconRendererBodyCpuAddr & 0xFF,
-                (hudIconRendererBodyCpuAddr >> 8) & 0xFF,
-            ]
-        );
-        Asm6502.writeBytes(
-            romData,
-            bank0RomAddr(hudIconRendererBodyCpuAddr),
-            [
-                0x9D, 0x02, 0x02,       // STA OAM attributes/palette
-                0xA9, 0xE8,             // LDA #round icon tile
-                0x9D, 0x01, 0x02,       // STA OAM tile
-                0xA9, 0xD0,             // LDA #item-area icon X
-                0x9D, 0x03, 0x02,       // STA OAM X
-                0x4C, 0x9B, 0xB7,       // JMP $B79B (consume OAM slot)
-            ]
-        );
-
-        if(useTimerPosition){
-            /**
-             * With the timer disabled, its renderer at $B6A4 is unreachable.
-             * Reuse its first 20 bytes for a dedicated X=$98 icon renderer so
-             * the original item icon can remain at X=$D0.
-             */
-            Asm6502.writeBytes(
-                romData,
-                bank0RomAddr(timerPositionIconRendererCpuAddr),
-                [
-                    0x9D, 0x00, 0x02,       // STA OAM Y
-                    0xA9, 0xE8,             // LDA #round icon tile
-                    0x9D, 0x01, 0x02,       // STA OAM tile
-                    0x98,                   // TYA
-                    0x9D, 0x02, 0x02,       // STA OAM attributes/palette
-                    0xA9, 0x98,             // LDA #timer-area icon X
-                    0x9D, 0x03, 0x02,       // STA OAM X
-                    0x4C, 0x9B, 0xB7,       // JMP $B79B
-                ]
-            );
+    // Sprite palette 3 is the native released-rescue palette. Keep it in
+    // sync with Tile 15's selected background palette, including custom ROMs.
+    static syncRescuePalette(rom) {
+        const shift = rom.length > 0x10010 ? 0x18000 : 0;
+        for (let scene = 0; scene < 12; scene++) {
+            const pointer = RomLayout.PALETTES_ADDRESS_ORIGINAL + shift + scene * 2;
+            const palette = (rom[pointer] | rom[pointer + 1] << 8) - 0x8000 + 16 + shift;
+            const attributes = 0x3FF4 + scene * 4 + 3;
+            const group = rom[attributes + (attributes >= 0x4010 ? shift : 0)] & 3;
+            for (let ink = 1; ink < 4; ink++) rom[palette + 28 + ink] = rom[palette + group * 4 + ink];
         }
+    }
 
-        Asm6502.writeBytes(
-            romData,
-            fixedBankRomAddr(remainingCountTailCpuAddr),
-            [
-                0xA9, 0x03,             // LDA #$03 (aligned $E0/$E8 layout)
-                0x85, 0x10,             // STA HUD number layout
-                0xA5, 0x43,             // LDA remaining rescue count
-                0xC9, 0x64,             // CMP #100
-                0x90, 0x02,             // BCC draw
-                0xA9, 0x63,             // LDA #99 (display saturation)
-                0x4C, 0x33, 0xB7,       // JMP $B733 (shared 2-digit renderer)
-            ]
-        );
+    static install(rom, config) {
+        const file = RomLayout.programOffset;
+        const layout = GraphicsCatalog.SCENE_GRAPHICS_LAYOUT;
+        const guard = Portal.PORTAL_RAM.bankActive;
+        // NMI must see the bank guard throughout the visit, including the
+        // return to bank 0. All HUD drawing happens in bank 6 without calls
+        // into bank 0; fixed-bank digit artwork indices remain accessible.
+        const bridge = Asm6502.block(Hud.BRIDGE, 0xFFF0);
+        bridge.emit(0xA9, 6, 0x8D, guard & 255, guard >> 8, 0x8D, 0, 0x80,
+            0x20, Hud.ENTRY & 255, Hud.ENTRY >> 8,
+            0xA9, 0, 0x8D, 0, 0x80, 0x8D, guard & 255, guard >> 8, 0x60);
+        bridge.resolve(); rom.set(bridge.bytes, file(Hud.BRIDGE));
+        rom.set([0x20, Hud.BRIDGE & 255, Hud.BRIDGE >> 8], file(0x891B));
+        // Timer keeps its native renderer, coordinates and palette.
+        rom[file(0xB6E1)] = layout.timerIcon;
 
-        Asm6502.writeBytes(romData, fixedBankRomAddr(0xC3CD), [
-            ...remainingDigitX,
-        ]);
+        const b = Asm6502.block(Hud.ENTRY, 0x8A00);
+        const {emit, label, absolute: abs, branch} = b;
+        const jsr = target => abs(0x20, target);
+        emit(0xA6, 4, 0xA9, layout.bombIcon, 0x85, 0x12,
+            0xA9, 1, 0x85, 0x14, 0xA5, 0xCE, 0x85, 0x13);
+        abs(0xAD, Hud.CLOCK); emit(0xC9, Hud.SWITCH_TICKS); branch(0x90, 'bomb');
+        emit(0xA9, layout.remoteBombIcon, 0x85, 0x12,
+            0xA9, 2, 0x85, 0x14, 0xA9, 0, 0x85, 0x13, 0xA0, 7);
+        label('inventory'); abs(0xB9, 0x4FE); emit(0xC9, 14); branch(0xD0, 'next');
+        abs(0xB9, 0x506); emit(0xC9, 2); branch(0xD0, 'next');
+        emit(0xE6, 0x13); // Carried, including an unfinished placement preview.
+        label('next'); emit(0x88); branch(0x10, 'inventory');
+        label('bomb');
+        emit(0xA9, 0xD0, 0x85, 0x10, 0xA9, 7, 0x85, 0x11,
+            0xA5, 0x12, 0xA4, 0x14); jsr('sprite');
+        emit(0xA9, 0xE0, 0x85, 0x10, 0xA5, 0x13); jsr('number');
+        if (config.showRemainingRescueCount !== false) {
+            emit(0xA9, config.disableTimer ? 0x98 : 0xD0, 0x85, 0x10,
+                0xA9, config.disableTimer ? 7 : 0x18, 0x85, 0x11,
+                0xA9, layout.rescueIcon, 0xA0, 3); jsr('sprite');
+            emit(0xA9, config.disableTimer ? 0xA8 : 0xE0, 0x85, 0x10, 0xA5, 0x43);
+            jsr('number');
+        }
+        emit(0x60);
 
-        Asm6502.writeBytes(
-            romData,
-            bank0RomAddr(0xB793),
-            [remainingCountY]
-        );
+        label('number');
+        emit(0xC9, 100); branch(0x90, 'bounded'); emit(0xA9, 99);
+        label('bounded'); emit(0xA0, 0, 0x84, 0x73);
+        label('divide'); emit(0xC9, 10); branch(0x90, 'digits');
+        emit(0xE9, 10, 0xE6, 0x73); abs(0x4C, 'divide');
+        label('digits'); emit(0x85, 0x74, 0xA4, 0x73); abs(0xB9, 0xC3BD);
+        emit(0xA0, 1); jsr('sprite');
+        emit(0xA5, 0x10, 0x18, 0x69, 8, 0x85, 0x10, 0xA4, 0x74); abs(0xB9, 0xC3BD);
+        emit(0xA0, 1); // Fall through to the units sprite.
+        label('sprite');
+        emit(0x9D, 1, 2, 0x98, 0x9D, 2, 2,
+            0xA5, 0x10, 0x9D, 3, 2, 0xA5, 0x11, 0x9D, 0, 2,
+            0xC6, 7, 0x18, 0x8A, 0x69, 0xC4, 0xAA, 0x86, 4, 0x60);
+        b.resolve();
+        const offset = 0x18010 + Hud.ENTRY - 0x8000;
+        if (rom.subarray(offset, 0x18A10).some(Boolean)) throw new Error('HUD bank reservation occupied');
+        rom.set(b.bytes, offset);
+        return {start: b.base, end: b.base + b.bytes.length};
     }
 }

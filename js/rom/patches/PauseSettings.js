@@ -17,8 +17,8 @@ class PauseSettings {
         emit(0xA9, 0, 0x8D, 0, 0x80, 0x2C, 2, 0x20,
             0xA5, 0xFF, 0x8D, 0, 0x20, 0x60);
 
-        // Restore the first six sprite CHR pages from the scene's native art.
-        // These pages are copied verbatim by SceneCompiler in all twelve scenes.
+        // Restore the first six sprite CHR pages from the scene's prepared art
+        // (including compact TNT and relocated smoke). They match compiled CHR.
         label('restoreMenuChr');
         emit(0xA5, 0x3E, 0xC9, 5); branch(0x90, 'menuArt1');
         emit(0xA2, 3, 0xC9, 7); branch(0x90, 'menuArt2');

@@ -18,6 +18,11 @@ class ResourceManager{
     }
 
     async initResources(romData){
+        // Preview the same shared bomb palette as export, without modifying
+        // the user's source ROM or leaving portal colour selection stale.
+        romData = romData.slice();
+        RemoteBomb.syncPickupPalette(romData);
+        Hud.syncRescuePalette(romData);
         //初始化
         this.images = new Map();
         this.romImages = new Map();
@@ -231,18 +236,19 @@ class ResourceManager{
                 colorIndex.push((byte >> 0) & 0x03);
             }
             for(let key in GraphicsCatalog.RESOURCE_IMG_CONFIG){
+                if (key === 'enemy_15' && !Penguin.ENABLED) continue;
                 let itemConfig = GraphicsCatalog.RESOURCE_IMG_CONFIG[key];
                 let palette = this.palettes[levelType];
                 let color = []
 
                 let metatileoffset = 0;
                 if(itemConfig.isSprite || key === 'enemy_9' || key === 'enemy_13' || key === 'door'){
-                    if(key === 'player' || key === 'enemy_12'){
-                        // Birds and flying fish share the protagonist's palette.
+                    if(key === 'player' || key === 'enemy_12' || key === 'enemy_15'){
+                        // Birds, flying fish and penguins share the protagonist's palette.
                         color = palette.slice(16,  20);
                     }else if(key === 'enemy_9'){
                         color = palette.slice(4, 8);
-                    }else if(key === 'door' || key === 'enemy_13'){
+                    }else if(key === 'door' || key === 'enemy_13' || key === 'enemy_14'){
                         color = palette.slice(24,  28);
                     }else{
                         color = palette.slice(20,  24);
@@ -262,7 +268,15 @@ class ResourceManager{
                 }
 
                 let img;
-                if (key === 'enemy_12') {
+                if (key === 'enemy_15') {
+                    const previewConfig = {...itemConfig, imgBlockIndex: itemConfig.imgBlockIndex.map(row =>
+                        row.map(tile => ({...tile, index: tile.index - Penguin.TILE})))};
+                    img = await this.decodeImage(SpritePatterns.getPenguinFrames(romData), previewConfig, color, levelType, 0, 0);
+                } else if (key === 'enemy_14') {
+                    const previewConfig = {...itemConfig, imgBlockIndex: itemConfig.imgBlockIndex.map(row =>
+                        row.map(tile => ({...tile, index: tile.index - 0x48})))};
+                    img = await this.decodeImage(RemoteBomb.patterns(), previewConfig, color, levelType, 0, 0);
+                } else if (key === 'enemy_12') {
                     // Runtime graphics share $AA-$B1. Read the preserved native
                     // artwork for previews, before runtime CHR rearrangement.
                     const frames = SpritePatterns.getFlightSpriteFrames(romData, levelType === 4);

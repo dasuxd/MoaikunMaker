@@ -27,6 +27,10 @@ class Portal {
         // over its frames or any native metasprite definitions.
         const {bytes, labels, emit, label, absolute, branch, resolve} = Asm6502.block(base, limit);
         label('dispatch');
+        // Bank-6 previews (14, and optionally 15) only need native projection here.
+        emit(0xC9, 14); branch(Penguin.ENABLED ? 0x90 : 0xD0, 'portalDispatch');
+        absolute(0x20, 0xAE54); absolute(0x4C, 0xA9B3);
+        label('portalDispatch');
         emit(0xC9, 0x0D); branch(0xF0, 'portalTick');
         absolute(0x4C, 0xFD00);
         label('portalTick'); absolute(0x20, 'tick'); absolute(0x4C, 0xA9B3);
@@ -61,6 +65,12 @@ class Portal {
         absolute(0x4C, 0xAE54); // Native camera projection and off-screen clipping.
 
         label('render');
+        if (priorRenderer !== null) {
+            emit(0xC9, RemoteBomb.META); branch(0x90, 'portalRender');
+            emit(0xC9, RemoteBomb.META + 2); branch(0xB0, 'portalRender');
+            absolute(0x4C, RemoteBomb.RENDER);
+        }
+        label('portalRender');
         emit(0xC9, 0x2F); branch(0x90, 'previousRender');
         emit(0xC9, 0x4B); branch(0xB0, 'previousRender');
         // Odd tile IDs select $1000 CHR in 8x16 mode. Each pair is now
@@ -213,6 +223,9 @@ class Portal {
         };
         emit(0xA0, 7);
         label('creatureCheck'); ly(0x4FE); branch(0xF0, 'nextCreature'); emit(0xC9, 13); branch(0xF0, 'nextCreature');
+        // Charges stay attached to their chosen world cell; carried charges
+        // are inventory, not independent portal passengers.
+        emit(0xC9, 14); branch(0xF0, 'nextCreature');
         emit(0xC9, 9); branch(0xD0, 'mobileEnemy');
         // The statue installs two solid map nibbles. Never detach its
         // collision tiles from the fixed background emitter.

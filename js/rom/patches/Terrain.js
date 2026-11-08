@@ -38,6 +38,8 @@ class Terrain {
      * Tile 12's native spring animation (player state 4) legitimately moves
      * the anchor into the spring while compressing. A lookup wrapper at
      * $FAE0-$FAFF exempts only that tile/state pair; other solids still kill.
+     * RemoteBomb.install subsequently relocates this 17-byte lookup to the
+     * retired sore-head handler at $95E4, reusing the fixed area as a bridge.
      * Movement and collision code stay native. To disable the table changes
      * AND wrapper, comment out this call in applyPatches.js and rebuild from
      * the original ROM. Tile 13's patch is independent.

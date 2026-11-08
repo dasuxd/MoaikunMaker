@@ -64,7 +64,12 @@ class EditorToolbar {
             img.alt = alt;
             img.style.height = (32 * config.imgBlockIndex.length / config.imgBlockIndex[0].length) + 'px';
             icon.textContent = '🚫';
-            caption.textContent = config.name;
+            caption.textContent = config.nameKey ? i18n.t(config.nameKey) : config.name;
+            if (config.nameKey) caption.dataset.i18n = config.nameKey;
+            if (config.helpKey) {
+                btn.dataset.i18nTitle = config.helpKey;
+                btn.title = i18n.t(config.helpKey);
+            }
             btn.append(img, icon, caption);
             editor.updateButtonImage(btn, imgName);
         }
@@ -122,7 +127,7 @@ class EditorToolbar {
      */
     static createEnemyButtons(editor) {
         const container = document.getElementById('enemyButtons');
-        for (let i = 1; i <= 13; i++) {
+        for (let i = 1; i <= (Penguin.ENABLED ? 15 : 14); i++) {
             const btn = editor.createButton("enemy", container, `Sprite ${i}`, i);
             editor.enemyBtns.push(btn);
         }

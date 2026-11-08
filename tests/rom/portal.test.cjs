@@ -176,7 +176,7 @@ test('occupied outlines have transparent interiors, visible rims and opaque grou
     }
 });
 
-realTest('four groups preserve native palettes and their identity through background/overlay handoffs in every scene', () => {
+realTest('four groups preserve the shared bomb palette and their identity through background/overlay handoffs in every scene', () => {
     const enemies = Array.from({length: 8}, (_, i) => ({enemyId: 13 | ((i % 4) << 4),
         x: 2 + (i % 4) * 3, y: i < 4 ? 7 : 11}));
     for (let scene = 0; scene < 12; scene++) {
@@ -188,24 +188,27 @@ realTest('four groups preserve native palettes and their identity through backgr
             player: {x: 14, y: 11}, door: {x: 14, y: 10}, enemies}, false);
         editor.levels[0].data = data.mapData; editor.levels[0].monsterData = data.monsterData;
         editor.levelCount = 1;
-        const rom = editor.getROMData(), schemes = SpritePatterns.getPortalColorSchemes(original, scene);
+        const expected = Uint8Array.from(original);
+        for(let s=0;s<12;s++) {
+            const p=(original[0x564D+s*2]|original[0x564E+s*2]<<8)-0x8000+16;
+            const group=original[0x3FF4+s*4+2]&3;
+            expected.set(original.subarray(p+group*4+1,p+group*4+4),p+25);
+            const rescueGroup=original[0x3FF4+s*4+3]&3;
+            expected.set(original.subarray(p+rescueGroup*4+1,p+rescueGroup*4+4),p+29);
+        }
+        const rom = editor.getROMData(), schemes = SpritePatterns.getPortalColorSchemes(expected, scene);
         assert.deepEqual(SpritePatterns.getPortalColorSchemes(rom, scene), schemes);
         assert.equal(new Set(schemes.map(s => s.background)).size, 4);
         assert.equal(new Set(schemes.map(s => s.sprite)).size, 4);
         const ptr = original[0x564D + scene * 2] | original[0x564E + scene * 2] << 8;
         const at = ptr - 0x8000 + 16;
-        if (scene === 3) {
-            const nativeInks = [schemes[1], schemes[3]].map(s => [
-                original[at + s.background * 4 + 1], original[at + 16 + s.sprite * 4 + 1]]);
-            assert.deepEqual(nativeInks, [[0x25, 0x23], [0x19, 0x27]], '2 and 4 exchange both render palettes');
-        }
-        assert.deepEqual(Array.from(rom.slice(at + 0x18000, at + 0x18000 + 32)), Array.from(original.slice(at, at + 32)));
+        assert.deepEqual(Array.from(rom.slice(at + 0x18000, at + 0x18000 + 32)), Array.from(expected.slice(at, at + 32)));
         const nes = start(rom), m = nes.cpu.mem;
         for (const count of [40, 320]) {
             for (let f = 0; f < count; f++) nes.frame();
             // Native water/fire animation rotates background palette 3.
-            for (let i = 0; i < 32; i++) if (i % 4 && (i < 13 || i > 15)) assert.equal(nes.ppu.vramMem[0x3F00 + i], original[at + i],
-                `scene ${scene}: native palette ink ${i}`);
+            for (let i = 0; i < 32; i++) if (i % 4 && (i < 13 || i > 15)) assert.equal(nes.ppu.vramMem[0x3F00 + i], expected[at + i],
+                `scene ${scene}: shared palette ink ${i}`);
             assert.deepEqual(Array.from(nes.ppu.vramMem.slice(0x3F0D, 0x3F10)).sort(),
                 Array.from(original.slice(at + 13, at + 16)).sort(), `scene ${scene}: native animated palette`);
             for (let i = 0; i < enemies.length; i++) {

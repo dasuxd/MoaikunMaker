@@ -319,6 +319,10 @@ class LevelEditor {
         this.currentTool = type;
         this.currentTileId = type === 'tile' ? id : null;
         this.currentEnemyId = type === 'enemy' ? id : null;
+        const toolCaption = document.getElementById('currentTool');
+        delete toolCaption.dataset.i18n;
+        const nameKey = type === 'enemy' && GraphicsCatalog.RESOURCE_IMG_CONFIG[`enemy_${Enemy.getRealId(id)}`]?.nameKey;
+        if (nameKey) toolCaption.dataset.i18n = nameKey;
 
         // Update UI
         document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
@@ -330,7 +334,7 @@ class LevelEditor {
         } else if (type === 'enemy') {
             const btn = document.getElementById(`enemy_${id}`);
             if (btn) btn.classList.add('active');
-            document.getElementById('currentTool').textContent = `Sprite ${id}`;
+            document.getElementById('currentTool').textContent = nameKey ? i18n.t(nameKey) : `Sprite ${id}`;
         } else if (type === 'player') {
             document.getElementById('playerBtn').classList.add('active');
             document.getElementById('currentTool').textContent = 'Player';
@@ -691,6 +695,7 @@ class LevelEditor {
     saveStatusEnabled(){
         this.modified = true;
         document.getElementById('saveBtn').disabled = false;
+        this.onEdit?.();
     }
 
     render() { return LevelCanvas.render(this); }

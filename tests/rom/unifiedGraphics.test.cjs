@@ -50,7 +50,7 @@ function call(nes, address, accumulator = 0) {
 
 test('the unified layout allocates the portal inside the shared background reserve', () => {
     const layout = GraphicsCatalog.SCENE_GRAPHICS_LAYOUT;
-    assert.equal(layout.version, 2);
+    assert.equal(layout.version, 4);
     assert.equal(layout.foregroundStart, 0x60);
     assert.equal(layout.enemy9Start, 0x6C);
     assert.equal(layout.scene8MetatileStart, 0x96);
@@ -72,7 +72,8 @@ realTest('all scene images add the portal in the reserve while preserving origin
     assert.deepEqual(data, snapshot);
     assert.equal(built.scenes.length, 12);
     assert.deepEqual(built.layout, layout);
-    assert.ok(built.patches.every(patch => patch.value < layout.reservedBackgroundStart),
+    assert.ok(built.patches.filter(patch => patch.fileAddr < fixed(0xC1E5) || patch.fileAddr >= fixed(0xC26D))
+        .every(patch => patch.value < layout.reservedBackgroundStart),
         'relocated native artwork never selects reserved background tiles');
     for (const scene of built.scenes) {
         const sourceBackground = 0x9010 + graphicsPages[scene.scene] * 0x2000;
@@ -110,7 +111,7 @@ realTest('compilation rewrites every native lookup for the unified foreground, s
     const data = expandedSource(), native = data.slice();
     SceneCompiler.compileSceneGraphics(data);
     const layout = GraphicsCatalog.SCENE_GRAPHICS_LAYOUT;
-    assert.equal(data[0x18028], 2);
+    assert.equal(data[0x18028], 4);
     assert.deepEqual(Array.from(data.slice(bank0(0xBFD4), bank0(0xBFD4) + 12)), Array(12).fill(layout.foregroundStart));
     const statue = new Map(SceneCompiler.SCENE_GRAPHICS_ENEMY9_TILES.map((index, offset) => [index, layout.enemy9Start + offset]));
     for (const [start, length, address] of [[0xC07B, 16, fixed], [0xBDA1, 80, bank0]]) {

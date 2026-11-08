@@ -45,12 +45,29 @@ class SceneCompiler {
             const patterns = new Uint8Array(0x2000);
             const sourceStart = 0x8010 + page * 0x2000;
             const original = source.slice(sourceStart, sourceStart + 0x2000);
-            const spriteTiles = new Set(scene === 7 || scene === 8
-                ? range(0, 0xFF) : [...range(0, 0xA9), ...range(0xE0, 0xFF)]);
+            const spriteTiles = new Set([...range(0, 0xA7), ...range(0xDE, 0xFF)]);
             for (const tile of spriteTiles) patterns.set(original.subarray(tile * 16, tile * 16 + 16), tile * 16);
+            // Metasprite 8 still uses the old floating-head pattern for
+            // spawn smoke. Use the column freed by TNT's shared left half,
+            // in every scene; keep the native player poses at $50 onward intact.
+            patterns.set(original.subarray(0xE40, 0xE60), layout.spawnSmoke * 16);
+            if (scene === 7 || scene === 8) {
+                // $A8/$A9 are unused by native metasprites. Move the four
+                // boss poses forward one 8x16 column, preserving every pixel.
+                patterns.set(original.subarray(0xAA0, 0xE00), layout.bossStart * 16);
+                for (let tile = layout.bossStart; tile < layout.bossStart + layout.bossTileCount; tile++) spriteTiles.add(tile);
+            }
+            patterns.set(original.subarray(0xE60, 0xE80), layout.timerIcon * 16);
+            patterns.set(original.subarray(0xE80, 0xEA0), layout.bombIcon * 16);
+            patterns.set(Hud.iconPatterns('remote'), layout.remoteBombIcon * 16);
+            patterns.set(Hud.iconPatterns('rescue'), layout.rescueIcon * 16);
             if (scene !== 7 && scene !== 8) {
                 patterns.set(frames ? (scene === 4 ? frames.fish : frames.bird) : SpritePatterns.getFlightSpriteFrames(source, scene === 4), 0xAA0);
                 for (let tile = 0xAA; tile <= 0xB1; tile++) spriteTiles.add(tile);
+                if (Penguin.ENABLED) {
+                    patterns.set(frames?.penguin || SpritePatterns.getPenguinFrames(source), Penguin.TILE * 16);
+                    for (let tile = Penguin.TILE; tile < Penguin.TILE + 12; tile++) spriteTiles.add(tile);
+                }
             }
 
             const backgroundTiles = new Set(), fixedKeys = new Map();
@@ -142,6 +159,14 @@ class SceneCompiler {
         }
 
         for (let scene = 0; scene < 12; scene++) patchValues.set(address(0xBFD4) + scene, layout.foregroundStart);
+        patchValues.set(fixed(0xC0CB), layout.spawnSmoke);
+        // Tile bytes only: leave boss positions, palettes and flip bits intact.
+        for (const [cpu, count] of [[0xC1E5, 8], [0xC206, 8], [0xC227, 8], [0xC248, 9]]) {
+            for (let index = 0; index < count; index++) {
+                const at = fixed(cpu + 2 + index * 4);
+                patchValues.set(at, source[at] - 0xAA + layout.bossStart);
+            }
+        }
         const enemy9 = new Map(SceneCompiler.SCENE_GRAPHICS_ENEMY9_TILES.map((tile, index) => [tile, layout.enemy9Start + index]));
         for (const [cpu, length] of [[0xC07B, 16], [0xBDA1, 0x50]]) {
             for (let index = 0; index < length; index++) {

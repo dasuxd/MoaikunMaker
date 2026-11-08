@@ -32,7 +32,16 @@ function writeLevelRecords(rom, levels, entries) {
         if (level.data[2] === LevelCodec.NO_DOOR_COORDINATE && level.data[3] === LevelCodec.NO_DOOR_COORDINATE)
             rom.fill(0, entry.romAddress + 2, entry.romAddress + 4);
         rom[entry.romAddress + level.data.length] = 0xFF;
-        rom.set(level.monsterData, entry.monsterRomAddress);
+        // Disabling the experiment must also make existing preview levels
+        // safe: type 15 has no native AI or animation table entry.
+        let monsters = level.monsterData;
+        if (!Penguin.ENABLED) {
+            monsters = [1];
+            for (let i = 1; i + 1 < level.monsterData.length; i += 2)
+                if ((level.monsterData[i] & 15) !== 15) monsters.push(level.monsterData[i], level.monsterData[i + 1]);
+            monsters[0] = monsters.length;
+        }
+        rom.set(monsters, entry.monsterRomAddress);
     });
     // The native attract-mode demos always request levels 7 and 8.
     for (const demo of [6, 7]) if (demo >= entries.length) writePointers(demo, entries[0]);

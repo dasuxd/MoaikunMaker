@@ -387,6 +387,7 @@ class LevelLibrary {
         if (this.app.saveBtn) {
             this.app.saveBtn.disabled = true;
         }
+        this.app.loader?.saveEditorState?.();
     }
 
     hasUnsavedChanges() {

@@ -75,16 +75,26 @@ class BirdFish {
         absolute(0x4C, platform.draw);
 
         // Add simple metasprites $2D-$2E without consuming existing entries.
+        // Optional type 15 uses $4D-$4F and the final 17 bytes of this block.
         // Each frame is two adjacent 8x16 hardware sprites; the native OAM
         // builder still handles horizontal flipping, clipping and palettes.
         label('render');
+        if (Penguin.ENABLED) {
+            emit(0xA0, 0, 0xC9, Penguin.META); branch(0x90, 'birdRender');
+            emit(0xC9, Penguin.META + 3); branch(0xB0, 'nativeRender');
+            // CMP left carry clear; subtract META-1 to obtain frame 0..2.
+            emit(0xE9, Penguin.META - 1, 0x0A, 0x0A, 0x69, Penguin.TILE);
+            absolute(0x4C, 'columns'); // Y=0: share the player's palette, like birds.
+        }
+        label('birdRender');
         emit(0xC9, 0x2D); branch(0x90, 'nativeRender');
         emit(0xC9, 0x2F); branch(0xB0, 'nativeRender');
         // CMP #$2F left carry clear. SBC #$2C supplies frames 0/1; both
         // shifts and additions below stay below $100 and leave carry clear.
-        emit(0xE9, 0x2C, 0x0A, 0x0A, 0x69, 0xAA, 0x85, 0x10,
-            0x69, 0x02, 0x85, 0x11,
-            0xA9, 0x00, 0x85, 0x12, 0x85, 0x13); // Player sprite palette.
+        emit(0xE9, 0x2C, 0x0A, 0x0A, 0x69, 0xAA);
+        label('columns'); emit(0x85, 0x10, 0x69, 0x02, 0x85, 0x11);
+        if (Penguin.ENABLED) emit(0x84, 0x12, 0x84, 0x13);
+        else emit(0xA9, 0x00, 0x85, 0x12, 0x85, 0x13); // Player sprite palette.
         absolute(0x4C, 0x8951);
         label('nativeRender');
         emit(0x0A); branch(0xB0, 'largeRender');

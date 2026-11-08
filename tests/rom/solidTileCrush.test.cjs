@@ -126,13 +126,16 @@ function clip(tile, direction, enabled) {
 realTest('disabling just the new call restores the previous export, including Tile 13 crush', () => {
     const enabled = stage(), without = stage({ enabled: false });
     const changed = Array.from(enabled.keys()).filter(i => enabled[i] !== without[i]);
-    assert.ok(changed.every(patchByte), 'disabling removes the entire patch and nothing else');
+    assert.ok(changed.every(i => patchByte(i) || (i >= 0x15F4 && i < 0x1609)),
+        'disabling removes only the action patch and its relocated lookup');
     for(const tile of tiles) {
         assert.equal(enabled[RomLayout.programOffset(0xC0A9 + tile)], 1);
         assert.equal(without[RomLayout.programOffset(0xC0A9 + tile)], 0);
     }
     assert.deepEqual(Array.from(without.slice(0x1887, 0x188A)), [0xB9, 0xA9, 0xC0]);
-    assert.ok(without.slice(0x1FAF0, 0x1FB10).every(byte => byte === 0));
+    assert.deepEqual(without.slice(0x1FAF0, 0x1FB10), enabled.slice(0x1FAF0, 0x1FB10),
+        'remote bomb bridge survives disabling solid crush');
+    assert.ok(without.slice(0x15F4, 0x1609).every(byte => byte === 0));
     for(const tile of [7, 8, 10, 13, 14]) {
         assert.equal(without[RomLayout.programOffset(0xC0A9 + tile)], 1);
     }

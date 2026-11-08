@@ -45,7 +45,8 @@ class ProjectLoader {
                     if(cachedLevelData?.levels) this.restoreProject(candidate,cachedLevelData);
                     const resources = new ResourceManager();
                     await resources.initResources(candidate.romData);
-                    this.openProject(candidate, resources, cachedRom.fileName, true);
+                    const editorState = await this.app.projectCache.loadEditorState();
+                    this.openProject(candidate, resources, cachedRom.fileName, true, editorState);
                 } catch (error) {
                     console.error('Failed to parse cached ROM:', error);
                     this.updateRecoveryExportVisibility();
@@ -115,7 +116,8 @@ class ProjectLoader {
     }
 
     /** Publish the prepared resources and project together, then select the initial level. */
-    openProject(project, resources, fileName, fromCache) {
+    openProject(project, resources, fileName, fromCache, editorState = null) {
+        this.editorCacheEnabled = false;
         this.app.fileName = fileName;
         this.app.project = project;
         ResourceManager.instance = resources;
@@ -151,7 +153,12 @@ class ProjectLoader {
         this.app.testBtn.disabled = true;
         this.app.downloadBtn.disabled = false;
 
-        this.app.library.selectLevel(0, { skipUnsavedGuard: true });
+        const index = Number.isInteger(editorState?.currentLevel) && editorState.currentLevel >= 0 &&
+            editorState.currentLevel < project.getLevelCount() ? editorState.currentLevel : 0;
+        this.app.library.selectLevel(index, { skipUnsavedGuard: true });
+        this.restoreEditorState(editorState);
+        this.editorCacheEnabled = true;
+        this.saveEditorState();
         if (this.app.pendingSharedLevel && !this.app.hasSharedLevelLoaded) {
             const sharedLevel = this.app.pendingSharedLevel;
             this.app.pendingSharedLevel = null;
@@ -174,6 +181,8 @@ class ProjectLoader {
 
     async clearCache() {
         if (confirm(i18n.t('clearRomCacheConfirm'))) {
+            const wasEnabled = this.editorCacheEnabled;
+            this.editorCacheEnabled = false;
             try {
                 // "Clear cache" removes the ROM/project cache, not the user's
                 // ROM-independent draft library.
@@ -191,6 +200,7 @@ class ProjectLoader {
                     romSelectBtn.title = '';
                 }
             } catch (error) {
+                this.editorCacheEnabled = wasEnabled;
                 this.app.showMessage('error', i18n.t('cacheCleanError'));
                 console.error(error);
             }
@@ -219,8 +229,73 @@ class ProjectLoader {
             ).catch((error) => {
                 console.error('Failed to save level data to cache:', error);
             });
+            this.saveEditorState();
         } catch (error) {
             console.error('Failed to export level data:', error);
         }
+    }
+
+    // Keep the working canvas separate from saved ROM levels/drafts. Raw
+    // source and optimized maps must both survive, without another codec pass.
+    saveEditorState() {
+        const app = this.app;
+        if (!this.editorCacheEnabled || app.isEditingLevels || !app.project.romData || app.editorBaseline === null) return;
+        try {
+            const content = app.library.createEditorSnapshot();
+            const owner = app.editorSource === 'draft' ? app.library.getCurrentDraft() : app.project.getLevel(app.currentLevel);
+            if (!content || !owner) return;
+            const state = {
+                version: 1, currentLevel: app.currentLevel, source: app.editorSource, draftId: app.currentDraftId,
+                owner: JSON.stringify([owner.data || owner.mapData, owner.monsterData]),
+                content: JSON.parse(content), baseline: app.editorBaseline,
+                optimizedMap: app.levelEditor.optimizedMapData.map(row => [...row])
+            };
+            this.editorSave = app.projectCache.saveEditorState(state).catch(error => {
+                console.error('Failed to cache the current editor:', error);
+            });
+            return this.editorSave;
+        } catch (error) {
+            console.error('Failed to snapshot the current editor:', error);
+        }
+    }
+
+    restoreEditorState(state) {
+        if (!state || state.version !== 1) return;
+        const app = this.app, editor = app.levelEditor, data = state.content;
+        // Bad/stale workspace metadata must never prevent opening the ROM.
+        const validMap = map => Array.isArray(map) && map.length === EditorGrid.GRID_HEIGHT &&
+            map.every(row => Array.isArray(row) && row.length >= 16 && row.length <= 32 &&
+                row.every(tile => tile == null || (Number.isInteger(tile) && tile >= 0 && tile <= 15)));
+        const validPoint = p => p === null || (p && Number.isInteger(p.x) && Number.isInteger(p.y) &&
+            p.x >= 0 && p.x < 32 && p.y >= 0 && p.y < 16);
+        if (!data || !validMap(data.map) || !validMap(state.optimizedMap) ||
+            !Number.isInteger(Number(data.background)) || Number(data.background) < 0 || Number(data.background) >= 12 ||
+            typeof data.isWideScreen !== 'boolean' || typeof data.isBuggyScreen !== 'boolean' ||
+            !validPoint(data.player) || !validPoint(data.door) || !Array.isArray(data.enemies) ||
+            data.enemies.length > RomLayout.MAX_ENEMIES_PER_LEVEL || data.enemies.some(e => !e || !validPoint(e) ||
+                !Number.isInteger(e.id) || e.id < 0 || e.id > 255) || typeof state.baseline !== 'string') return;
+        let owner;
+        if (state.source === 'draft') {
+            owner = app.backupLevels.find(draft => draft.id === state.draftId);
+        } else if (state.source === 'formal' && state.currentLevel === app.currentLevel) {
+            owner = app.project.getLevel(state.currentLevel);
+        }
+        if (!owner || JSON.stringify([owner.data || owner.mapData, owner.monsterData]) !== state.owner) return;
+        if (state.source === 'draft') app.library.loadDraftLevel(app.backupLevels.indexOf(owner));
+        editor.isWideScreen = data.isWideScreen;
+        editor.isBuggyScreen = data.isBuggyScreen;
+        editor.currentBgId = data.background;
+        editor.mapData = data.map.map(row => [...row]);
+        editor.optimizedMapData = state.optimizedMap.map(row => [...row]);
+        editor.playerPos = data.player && {...data.player};
+        editor.doorPos = data.door && {...data.door};
+        // Snapshot coordinates are already world coordinates, including page 2.
+        editor.enemies = data.enemies.map(e => new Enemy(e.id, e.x, e.y));
+        app.editorBaseline = state.baseline;
+        editor.modified = app.library.hasUnsavedChanges();
+        app.saveBtn.disabled = !editor.modified;
+        editor.resetImages();
+        editor.updateButtonImages();
+        editor.updateDataDisplays();
     }
 }

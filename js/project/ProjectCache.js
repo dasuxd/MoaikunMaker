@@ -10,6 +10,7 @@ class ProjectCache {
         this.cacheKey = 'lastRom';
         this.levelDataKey = 'levelData';
         this.backupKey = 'backupLevels';
+        this.editorStateKey = 'editorState';
         this.initializing = null;
     }
     static getInstance() { return this.instance ||= new ProjectCache(); }
@@ -99,20 +100,26 @@ class ProjectCache {
     async loadRom() { await this.init(); return this.read(this.db,this.cacheKey); }
     async loadLevelData() { await this.init(); return this.read(this.db,this.levelDataKey); }
     async loadBackupLevels() { await this.init(); return (await this.read(this.db,this.backupKey))?.backups || []; }
+    async loadEditorState() { await this.init(); return this.read(this.db,this.editorStateKey); }
+    async saveEditorState(state) {
+        if (!this.db) await this.init();
+        await this.write([[this.editorStateKey,state]]);
+    }
     async saveProject(data,fileName,project,backups) {
         await this.init();
         const now = Date.now();
         await this.write([
             [this.cacheKey,{data,fileName,timestamp:now,size:data.byteLength || data.length}],
             [this.levelDataKey,{...project,timestamp:now}],
-            [this.backupKey,{backups,timestamp:now}]
+            [this.backupKey,{backups,timestamp:now}],
+            [this.editorStateKey,null]
         ]);
     }
     async clearCache(drafts = []) {
         await this.init();
         // Keep the migration marker so clearing a new project cannot reimport
         // the untouched legacy database on the next page load.
-        const deletions = [this.cacheKey, this.levelDataKey, 'romPolicy'];
+        const deletions = [this.cacheKey, this.levelDataKey, this.editorStateKey, 'romPolicy'];
         if (!drafts.length) deletions.push(this.backupKey);
         const entries = drafts.length ? [[this.backupKey, {backups: drafts, timestamp: Date.now()}]] : [];
         await this.write(entries, deletions);

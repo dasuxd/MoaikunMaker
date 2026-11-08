@@ -167,23 +167,24 @@ class GraphicsCatalog {
             disabledLevelType:[],
             name: "Sprite 13"
         },
-        // These remaining types have no native enemy implementation.
-        // 'enemy_14':{
-        //     isSprite: true,
-        //     imgBlockIndex:[
-        //         [{index: 0xA0, reverse: false}, {index: 0xA2, reverse: false}],
-        //         [{index: 0xA1, reverse: false}, {index: 0xA3, reverse: false}],
-        //     ],
-        //     disabledLevelType:[]
-        // },
-        // 'enemy_15':{
-        //     isSprite: true,
-        //     imgBlockIndex:[
-        //         [{index: 0xA0, reverse: false}, {index: 0xA2, reverse: false}],
-        //         [{index: 0xA1, reverse: false}, {index: 0xA3, reverse: false}],
-        //     ],
-        //     disabledLevelType:[]
-        // },
+        'enemy_14':{
+            isSprite: true,
+            imgBlockIndex:[
+                [{index: 0x48, reverse: false}, {index: 0x4A, reverse: false}],
+                [{index: 0x49, reverse: false}, {index: 0x4B, reverse: false}],
+            ],
+            disabledLevelType:[],
+            name: "Remote Bomb", nameKey: "remoteBomb", helpKey: "remoteBombHelp"
+        },
+        'enemy_15':{
+            isSprite: true,
+            imgBlockIndex:[
+                [{index: 0xB2, reverse: false}, {index: 0xB4, reverse: false}],
+                [{index: 0xB3, reverse: false}, {index: 0xB5, reverse: false}],
+            ],
+            disabledLevelType:[7, 8],
+            name: "Penguin (Preview)", nameKey: "penguinPreview", helpKey: "penguinPreviewHelp"
+        },
 
         'door':{
             isSprite: false,
@@ -341,9 +342,13 @@ class GraphicsCatalog {
     // Gameplay background pattern-table ABI. The final interval is reserved
     // in every scene for additions. Sprite 13 owns $BA-$FF in that interval.
     static SCENE_GRAPHICS_LAYOUT = Object.freeze({
-        version: 2, foregroundStart: 0x60, enemy9Start: 0x6C,
+        version: 4, foregroundStart: 0x60, enemy9Start: 0x6C,
         scene8MetatileStart: 0x96, scene8SingleStart: 0xA2,
         reservedBackgroundStart: 0xBA, reservedBackgroundEnd: 0x100,
-        portalStart: 0xBA, portalTileCount: 70, portalEntryStart: 0xC0
+        portalStart: 0xBA, portalTileCount: 70, portalEntryStart: 0xC0,
+        // Shared sprite-table ABI, including boss scenes. Each HUD icon
+        // owns an 8x16 pair; the supplied 8x8 art has an empty upper tile.
+        spawnSmoke: 0x4E, bossStart: 0xA8, bossTileCount: 54,
+        timerIcon: 0xDE, bombIcon: 0xE4, remoteBombIcon: 0xE6, rescueIcon: 0xE8
     });
 }

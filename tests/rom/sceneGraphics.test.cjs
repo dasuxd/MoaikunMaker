@@ -88,10 +88,14 @@ test('scene builds preserve source data, share definition relocations, and clear
         assert.deepEqual(scene.patterns.slice(0x600, 0x840), data.slice(source + 0x600, source + 0x840),
             `scene ${scene.scene}, active enemy artwork is not replaced with pause letters`);
         if (scene.scene === 7 || scene.scene === 8) {
-            assert.deepEqual(scene.patterns.slice(0, 0x1000), data.slice(source, source + 0x1000));
+            assert.deepEqual(scene.patterns.slice(0, 0x4E0), data.slice(source, source + 0x4E0));
+            assert.deepEqual(scene.patterns.slice(0x500, 0xA80), data.slice(source + 0x500, source + 0xA80));
+            assert.deepEqual(scene.patterns.slice(0xA80, 0xDE0), data.slice(source + 0xAA0, source + 0xE00));
+            assert.deepEqual(scene.patterns.slice(0xE00, 0xE40), data.slice(source + 0xE00, source + 0xE40));
+            assert.deepEqual(scene.patterns.slice(0xEA0, 0x1000), data.slice(source + 0xEA0, source + 0x1000));
             assert.deepEqual(tile(scene.patterns, 0x1000, castle), tile(data, source + 0x1000, 0xD4));
         } else {
-            assert.equal(scene.freeSpriteTiles.length, 46);
+            assert.equal(scene.freeSpriteTiles.length, 34);
             assert.deepEqual(scene.patterns.slice(0xAA0, 0xB20), SpritePatterns.getFlightSpriteFrames(data, scene.scene === 4));
         }
         if (scene.scene === 8) for (let index = 0; index < 3; index++) {

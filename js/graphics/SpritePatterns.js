@@ -158,6 +158,35 @@ class SpritePatterns {
         return patterns;
     }
 
+    /** Assemble only native tiles, before flight preparation reuses them.
+     * Stand: lower-left $AD on both sides (mirrored on the right).
+     * Walk: $AD/$AF, then mirrored $AF/$AD; the upper body stays still.
+     * Native art faces right. Mirror the assembled poses into the engine's
+     * default left-facing orientation, shared by the editor and runtime.
+     */
+    static getPenguinFrames(romData) {
+        const source = romData.subarray(0xAAD0, 0xAB10);
+        const mirror = byte => {
+            let result = 0;
+            for (let bit = 0; bit < 8; bit++) result = (result << 1) | ((byte >> bit) & 1);
+            return result;
+        };
+        // Two column-major 8x16 pairs: top-left, bottom-left, top-right, bottom-right.
+        const poses = [
+            [[0, false], [1, false], [2, false], [1, true]],
+            [[0, false], [1, false], [2, false], [3, false]],
+            [[0, false], [3, true], [2, false], [1, true]]
+        ];
+        const result = new Uint8Array(192);
+        poses.forEach((tiles, frame) => tiles.forEach(([tile, flipped], columnTile) => {
+            for (let byte = 0; byte < 16; byte++) {
+                const value = source[tile * 16 + byte];
+                result[frame * 64 + (columnTile ^ 2) * 16 + byte] = flipped ? value : mirror(value);
+            }
+        }));
+        return result;
+    }
+
     static getFlightSpriteFrames(romData, isFish = false) {
         const start = 0xA010 + (isFish ? 0xB0 : 0xB8) * 16;
         return romData.slice(start, start + 128);

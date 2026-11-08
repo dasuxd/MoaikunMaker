@@ -648,14 +648,23 @@ test('bird/fish renderer maps frames to both sprite pairs with native render fal
     for(const frame of [0x2D, 0x2E]) {
         m[0x10] = m[0x11] = m[0x12] = m[0x13] = 255;
         c.REG_ACC = frame;
-        call(game, 0x8932, 5);
+        // The real native OAM builder clobbers Y. The extension also
+        // uses it for the shared player palette before this tail call.
+        call(game, 0x8932, 5, false);
         assert.deepEqual(m.slice(0x10, 0x14),
             [0xAA + (frame - 0x2D) * 4, 0xAC + (frame - 0x2D) * 4, 0, 0]);
     }
     assert.equal(m[0x03], 2, 'both bird frames use the native sprite builder');
+    for (const frame of [0x4D, 0x4E, 0x4F]) {
+        c.REG_ACC = frame;
+        call(game, 0x8932, 5, false);
+        assert.deepEqual(m.slice(0x10, 0x14),
+            [0xB2 + (frame - 0x4D) * 4, 0xB4 + (frame - 0x4D) * 4, 0, 0]);
+    }
+    assert.equal(m[0x03], 5, 'all penguin poses use the same native OAM builder');
     for(const frame of [0x2C, 0x2F, 0x80]) {
         c.REG_ACC = frame;
-        call(game, 0x8932, 5);
+        call(game, 0x8932, 5, false);
     }
     assert.equal(m[0x04], 2, 'ordinary frames retain the native short renderer');
     assert.equal(m[0x05], 1, 'large frames retain the native long renderer');

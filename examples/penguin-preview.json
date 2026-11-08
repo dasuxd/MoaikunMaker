@@ -1,0 +1,45 @@
+{
+  "format": "moaikun-level-pack",
+  "version": 1,
+  "exportedAt": "2026-11-07T20:08:18.022Z",
+  "levels": [
+    {
+      "id": "penguin-animation-preview",
+      "name": "企鹅：走几步，停一下",
+      "mapData": [
+        0,
+        43,
+        14,
+        7,
+        240,
+        16,
+        15,
+        240,
+        240,
+        240,
+        240,
+        240,
+        240,
+        240,
+        240,
+        240,
+        208,
+        5,
+        176,
+        5,
+        0,
+        245
+      ],
+      "monsterData": [
+        3,
+        15,
+        139
+      ],
+      "checksum": "3BB0A40F",
+      "source": "file",
+      "levelIndex": null,
+      "createdAt": 1794082098022
+    }
+  ],
+  "drafts": []
+}

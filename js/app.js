@@ -56,6 +56,7 @@ class App {
         this.pendingUnsavedAction = null;
         this.pendingSharedLevel = null;
         this.recoveryLevelData = null;
+        this.levelEditor.onEdit = () => this.loader.saveEditorState();
 
         this.syncGameConfigControls();
         this.initTopBarLayout();

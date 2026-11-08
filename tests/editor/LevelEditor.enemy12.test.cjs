@@ -44,7 +44,7 @@ test('enemy toolbar includes the restored bird/fish as one 16x16 type', () => {
     editor.createButton = (type, container, alt, id) => ({ type, id });
     editor.createEnemyButtons();
     assert.deepEqual(editor.enemyBtns.map(button => button.id),
-        Array.from({ length: 13 }, (_, index) => index + 1));
+        Array.from({ length: 15 }, (_, index) => index + 1));
     assert.equal(GraphicsCatalog.RESOURCE_IMG_CONFIG.enemy_12.imgBlockIndex.length, 2);
     assert.equal(GraphicsCatalog.RESOURCE_IMG_CONFIG.enemy_12.imgBlockIndex[0].length, 2);
 });
