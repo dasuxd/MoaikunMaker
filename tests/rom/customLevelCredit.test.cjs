@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const test = require('node:test');
 const jsnes = require('../../js/lib/jsnes.min.js');
-const { GameSettings, Project } = require('../helpers/source.cjs').load('GameSettings Project');
+const { GameSettings, Project, Penguin } = require('../helpers/source.cjs').load('GameSettings Project Penguin');
 
 const original = process.env.MOAIKUN_TEST_ROM ? fs.readFileSync(process.env.MOAIKUN_TEST_ROM) : null;
 const realTest = (name, fn) => test(name, {skip:!original}, fn);
@@ -56,7 +56,7 @@ realTest('empty and whitespace author produce the original ending without a cred
     for (const value of ['   ', '123中文!']) assert.deepEqual(exportRom(value), blank);
     assert.deepEqual(Array.from(blank.slice(fixed(0xC905), fixed(0xC90A))), [0xA5,0xBC,0x20,0x0D,0x83]);
     // Bird motion follows the credit code/text; its font copies live in bank 1.
-    assert.ok(blank.slice(fixed(0xF800), fixed(0xF940)).every(v=>v===0));
+    assert.ok(blank.slice(fixed(0xF800), fixed(Penguin.NATIVE_RETURN)).every(v=>v===0));
     assert.ok(blank.slice(0x6510, 0x6850).every(v=>v===0));
     const nes = ending(blank);
     until(nes, m=>m[0xB5]===4 && m[0xBC]===1);

@@ -96,7 +96,12 @@ class LevelCodec {
         mapBytes.push(...rleBytes);
         
         // 6. 怪物数据
-        const monsterBytes = LevelCodec.encodeMonsterData(levelEditorData.enemies);
+        // Match the map's active width. The editor keeps the hidden half so
+        // toggling back to wide mode can restore it, but it must not spawn in
+        // a single-screen save/export/playtest.
+        const enemies = isWideScreen ? levelEditorData.enemies
+            : levelEditorData.enemies?.filter(enemy => enemy.x < EditorGrid.GRID_WIDTH / 2);
+        const monsterBytes = LevelCodec.encodeMonsterData(enemies);
         
         return {
             mapData: mapBytes,

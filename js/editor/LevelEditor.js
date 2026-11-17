@@ -164,7 +164,7 @@ class LevelEditor {
         for(let key in GraphicsCatalog.RESOURCE_IMG_CONFIG){
             this.images.set(key,  ResourceManager.getInstance().getResource(this.currentBgId, key));
         }
-        for (let group = 1; group <= 4; group++) for (const suffix of ['', '_covered']) {
+        for (let group = 1; group <= 4; group++) for (const suffix of ['', '_covered', '_exit', '_exit_covered']) {
             const key = `enemy_13_pair_${group}${suffix}`;
             this.images.set(key, ResourceManager.getInstance().getResource(this.currentBgId, key));
         }

@@ -18,10 +18,7 @@ class GameSettings {
     static normalize(config) {
         return {
             disableTimer: Boolean(config.disableTimer),
-            showRemainingRescueCount:
-                config.showRemainingRescueCount === undefined
-                    ? true
-                    : Boolean(config.showRemainingRescueCount),
+            showRemainingRescueCount: Boolean(config.showRemainingRescueCount),
             cameraFollow: Boolean(config.cameraFollow),
             customLevelAuthor: GameSettings.normalizeCustomLevelAuthor(config.customLevelAuthor)
         };

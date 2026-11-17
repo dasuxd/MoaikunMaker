@@ -2,11 +2,13 @@
  * English (US) Translation
  */
 const translations_enUS = {
+    "nonOriginal": "Non-original",
     "remoteBomb": "Remote Bomb",
-    "penguinPreview": "Penguin (Animation Preview)",
-    "penguinPreviewHelp": "Animation study: slowly walk about three tiles, then stand for about one second. Turn at walls and ledges. Harmless contact; no gameplay role yet. Scenes 7 and 8 are not supported.",
-    "remoteBombHelp": "Touch to collect. While standing, hold up or down for about one second to install above or below in a bomb-breakable block. The preview keeps the pickup colour; changing colour confirms installation. Release or jump to cancel. Up + attack detonates one charge in placement order. The indicator light changes colour to mark the next charge.",
-    "portalHelp": "Two matching numbers form a pair. Click again to change groups. Entrances transport players, enemies, tiles and active items when the exit is clear. Direction swaps about every 5 seconds. Fire statues and level exits stay in place. A red ? marks an incomplete pair.",
+    "penguinPreview": "Penguin (Ice Builder)",
+    "birdHelp": "Bird: An airborne unit the player can stand on and ride.",
+    "penguinPreviewHelp": "Penguin: Pauses for about 2 seconds at terrain edges to build a block and extend the ground.",
+    "remoteBombHelp": "Remote Bomb: Touch to collect, then stand still and hold Up/Down for about 1 second to install in a bomb-breakable block above/below you. Press Up + B (attack) to detonate in placement order.",
+    "portalHelp": "Portal: Match the numbers in the upper-left corners to form a pair. Click again to change the number. Direction swaps about every 5 seconds. A red ? marks an incomplete pair.",
     "portalExitClearance": "Portals cannot overlap the level exit's 2×2 cells.",
 
     "romUnsupportedStructure": "Unsupported ROM structure or incomplete file.",
@@ -53,7 +55,7 @@ const translations_enUS = {
 
 
     'disableTimer': '⏱️ Disable Timer',
-    'showNpcCount': '🗿 Show NPC Count',
+    'showNpcCount': '🗿 Show Remaining Rescue Count',
     "cameraFollow": "📷 Camera option in pause menu",
     "cameraFollowHint": "Press Up while paused to open Settings. A toggles centered follow on narrow and wide maps. Enables horizontal bat wrapping. Experimental.",
     'gameConfigHint': 'When the timer is disabled, the NPC count uses the timer position.',

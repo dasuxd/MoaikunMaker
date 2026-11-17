@@ -2,11 +2,13 @@
  * 中文（简体）翻译
  */
 const translations_zhCN = {
+    "nonOriginal": "非原版",
     "remoteBomb": "遥控炸弹",
-    "penguinPreview": "企鹅（动作观察）",
-    "penguinPreviewHelp": "动作观察版：缓慢走约三格、站立约一秒，碰墙或平台边缘回头。接触无伤害，暂不赋予玩法功能。场景 7、8 暂不支持。",
-    "remoteBombHelp": "接触拾取。站稳后长按上或下约 1 秒，向头顶或脚下安装。原色是预览，变色表示成功；松手或跳跃取消。仅可安装在可炸毁的方块中。上＋攻击按安装顺序逐颗引爆；指示灯闪色标记下一颗。",
-    "portalHelp": "同编号的两扇门配对，再次点击可换组。入口自动传送角色、怪物、图块和活动道具。出口被占用时等待，约每 5 秒换向。喷火装置和通关门固定。红色问号表示配对未完成。",
+    "penguinPreview": "企鹅（造冰）",
+    "birdHelp": "飞鸟：空中单位，玩家可以踩在它身上搭乘。",
+    "penguinPreviewHelp": "企鹅：遇到地形边缘时，会停下约 2 秒制造方块，延伸陆地。",
+    "remoteBombHelp": "遥控炸弹：接触拾取后，站稳并长按上/下约 1 秒，将炸弹安装在头顶/脚下可炸毁的方块中。按上 + B（攻击键）依次引爆。",
+    "portalHelp": "传送门：通过左上角的相同编号配对，再次点击可切换编号。约每 5 秒转换一次传送方向。红色问号表示配对未完成。",
     "portalExitClearance": "传送门不能与通关门占用的 2×2 格重叠。",
 
     "romUnsupportedStructure": "ROM 结构不兼容或文件不完整。",
@@ -53,7 +55,7 @@ const translations_zhCN = {
 
 
     'disableTimer': '⏱️ 停用计时',
-    'showNpcCount': '🗿 显示 NPC 数量',
+    'showNpcCount': '🗿 显示待解救人数',
     "cameraFollow": "📷 暂停菜单相机选项",
     "cameraFollowHint": "暂停时按 ↑ 打开菜单，用 A 切换镜头居中。支持单屏和双屏，并启用蝙蝠横向循环。此功能仍在测试中。",
     'gameConfigHint': '停用计时后，NPC 数量会显示在原计时器位置。',

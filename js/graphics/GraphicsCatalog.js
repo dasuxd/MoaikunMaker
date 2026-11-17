@@ -155,7 +155,7 @@ class GraphicsCatalog {
                 [{index: 0xAB, reverse: false}, {index: 0xAD, reverse: false}],
             ],
             disabledLevelType:[7, 8],
-            name: "Sprite 12"
+            name: "Sprite 12", helpKey: "birdHelp", isCustom: true
         },
           // Editor preview uses the same colors as the background portal and its occlusion overlay.
         'enemy_13':{
@@ -165,7 +165,7 @@ class GraphicsCatalog {
                 [{index: 0xC1, reverse: false}, {index: 0xC3, reverse: false}],
             ],
             disabledLevelType:[],
-            name: "Sprite 13"
+            name: "Sprite 13", helpKey: "portalHelp", isCustom: true
         },
         'enemy_14':{
             isSprite: true,
@@ -174,7 +174,7 @@ class GraphicsCatalog {
                 [{index: 0x49, reverse: false}, {index: 0x4B, reverse: false}],
             ],
             disabledLevelType:[],
-            name: "Remote Bomb", nameKey: "remoteBomb", helpKey: "remoteBombHelp"
+            name: "Remote Bomb", nameKey: "remoteBomb", helpKey: "remoteBombHelp", isCustom: true
         },
         'enemy_15':{
             isSprite: true,
@@ -183,7 +183,7 @@ class GraphicsCatalog {
                 [{index: 0xB3, reverse: false}, {index: 0xB5, reverse: false}],
             ],
             disabledLevelType:[7, 8],
-            name: "Penguin (Preview)", nameKey: "penguinPreview", helpKey: "penguinPreviewHelp"
+            name: "Penguin (Ice Builder)", nameKey: "penguinPreview", helpKey: "penguinPreviewHelp", isCustom: true
         },
 
         'door':{

@@ -71,6 +71,14 @@ class EditorToolbar {
                 btn.title = i18n.t(config.helpKey);
             }
             btn.append(img, icon, caption);
+            if (config.isCustom) {
+                btn.classList.add('tool-btn-custom');
+                const badge = document.createElement('span');
+                badge.className = 'tool-custom-badge';
+                badge.dataset.i18n = 'nonOriginal';
+                badge.textContent = i18n.t('nonOriginal');
+                btn.append(badge);
+            }
             editor.updateButtonImage(btn, imgName);
         }
         btn.addEventListener('click', () => {

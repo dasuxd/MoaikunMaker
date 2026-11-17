@@ -43,6 +43,75 @@ function draw(nes) {
 const sprite = (oam, x, y = 7) => oam.find(s => s[3] === x && s[0] === y);
 const digit = n => 0xEA + n * 2;
 
+// Execute the installed bank-switch bridge and worker without a copyrighted
+// base ROM. Only the native digit lookup table is needed by this routine.
+function hudFixture(config = {}) {
+    const rom = new Uint8Array(0x20010);
+    rom.set([0x4E,0x45,0x53,0x1A,8,0,0x21,0]);
+    rom.set(Array.from({length:10}, (_,i) => digit(i)), RomLayout.programOffset(0xC3BD));
+    Hud.configureLevelTimer(rom, !config.disableTimer);
+    const result = Hud.install(rom, config);
+    return {rom, result, nes: machine(rom)};
+}
+
+test('inventory visibility, bottom-right rescue and bank restoration work in every HUD configuration', () => {
+    for (const disableTimer of [false,true]) for (const showRemainingRescueCount of [undefined,false,true]) {
+        const {nes, result} = hudFixture({disableTimer,showRemainingRescueCount});
+        assert.ok(result.end <= 0x8A00);
+        const m = nes.cpu.mem;
+        m[0x43] = 142;
+        for (const [timed, remote] of [[0,0],[27,0],[0,3],[27,3]]) {
+            m[0xCE] = timed;
+            // Other object types and installed/uncollected charges are excluded.
+            m.fill(14,0x4FE,0x506); m.fill(1,0x506,0x50E);
+            m[0x505] = 1; m[0x50D] = 2;
+            m[0x50C] = 3;
+            for (let i = 0; i < remote; i++) m[0x506+i] = 2;
+            m[0x55E] = 30; // A held placement preview still counts.
+            for (const clock of [0,119,120,239]) {
+                m[Hud.CLOCK] = clock;
+                const oam = draw(nes), hasBomb = timed || remote;
+                assert.equal(oam.length, (hasBomb ? 3 : 0) + (showRemainingRescueCount ? 3 : 0));
+                if (hasBomb) {
+                    const useRemote = remote && (!timed || clock >= 120);
+                    const count = useRemote ? remote : timed;
+                    assert.deepEqual(sprite(oam,0xD0),[7,useRemote ? layout.remoteBombIcon : layout.bombIcon,useRemote ? 2 : 1,0xD0]);
+                    assert.equal(sprite(oam,0xE0)[1],digit(Math.floor(count/10)));
+                    assert.equal(sprite(oam,0xE8)[1],digit(count%10));
+                } else assert.equal(sprite(oam,0xD0),undefined);
+                if (showRemainingRescueCount) {
+                    assert.deepEqual(sprite(oam,0xD0,0xCF),[0xCF,layout.rescueIcon,3,0xD0]);
+                    assert.equal(sprite(oam,0xE0,0xCF)[1],digit(9));
+                    assert.equal(sprite(oam,0xE8,0xCF)[1],digit(9));
+                }
+                assert.equal(m[4], (oam.length * 0xC4) & 255);
+                assert.equal(m[7], 63-oam.length);
+                assert.equal(m[0x5EE],0);
+                assert.equal(m[0x8000],nes.rom.rom[0][0]);
+                assert.equal(m[0xCE],timed);
+                assert.equal(m[0x43],142);
+            }
+        }
+        // Exercise disappearance after the previous frame contained both types.
+        m[0xCE] = 0; m.fill(0,0x506,0x50E);
+        assert.equal(draw(nes).length, showRemainingRescueCount ? 3 : 0);
+    }
+});
+
+test('HUD writes stay inside the hook, timer tile, bridge and bank-6 reservation', () => {
+    const rom = new Uint8Array(0x20010).fill(0xA5);
+    rom.fill(0,0x18910,0x18A10);
+    const before = rom.slice(), {end} = Hud.install(rom,{showRemainingRescueCount:true});
+    const file = RomLayout.programOffset;
+    const allowed = [[file(0x891B),file(0x891B)+3], [file(0xB6E1),file(0xB6E1)+1],
+        [file(Hud.BRIDGE),file(0xFFF0)], [0x18910,0x18010+end-0x8000]];
+    for (let i = 0; i < rom.length; i++) if (rom[i] !== before[i])
+        assert.ok(allowed.some(([start,limit]) => i >= start && i < limit), `unexpected write at ${i.toString(16)}`);
+    assert.ok(end <= 0x8A00);
+    const occupied = new Uint8Array(0x20010); occupied[0x18A0F] = 1;
+    assert.throws(() => Hud.install(occupied,{}), /reservation occupied/);
+});
+
 realTest('all twelve scenes share HUD positions and preserve every boss tile and metasprite field', () => {
     const rom = build(), pages = [1,1,1,1,1,2,2,3,3,2,2,2];
     for (let scene = 0; scene < 12; scene++) {
@@ -82,7 +151,7 @@ realTest('HUD switches icon and inventory together, counts held previews, and pr
             assert.equal(sprite(oam,0xE8)[1],digit(count%10));
             assert.equal(oam.length, showRemainingRescueCount ? 6 : 3);
             if (showRemainingRescueCount) {
-                const x = disableTimer ? 0x98 : 0xD0, y = disableTimer ? 7 : 0x18;
+                const x = 0xD0, y = 0xCF;
                 assert.deepEqual(sprite(oam,x,y),[y,layout.rescueIcon,3,x]);
                 assert.equal(sprite(oam,x+16,y)[1],digit(9));
                 assert.equal(sprite(oam,x+24,y)[1],digit(9));
@@ -92,7 +161,11 @@ realTest('HUD switches icon and inventory together, counts held previews, and pr
         }
         m[Hud.CLOCK] = 120; m.fill(0,0x4FE,0x506);
         const empty = draw(nes);
-        assert.equal(sprite(empty,0xE0)[1],digit(0)); assert.equal(sprite(empty,0xE8)[1],digit(0));
+        // With no held remote charges, keep showing the available timed bombs.
+        assert.equal(sprite(empty,0xD0)[1],layout.bombIcon);
+        assert.equal(sprite(empty,0xE0)[1],digit(2)); assert.equal(sprite(empty,0xE8)[1],digit(7));
+        m[0xCE] = 0;
+        assert.equal(draw(nes).length, showRemainingRescueCount ? 3 : 0);
         if (!disableTimer) {
             m[4] = 0; m[7] = 63; m[0x6F] = 3; m[0x70] = 2; m[0x71] = 1;
             call(nes,0xB6A4);

@@ -47,6 +47,19 @@ function expandMapper(newRomData){
     newRomData[0x007F] = (fixedTitleCpuAddr >> 8) & 0xFF;
 
     const loadAddressTablecCodeAddr = Asm6502.writeBytes(newRomData, fixedTitleAddr, fixTitleScreenCode);
+    // Keep the loader addresses/lengths stable, but route both mapper writes
+    // through the fixed-bank guard below. The NMI no longer has to inspect
+    // the interrupted PC, keeping its vblank entry as fast as the idle path.
+    const guardedMapperWrite = 0xF0F1;
+    const writeLoader = (at, code) => {
+        for (let i = 0; i + 2 < code.length; i++) {
+            if (code[i] === 0x8D && code[i + 1] === 0 && code[i + 2] === 0x80) {
+                code.splice(i, 3, 0x20, guardedMapperWrite & 255, guardedMapperWrite >> 8);
+                i += 2;
+            }
+        }
+        return Asm6502.writeBytes(newRomData, at, code);
+    };
     //JSR 加载关卡地址表代码
     const loadAddressTablecCodeCPUAddr = RomLayout.cpuFromProgramOffset(loadAddressTablecCodeAddr);
     const jsrLoadAddressTableAddr = 0x0D32;
@@ -71,7 +84,7 @@ function expandMapper(newRomData){
         0x68,
         0x60
     ]
-    const loadFirstLevelDataAddr = Asm6502.writeBytes(newRomData, loadAddressTablecCodeAddr, loadAddressTablecCode);
+    const loadFirstLevelDataAddr = writeLoader(loadAddressTablecCodeAddr, loadAddressTablecCode);
     const cpuLoadFirstLevelDataAddr = RomLayout.cpuFromProgramOffset(loadFirstLevelDataAddr);
     //JSR 加载关卡第一个数据
     const jsrLoadFirstLevelDataAddr = 0x0D19;
@@ -97,7 +110,7 @@ function expandMapper(newRomData){
         0x68,
         0x60
     ]
-    const loadLevelCodeAddr = Asm6502.writeBytes(newRomData, loadFirstLevelDataAddr, loadFirstLevelDataCode);
+    const loadLevelCodeAddr = writeLoader(loadFirstLevelDataAddr, loadFirstLevelDataCode);
     const loadLevelCodeCPUAddr = RomLayout.cpuFromProgramOffset(loadLevelCodeAddr);
     //loadLevel
     const jsrLoadLevelAddr = 0x2929;
@@ -124,7 +137,7 @@ function expandMapper(newRomData){
         0xC9, 0xFF,
         0x60
     ]
-    const loadPlayerInfo = Asm6502.writeBytes(newRomData, loadLevelCodeAddr, loadLevelCode);
+    const loadPlayerInfo = writeLoader(loadLevelCodeAddr, loadLevelCode);
 
     const jsrLoadPlayerInfo = 0x1B1C;
     const jsrLoadPlayerInfoCode = [
@@ -144,7 +157,7 @@ function expandMapper(newRomData){
         0x85, 0x00,
         0x60
     ]
-    const loadDoorInfoAddr = Asm6502.writeBytes(newRomData, loadPlayerInfo, loadPlayerInfoCode);
+    const loadDoorInfoAddr = writeLoader(loadPlayerInfo, loadPlayerInfoCode);
     const jsrLoadDoorInfo = 0x35F9;
     const jsrLoadDoorInfoCode = [
         0x20, RomLayout.cpuFromProgramOffset(loadDoorInfoAddr) & 0xFF, (RomLayout.cpuFromProgramOffset(loadDoorInfoAddr) >> 8) & 0xFF,
@@ -167,7 +180,7 @@ function expandMapper(newRomData){
         0x8D, 0x00, 0x80,
         0x60
     ]
-    const loadEnemyCountAddr = Asm6502.writeBytes(newRomData, loadDoorInfoAddr, loadDoorInfoCode);
+    const loadEnemyCountAddr = writeLoader(loadDoorInfoAddr, loadDoorInfoCode);
 
     //load enemy info
     newRomData[0x33D9] = 0x00;
@@ -190,7 +203,7 @@ function expandMapper(newRomData){
         0x4A,
         0x60
     ]
-    const loadEnemyInfoCodeAddr = Asm6502.writeBytes(newRomData, loadEnemyCountAddr, loadLoadEnemyCountCode);
+    const loadEnemyInfoCodeAddr = writeLoader(loadEnemyCountAddr, loadLoadEnemyCountCode);
 
     const jsrLoadEnemyInfoAddr = 0x2DE6;
     const jsrLoadEnemyInfoCode = [
@@ -211,7 +224,7 @@ function expandMapper(newRomData){
         0x60
     ]
 
-    const loadEnemyPositionAddr = Asm6502.writeBytes(newRomData, loadEnemyInfoCodeAddr, loadEnemyInfoCode);
+    const loadEnemyPositionAddr = writeLoader(loadEnemyInfoCodeAddr, loadEnemyInfoCode);
     const jsrLoadEnemyPositionAddr = 0x2E11;
     const jsrLoadEnemyPositionCode = [
         0x20, RomLayout.cpuFromProgramOffset(loadEnemyPositionAddr) & 0xFF, (RomLayout.cpuFromProgramOffset(loadEnemyPositionAddr) >> 8) & 0xFF,
@@ -235,7 +248,7 @@ function expandMapper(newRomData){
 
         0x60
     ]
-    const skipLevelEnemyInfoAddr = Asm6502.writeBytes(newRomData, loadEnemyPositionAddr, loadenemyPositionCode);
+    const skipLevelEnemyInfoAddr = writeLoader(loadEnemyPositionAddr, loadenemyPositionCode);
 
     // const jsrSkipLevelEnemyInfoAddr = 0x2DC9;
     // const jsrSkipLevelEnemyInfoCode = [
@@ -290,7 +303,7 @@ function expandMapper(newRomData){
         0x60
     ]
 
-    const timerRoutineAddr = Asm6502.writeBytes(newRomData, skipLevelEnemyInfoAddr, skipLevelEnemyInfoCode);
+    const timerRoutineAddr = writeLoader(skipLevelEnemyInfoAddr, skipLevelEnemyInfoCode);
     const timerCallAddr = 0x0AE5;
     const timerCall = [
         0x20, RomLayout.cpuFromProgramOffset(timerRoutineAddr) & 0xFF, (RomLayout.cpuFromProgramOffset(timerRoutineAddr) >> 8) & 0xFF,
@@ -318,7 +331,7 @@ function expandMapper(newRomData){
         0x68,
         0x60
     ]
-    const loadersEnd = Asm6502.writeBytes(newRomData, timerRoutineAddr, timerRoutine);
+    const loadersEnd = writeLoader(timerRoutineAddr, timerRoutine);
     if (loadersEnd > RomLayout.programOffset(0xF0D7))
         throw new Error('Expansion loaders overlap the camera-reset reservation');
 
@@ -330,9 +343,11 @@ function expandMapper(newRomData){
      * bank 0, the original vector at $807C points into data instead of
      * executable code.
      *
-     * The idle loop at $8070 runs only in bank 0. Keep its usual NMI
-     * latency: the exit animation uses nearly the entire vblank. For
-     * other PCs, skip the NMI during a $F0xx loader or portal bank switch.
+     * Check bankActive before trusting any switchable address. In
+     * particular, bank 6's penguin smoke also executes in $80xx: treating
+     * that whole page as the bank-0 idle loop jumps into smoke bytes as
+     * if they were the native NMI handler, corrupting control flow.
+     * The $F0xx level loaders now set the same guard through $F0F1.
      */
     const bankSafeNmiCpuAddr = 0xF0E2;
     const fixedBankRomAddr =
@@ -344,15 +359,9 @@ function expandMapper(newRomData){
     const bankSafeNmiCode = [
         0x48,                   // PHA
         0x8A, 0x48,             // TXA; PHA
-        0xBA,                   // TSX
-        0xBD, 0x05, 0x01,       // LDA $0105,X (interrupted PC high)
-        0xC9, 0x80,             // CMP #$80
-        0xD0, 0x03,             // BNE checkBank
-        0x4C, 0x7F, 0x80,       // nativeNmi: JMP $807F (native TYA/PHA and body)
-        0xC9, 0xF0,             // CMP #$F0
-        0xF0, 0x05,             // BEQ skipNmi
         0xAD, Portal.PORTAL_RAM.bankActive & 255, Portal.PORTAL_RAM.bankActive >> 8,
-        0xF0, 0xF4,             // BEQ nativeNmi
+        0xD0, 0x03,             // BNE skipNmi, even when interrupted in $80xx
+        0x4C, 0x7F, 0x80,       // nativeNmi: JMP $807F (native TYA/PHA and body)
         0x68, 0xAA,             // skipNmi: PLA; TAX
         0x68, 0x40,             // PLA; RTI
     ];
@@ -361,6 +370,14 @@ function expandMapper(newRomData){
         bankSafeNmiRomAddr,
         bankSafeNmiCode
     );
+    // All loader switches enter from guard 0/1/4. Raise it BEFORE mapping
+    // data and clear it only AFTER executable bank 0 is restored. PHP/PLP
+    // preserve every flag that the replaced STA left untouched.
+    const guard = Portal.PORTAL_RAM.bankActive;
+    Asm6502.writeBytes(newRomData, RomLayout.programOffset(guardedMapperWrite), [
+        0x08, 0xEE, guard & 255, guard >> 8,
+        0x8D, 0, 0x80, 0x8D, guard & 255, guard >> 8, 0x28, 0x60
+    ]);
     newRomData[nmiVectorRomAddr] = bankSafeNmiCpuAddr & 0xFF;
     newRomData[nmiVectorRomAddr + 1] =
         (bankSafeNmiCpuAddr >> 8) & 0xFF;

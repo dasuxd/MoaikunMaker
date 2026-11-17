@@ -1,10 +1,52 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const test = require('node:test');
-const {Project, ResourceManager, SpritePatterns, GraphicsCatalog} = require('../helpers/source.cjs').load(
-    ['Project','ResourceManager','SpritePatterns','GraphicsCatalog']);
+const {Project, ResourceManager, SpritePatterns, GraphicsCatalog, LevelEditor, LevelCanvas, Enemy} = require('../helpers/source.cjs').load(
+    ['Project','ResourceManager','SpritePatterns','GraphicsCatalog','LevelEditor','LevelCanvas','Enemy'],
+    {requestAnimationFrame: callback => callback()});
 const getScenePatternData = require('../helpers/compiled-scene.cjs');
 const original = process.env.MOAIKUN_TEST_ROM ? fs.readFileSync(process.env.MOAIKUN_TEST_ROM) : null;
+
+test('editor portal pairs keep the same pixels for entry, exit and covered placements in every scene', async (t) => {
+    const resources = new ResourceManager();
+    resources.palettes = Array.from({length: 12}, (_, scene) =>
+        Array.from({length: 32}, (_, ink) => `scene-${scene}-ink-${ink}`));
+    resources.createImage = async (pixels, width, height) => ({pixels, width, height});
+    await resources.loadBgResources(new Uint8Array(0x20010));
+    const previousResources = ResourceManager.instance;
+    ResourceManager.instance = resources;
+    t.after(() => { ResourceManager.instance = previousResources; });
+    const editor = Object.create(LevelEditor.prototype);
+    editor.images = new Map();
+    editor.render = () => {};
+    const drawn = [];
+    const ctx = {save() {}, restore() {}, drawImage(image) {drawn.push(image);}};
+    for (let scene = 0; scene < 12; scene++) {
+        editor._currentBgId = String(scene);
+        editor.resetImages();
+        const groups = [];
+        for (let group = 1; group <= 4; group++) {
+            const key = `enemy_13_pair_${group}`;
+            const entry = resources.getResource(scene, key);
+            assert.equal(entry.width, 16);
+            assert.equal(entry.height, 16);
+            groups.push(entry.pixels);
+            for (const suffix of ['_exit', '_covered', '_exit_covered']) {
+                assert.deepEqual(resources.getResource(scene, key + suffix).pixels, entry.pixels,
+                    `scene ${scene}, pair ${group}${suffix}: same pair must keep its colours`);
+            }
+            for (const covered of [false, true]) for (const exit of [false, true]) {
+                LevelCanvas.drawEnemy(new Enemy(13 | ((group - 1) << 4), 2, 7),
+                    ctx, editor.images, covered, exit);
+                assert.deepEqual(drawn.pop().pixels, entry.pixels,
+                    `scene ${scene}, pair ${group}, covered=${covered}, exit=${exit}: canvas uses the pair colours`);
+            }
+        }
+        for (let a = 0; a < groups.length; a++) for (let b = a + 1; b < groups.length; b++) {
+            assert.notDeepEqual(groups[a], groups[b], `scene ${scene}: distinct pairs stay distinguishable`);
+        }
+    }
+});
 
 test('editor backgrounds preserve all scene artwork after runtime tile relocation', { skip: !original }, () => {
     const editor = new Project(); editor.loadROM(original);
@@ -54,12 +96,11 @@ test('Tile 1-3 previews retain theme artwork with the new common PPU positions',
         for (let group = 0; group < 4; group++) for (const covered of [false, true]) for (const exit of [false, true]) {
             const key = `enemy_13_pair_${group + 1}${exit ? '_exit' : ''}${covered ? '_covered' : ''}`;
             const image = native.getResource(scene, key), scheme = SpritePatterns.getPortalColorSchemes(data, scene)[group];
-            const palette = covered ? 16 + scheme.sprite * 4 : scheme.background * 4;
-            const patterns = SpritePatterns.getPortalPatterns(SpritePatterns.getPortalColorSchemes(data, scene)), tiles = SpritePatterns.getPortalFrameTiles(group, exit ? 6 : 0);
+            const palette = scheme.background * 4;
+            const patterns = SpritePatterns.getPortalPatterns(SpritePatterns.getPortalColorSchemes(data, scene)), tiles = SpritePatterns.getPortalFrameTiles(group, 0);
             for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
                 const at = (tiles[(y >> 3) * 2 + (x >> 3)] - GraphicsCatalog.SCENE_GRAPHICS_LAYOUT.portalStart) * 16 + (y & 7), shift = 7 - (x & 7);
                 const color = (patterns[at] >> shift & 1) | (patterns[at + 8] >> shift & 1) << 1;
-                if (exit && x >= 5 && x < 13 && y >= 3 && y < 13) assert.equal(color, 0, key);
                 assert.equal(image.pixels[y][x].color, native.palettes[scene][palette + color], `${key}, scene ${scene}`);
             }
         }

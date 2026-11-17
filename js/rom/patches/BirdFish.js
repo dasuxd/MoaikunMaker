@@ -14,12 +14,13 @@ class BirdFish {
      * uploader follows at $FDC2, the Tile 13 lift lives at $FE60, and pause
      * code begins at $FED9.
      */
-    static addBirdFishAuxiliary(romData){
+    static addBirdFishAuxiliary(romData, passenger = {}){
         const file = RomLayout.programOffset;
         const base = 0xFD00, limit = 0xFDC2;
         if(romData.subarray(file(base), file(limit)).some(byte => byte !== 0))
             throw new Error('Reserved bird/fish area in bank 7 is occupied');
         const platform = BirdFish.addBirdFishPlatform(romData);
+        Object.assign(passenger, platform);
         const {bytes, labels, emit, label, absolute, branch, resolve} = Asm6502.block(base, limit);
 
         label('dispatch');
@@ -410,16 +411,17 @@ class BirdFish {
             0xA5, 0x01, 0x69, 0x00, 0x25, 0x3D);
         branch(0xD0, 'miss');
         emit(0xA5, 0x00, 0xC9, 0x1B); branch(0xB0, 'miss');
-        emit(0x38, 0x60); label('miss'); emit(0x18, 0x60);
+        emit(0x38); label('supportDone'); emit(0x60); label('miss'); emit(0x18, 0x60);
 
         // Native ground handling still owns jumping and walking. Supply its
         // support probe while aboard, preserving X for the original caller.
         label('support'); absolute(0x20, 'findRider');
         branch(0xB0, 'supportDone'); absolute(0x4C, 0x9BE3);
-        label('supportDone'); emit(0x60);
         label('findRider'); emit(0x8A, 0x48, 0xA2, 0x07);
         label('supportLoop');
-        emit(0xBD, 0xFE, 0x04, 0xC9, 0x0C); branch(0xD0, 'nextSupport');
+        emit(0xBD, 0xFE, 0x04, 0xC9, 0x0C);
+        if (Penguin.ENABLED) { branch(0xF0, 'supportType'); emit(0xC9, 15); }
+        branch(0xD0, 'nextSupport'); label('supportType');
         // Native tumble physics reuse the rider byte as signed Y velocity.
         // Only a live, standing carrier can supply platform support.
         emit(0xBD, 0x06, 0x05, 0xC9, 0x01); branch(0xD0, 'nextSupport');
@@ -465,6 +467,7 @@ class BirdFish {
         return {init: labels.get('init'), update: labels.get('update'), walls: motion.walls, motion,
             reverse: labels.get('reverse'), defeat: labels.get('defeat'),
             spawn: labels.get('spawn'), draw: labels.get('draw'), project: labels.get('project'),
-            findRider: labels.get('findRider'), playerControl: 0x941A};
+            findRider: labels.get('findRider'), overlap: labels.get('overlap'),
+            carry: labels.get('carry'), playerControl: 0x941A};
     }
 }

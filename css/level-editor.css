@@ -475,6 +475,11 @@ h1 {
     transition: all 0.3s;
 }
 
+.tool-btn-custom {
+    background: #fffcf6;
+    border-color: #d9c5a5;
+}
+
 .tool-btn:hover {
     background: #e3f2fd;
     border-color: #2196F3;
@@ -515,6 +520,20 @@ h1 {
 .tool-btn span {
     font-size: 10px;
     text-align: center;
+}
+
+.tool-btn .tool-custom-badge {
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: #f3ead9;
+    color: #785b2c;
+    font-size: 9px;
+    line-height: 1.4;
+}
+
+.tool-btn.active .tool-custom-badge {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
 }
 
 .action-btn {

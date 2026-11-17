@@ -224,6 +224,8 @@ class SceneCompiler {
             index < 64 ? 0x14010 + index * 256 : 0x18C10 + (index - 64) * 256));
         romData.set([0x53, 0x43, 0x45, 0x4E, 0x45, 0x43, 0x48, 0x52,
             GraphicsCatalog.SCENE_GRAPHICS_LAYOUT.version], 0x18020);
+        // $8B80-$8BFF after this manifest belongs to Penguin's lifecycle;
+        // the deduplicated CHR pool begins at $8C00 and must not touch it.
         romData.set(manifest, 0x18A10);
         for (const { fileAddr, value } of built.patches) romData[fileAddr] = value;
         romData.set(Array.from({ length: 12 }, (_, scene) => 0x80 + scene), 0x1D831);

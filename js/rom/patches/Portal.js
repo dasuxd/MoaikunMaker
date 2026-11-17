@@ -282,7 +282,9 @@ class Portal {
         emit(0xA9, 1, 0x85, 0xC0);
         // Detach a carrier immediately; other birds keep their own motion.
         emit(0xA0, 7);
-        label('detach'); ly(0x4FE); emit(0xC9, 12); branch(0xD0, 'nextDetach');
+        label('detach'); ly(0x4FE); emit(0xC9, 12);
+        if (Penguin.ENABLED) { branch(0xF0, 'detachCarrier'); emit(0xC9, 15); }
+        branch(0xD0, 'nextDetach'); label('detachCarrier');
         emit(0xA9, 0, 0x99, 0x3E, 0x05);
         label('nextDetach'); emit(0x88); branch(0x10, 'detach');
         emit(0xA5, 0xFD); sta(r.panLow); emit(0xA5, 0x9D); sta(r.panHigh);
@@ -344,7 +346,9 @@ class Portal {
             emit(0xC6, 1); jsr('getTile'); jumpIf(0xD0, 'done');
         }
         label('enemyHeightReady'); abs(0xAE, r.destination);
-        ly(0x4FE); emit(0xC9, 12); branch(0xD0, 'enemyPosition');
+        ly(0x4FE); emit(0xC9, 12);
+        if (Penguin.ENABLED) { branch(0xF0, 'carrierPosition'); emit(0xC9, 15); }
+        branch(0xD0, 'enemyPosition'); label('carrierPosition');
         lx(0x433); abs(0x99, 0x546);
         emit(0xA9, 0);
         for (const address of [0x53E, 0x56E, 0x57E, ...Object.values(BirdFish.BIRD_RAM)]) abs(0x99, address);

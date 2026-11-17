@@ -289,17 +289,20 @@ class ResourceManager{
                 } else if (key === 'enemy_13') {
                     const schemes = SpritePatterns.getPortalColorSchemes(romData, levelType);
                     const patterns = SpritePatterns.getPortalPatterns(schemes);
-                    for (let group = 0; group < 4; group++) for (const exit of [false, true]) {
-                        const tiles = SpritePatterns.getPortalFrameTiles(group, exit ? 6 : 0);
+                    for (let group = 0; group < 4; group++) {
+                        // Keep pair identity consistent in the editor. Runtime exit
+                        // frames and sprite overlays use different inks/palettes;
+                        // the canvas A/B labels already indicate the initial direction.
+                        const tiles = SpritePatterns.getPortalFrameTiles(group, 0);
                         const previewConfig = {...itemConfig, imgBlockIndex: [tiles.slice(0, 2), tiles.slice(2)]
                             .map(row => row.map(index => ({index: index - GraphicsCatalog.SCENE_GRAPHICS_LAYOUT.portalStart, reverse: false})))};
-                        for (const covered of [false, true]) {
-                            const start = covered ? 16 + schemes[group].sprite * 4 : schemes[group].background * 4;
-                            const preview = await this.decodeImage(patterns, previewConfig,
-                                palette.slice(start, start + 4), levelType, 0, 0);
+                        const start = schemes[group].background * 4;
+                        const preview = await this.decodeImage(patterns, previewConfig,
+                            palette.slice(start, start + 4), levelType, 0, 0);
+                        for (const exit of [false, true]) for (const covered of [false, true]) {
                             levelImgs.set(`enemy_13_pair_${group + 1}${exit ? '_exit' : ''}${covered ? '_covered' : ''}`, preview);
-                            if (group === 0 && !covered && !exit) img = preview;
                         }
+                        if (group === 0) img = preview;
                     }
                 } else if (key === 'tile_14') {
                     // Compiled scenes can share the native spike's two columns.

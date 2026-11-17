@@ -10,7 +10,8 @@ class PauseSettings {
             0xA9, address & 255, 0x8D, 6, 0x20);
         // The native pause-look routine here has been replaced by Pause's
         // controller. Its OAM entry occupies $FED9-$FEF7; reset starts at $FF60.
-        org(0xFF00, 0xFF60);
+        // $FF51-$FF5F now belongs to Penguin's optional bank-0 call bridge.
+        org(0xFF00, Penguin.ENABLED ? Penguin.NATIVE_CALL : 0xFF60);
         label('settingsOam');
         emit(0xA9, 0, 0x8D, 0, 0x20, 0xA9, 1, 0x8D, 0, 0x80);
         jsr('settingsFrame');

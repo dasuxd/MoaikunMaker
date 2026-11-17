@@ -141,7 +141,6 @@ class RemoteBomb {
         const lx = a => abs(0xBD, a), sx = a => abs(0x9D, a);
 
         label('tick');
-        if (Penguin.ENABLED) jsr(Penguin.ENTRY);
         // Only active gameplay updates reach this worker: pause freezes the
         // alternating HUD and the native stage reset restarts at timed bombs.
         abs(0xEE, Hud.CLOCK); lda(Hud.CLOCK); emit(0xC9, Hud.SWITCH_TICKS * 2);
@@ -272,7 +271,9 @@ class RemoteBomb {
         // Run again after native player/explosion/falling physics, before
         // camera projection. Follow actual 8px fall steps, including VRAM
         // queue stalls; an empty map cell alone does not mean destruction.
-        label('afterPhysics'); lda(r.head); branch(0x30, 'noAttachmentDraw');
+        label('afterPhysics');
+        if (Penguin.ENABLED) jsr(Penguin.ENTRY);
+        lda(r.head); branch(0x30, 'noAttachmentDraw');
         jsr('attachments'); jump('draw'); label('noAttachmentDraw'); emit(0x60);
         label('attachments'); emit(0xA2, 7);
         label('attachSlot'); lx(0x4FE); emit(0xC9, 14); far(0xD0, 'attachNext');

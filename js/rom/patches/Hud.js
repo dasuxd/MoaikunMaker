@@ -22,7 +22,7 @@ class Hud {
 
     static CLOCK = 0x5FD;
     static SWITCH_TICKS = 120;
-    static ENTRY = 0x8800; // Bank 6, after penguin worker, before CHR manifest.
+    static ENTRY = 0x8940; // Bank 6, after penguin worker, before CHR manifest.
     static BRIDGE = 0xFFDA; // Native reset returns at $FFD9; vectors begin $FFFA.
 
     // Exact pixels from 3333.png / 44444.png, encoded in NES ink order:
@@ -57,7 +57,7 @@ class Hud {
         }
     }
 
-    static install(rom, config) {
+    static install(rom, config, buildSmoke = null) {
         const file = RomLayout.programOffset;
         const layout = GraphicsCatalog.SCENE_GRAPHICS_LAYOUT;
         const guard = Portal.PORTAL_RAM.bankActive;
@@ -76,27 +76,38 @@ class Hud {
         const b = Asm6502.block(Hud.ENTRY, 0x8A00);
         const {emit, label, absolute: abs, branch} = b;
         const jsr = target => abs(0x20, target);
-        emit(0xA6, 4, 0xA9, layout.bombIcon, 0x85, 0x12,
-            0xA9, 1, 0x85, 0x14, 0xA5, 0xCE, 0x85, 0x13);
-        abs(0xAD, Hud.CLOCK); emit(0xC9, Hud.SWITCH_TICKS); branch(0x90, 'bomb');
-        emit(0xA9, layout.remoteBombIcon, 0x85, 0x12,
-            0xA9, 2, 0x85, 0x14, 0xA9, 0, 0x85, 0x13, 0xA0, 7);
+        // Count held charges first, so an empty type never takes a turn.
+        emit(0xA6, 4, 0xA9, 0, 0x85, 0x13, 0xA0, 7);
         label('inventory'); abs(0xB9, 0x4FE); emit(0xC9, 14); branch(0xD0, 'next');
         abs(0xB9, 0x506); emit(0xC9, 2); branch(0xD0, 'next');
         emit(0xE6, 0x13); // Carried, including an unfinished placement preview.
         label('next'); emit(0x88); branch(0x10, 'inventory');
+        emit(0xA5, 0x13); branch(0xF0, 'timed');
+        emit(0xA5, 0xCE); branch(0xF0, 'remote');
+        abs(0xAD, Hud.CLOCK); emit(0xC9, Hud.SWITCH_TICKS); branch(0x90, 'timed');
+        label('remote');
+        emit(0xA9, layout.remoteBombIcon, 0x85, 0x12,
+            0xA9, 2, 0x85, 0x14); abs(0x4C, 'bomb');
+        label('timed');
+        emit(0xA5, 0xCE); branch(0xF0, 'rescue');
+        emit(0x85, 0x13, 0xA9, layout.bombIcon, 0x85, 0x12,
+            0xA9, 1, 0x85, 0x14);
         label('bomb');
         emit(0xA9, 0xD0, 0x85, 0x10, 0xA9, 7, 0x85, 0x11,
             0xA5, 0x12, 0xA4, 0x14); jsr('sprite');
         emit(0xA9, 0xE0, 0x85, 0x10, 0xA5, 0x13); jsr('number');
-        if (config.showRemainingRescueCount !== false) {
-            emit(0xA9, config.disableTimer ? 0x98 : 0xD0, 0x85, 0x10,
-                0xA9, config.disableTimer ? 7 : 0x18, 0x85, 0x11,
+        label('rescue');
+        if (config.showRemainingRescueCount) {
+            // Screen-space bottom right, with a 16px bottom/right margin.
+            // OAM Y is one less than the first visible row of an 8x16 sprite.
+            emit(0xA9, 0xD0, 0x85, 0x10,
+                0xA9, 0xCF, 0x85, 0x11,
                 0xA9, layout.rescueIcon, 0xA0, 3); jsr('sprite');
-            emit(0xA9, config.disableTimer ? 0xA8 : 0xE0, 0x85, 0x10, 0xA5, 0x43);
+            emit(0xA9, 0xE0, 0x85, 0x10, 0xA5, 0x43);
             jsr('number');
         }
-        emit(0x60);
+        if (buildSmoke !== null) abs(0x4C, buildSmoke);
+        else emit(0x60);
 
         label('number');
         emit(0xC9, 100); branch(0x90, 'bounded'); emit(0xA9, 99);

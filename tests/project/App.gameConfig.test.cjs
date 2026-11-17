@@ -10,6 +10,16 @@ const document = {
     getElementById(id) { return controls.get(id) ?? null; }
 };
 const { App, Project, GameSettings } = require('../helpers/source.cjs').load(['App', 'Project', 'GameSettings'], {document});
+test('rescue count defaults off and preserves explicit cached choices', () => {
+    assert.equal(new Project().getGameConfig().showRemainingRescueCount, false);
+    assert.equal(GameSettings.normalize({}).showRemainingRescueCount, false);
+    for (const enabled of [true,false]) {
+        const restored = new Project();
+        restored.setGameConfig(JSON.parse(JSON.stringify({showRemainingRescueCount:enabled})));
+        assert.equal(restored.getGameConfig().showRemainingRescueCount,enabled);
+    }
+});
+
 test('new and cached game settings opt out of camera patches unless explicitly enabled', () => {
     const editor = new Project();
     assert.equal(editor.getGameConfig().cameraFollow, false);

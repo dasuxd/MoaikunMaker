@@ -21,14 +21,15 @@ function applyPatches(romData, gameConfig) {
     Hud.configureLevelTimer(romData, !gameConfig.disableTimer);
     const views = gameConfig.cameraFollow ? ViewModes.addViewModes(romData) : null;
     Coordinates.fixExtendedCoordinates(romData);
-    const birdRenderer = BirdFish.addBirdFishAuxiliary(romData);
+    const passenger = {};
+    const birdRenderer = BirdFish.addBirdFishAuxiliary(romData, passenger);
     Portal.addSpritePortalPreview(romData, birdRenderer);
     Pause.addPauseControls(romData, views);
     Credits.configureCustomLevelCredit(romData, gameConfig.customLevelAuthor);
     Credits.addMoaikunMakerLabel(romData);
     RemoteBomb.install(romData);
-    Penguin.install(romData);
-    Hud.install(romData, gameConfig);
+    const penguinCode = Penguin.install(romData, passenger);
+    Hud.install(romData, gameConfig, penguinCode?.buildSmoke ?? null);
     SceneCompiler.compileSceneGraphics(romData, frames);
     SceneRuntime.installSceneGraphicsLoader(romData);
 }

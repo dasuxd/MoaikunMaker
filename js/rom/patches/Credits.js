@@ -4,7 +4,8 @@ class Credits {
      * $B5=4 is the native logo phase. Its $BC=0 entry shows our page first;
      * $BC=5 waits on the existing $BD timer, then enters native $C914.
      * Native logo substates 1–4, staff data, music and ending animation stay
-     * untouched. Fixed bank 7 $F800–$F93F holds the credit code/text;
+     * untouched. Fixed bank 7 $F800–$F935 holds the credit code/text;
+     * $F936–$F93F is reserved for the optional penguin's native-call return.
      * bank 1 $A500–$A83F holds both fonts after the pause-pattern assets.
      * Bird motion follows at $F940; the pause-pattern worker starts at $FC80.
      * coordinate/flight helpers end at $F800; pause helpers start at $FED9.
@@ -14,7 +15,7 @@ class Credits {
         const fontFile = 0x6510;
         const author = GameSettings.normalizeCustomLevelAuthor(value).trim().toUpperCase();
         if (!author) return;
-        const base = 0xF800, limit = 0xF940;
+        const base = 0xF800, limit = Penguin.ENABLED ? Penguin.NATIVE_RETURN : 0xF940;
         if (romData.subarray(file(base), file(limit)).some(byte => byte !== 0))
             throw new Error('Reserved ending-credit area in bank 7 is occupied');
 
