@@ -136,10 +136,10 @@ for(const [scene, wide, birthPage] of [[0, false, 0], [4, true, 1]]) {
     });
 }
 
-test('a Tile 13 destination at Y zero removes the bird instead of leaving an invisible platform',
+test('a top-row Tile 13 ascent removes the bird at Y zero instead of leaving an invisible platform',
     { skip: !original }, () => {
     const { nes, slot } = start(stage(0, false, 0)), m = nes.cpu.mem;
-    m[0x433 + slot] = m[0x546 + slot] = 16;
+    m[0x433 + slot] = m[0x546 + slot] = 8;
     punch(nes, 0);
     let removed = false, sawLastVisibleHeight = false;
     for(let frame = 0; frame < 24; frame++) {

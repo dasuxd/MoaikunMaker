@@ -79,7 +79,7 @@ test('each live bird slot moves its destination one tile up without changing its
     const game = machine(), { m } = game;
     for(let slot = 0; slot < 8; slot++) bird(game, slot, { y: 104 + slot * 16, half: 8, x: 48 + slot * 8 });
     for(let slot = 0; slot < 8; slot++) {
-        const before = m.slice(0, 0x800), oldTarget = m[RAM.committedY + slot] + m[RAM.halfStep + slot];
+        const before = m.slice(0, 0x800), oldTarget = m[RAM.committedY + slot];
         assert.equal(invoke(game, slot), 0xB3B6);
         assert.equal(m[RAM.committedY + slot], oldTarget - 16);
         assert.equal(m[RAM.halfStep + slot], 0);
@@ -92,10 +92,10 @@ test('each live bird slot moves its destination one tile up without changing its
     }
 });
 
-test('upward targets pass row zero, include half-steps, and saturate at a fully offscreen height', () => {
+test('upward targets discard temporary offsets, normalize legacy rows and saturate above the map', () => {
     const game = machine(), { m } = game, slot = 5;
-    for(const [y, half, expected] of [[8, 0, -8], [16, 0, 0], [24, 0, 8], [32, 0, 16],
-        [8, 8, 0], [16, 8, 8], [24, 8, 16], [104, 8, 96], [216, 8, 208]]) {
+    for(const [y, half, expected] of [[8, 0, -8], [16, 0, 8], [24, 0, 8], [32, 0, 24],
+        [8, 8, -8], [16, 8, 8], [24, 8, 8], [104, 8, 88], [216, 8, 200], [104, 16, 88]]) {
         bird(game, slot, { y, half });
         invoke(game, slot);
         assert.equal(m[RAM.committedY + slot], expected & 255, `target ${y}+${half}`);
@@ -105,7 +105,7 @@ test('upward targets pass row zero, include half-steps, and saturate at a fully 
         assert.equal(m[RAM.timer + slot], 0);
     }
     bird(game, slot, { y: 104, half: 8 });
-    for(const expected of [96, 80, 64, 48, 32, 16, 0, -8, -8]) {
+    for(const expected of [88, 72, 56, 40, 24, 8, -8, -8]) {
         invoke(game, slot);
         assert.equal(m[RAM.committedY + slot], expected & 255);
         assert.equal(m[RAM.targetHigh + slot], expected < 0 ? 255 : 0);

@@ -135,12 +135,13 @@ realTest('half-tile bird/fish height still collides with the upper platform edge
         assert.ok(slot >= 0, context);
         // Hold the half-tile checkpoint in place while native map probing,
         // horizontal movement, reversal and rendering continue each frame.
-        m[0x433 + slot] = m[0x546 + slot] = 112;
-        m[0x56E + slot] = m[0x57E + slot] = m[0x53E + slot] = 0;
+        m[0x433 + slot] = 112; m[0x546 + slot] = 104; m[0x56E + slot] = 8;
+        m[0x53E + slot] = 0;
         m[0x516 + slot] = 128; m[0x50E + slot] = m[0x51E + slot] = 0;
         m[0x556 + slot] = facing ? 3 : 4;
         let left = 0, right = 0;
         for (let i = 0; i < 500; i++) {
+            m[0x57E + slot] = 90; // Hold this fixture at half height to isolate wall reversal.
             const before = m[0x516 + slot] + m[0x50E + slot] * 256;
             nes.frame();
             const after = m[0x516 + slot] + m[0x50E + slot] * 256;
@@ -403,35 +404,45 @@ realTest('native bird vertical probes cancel blocked descents while waiting for 
             m[0xC1] = 0; m[0xC2] = x + offset; m[0x41E] = y - 16;
         };
         for(const rider of [false, true]) {
-            position(132, 112, 128, rider); run(24);
-            assert.equal(m[0x433 + slot], 120, 'downward left body edge stops flush above row 8');
-            assert.equal(m[0x546 + slot], 120, 'a blocked descent commits only the height it actually reached');
-            assert.equal(m[0x56E + slot], 0, 'blocked descent leaves no pending half-step');
-            assert.equal(m[0x57E + slot], 0, 'blocked descent leaves no pending recovery timer');
-            if(rider) assert.equal(m[0x41E], 104, 'blocked descent keeps its rider above the floor');
-            m[0x783] &= 0xF0; run(8);
-            assert.equal(m[0x433 + slot], 120, 'removing the blocking tile cannot release a stored descent');
+            position(132, 120, 120, rider);
+            m[0x56E + slot] = 8; m[0x57E + slot] = 90;
+            run(1);
+            assert.equal(m[0x433 + slot], 120, 'preflight rejects the whole blocked half-step');
+            assert.equal(m[0x546 + slot], 120);
+            assert.equal(m[0x56E + slot], 0);
+            assert.equal(m[0x57E + slot], 0);
+            m[0x783] &= 0xF0; run(100);
+            assert.equal(m[0x433 + slot], 120, 'clearing the floor cannot release a cancelled drop');
+            if(rider) assert.equal(m[0x41E], 104);
 
-            position(140, 128, 112, rider, rider ? -10 : 0); run(24);
-            assert.equal(m[0x433 + slot], 120, 'upward right body edge stops flush below row 6');
-            assert.equal(m[0x546 + slot], 112, 'blocked recovery retains its upward destination');
-            m[0x764] &= 0xF0; m[0x754] &= 0xF0; run(8);
-            assert.equal(m[0x433 + slot], 112, 'removing the blocking tiles allows the pending ascent');
+            position(132, 112, 104, rider);
+            m[0x56E + slot] = 16; m[0x57E + slot] = 60;
+            run(24);
+            assert.equal(m[0x433 + slot], 120, 'a second half-step can finish flush above row 8');
+            assert.equal(m[0x546 + slot], 120, 'the completed whole row becomes permanent');
+            assert.equal(m[0x56E + slot], 0);
+            assert.equal(m[0x57E + slot], 0);
+
+            position(140, 136, 104, rider, rider ? -10 : 0); run(32);
+            assert.equal(m[0x433 + slot], 120, 'ascent waits on the last legal row below the ceiling');
+            assert.equal(m[0x546 + slot], 104, 'blocked ascent retains its aligned upward destination');
+            m[0x764] &= 0xF0; m[0x754] &= 0xF0; run(16);
+            assert.equal(m[0x433 + slot], 104, 'the pending ascent resumes when the ceiling clears');
         }
-        for(const [from, to] of [[112, 128], [128, 112]]) {
-            position(136, from, to); run(24);
-            assert.equal(m[0x433 + slot], to, 'adjacent solids never obstruct a clear body column');
-        }
-        position(120, 112, 128); run(24);
-        assert.equal(m[0x433 + slot], 120, 'the centered lower sample blocks a column-aligned bird');
-        position(152, 128, 112); run(24);
-        assert.equal(m[0x433 + slot], 120, 'the centered upper sample blocks a column-aligned bird');
-        position(132, 128, 112, true, 10); m[0x764] &= 0xF0; run(24);
-        assert.equal(m[0x433 + slot], 120, 'an offset rider ceiling blocks ascent even with a clear bird column');
+        position(136, 104, 104); m[0x56E + slot] = 16; run(24);
+        assert.equal(m[0x433 + slot], 120, 'adjacent columns do not obstruct an aligned descent');
+        position(136, 120, 104); run(24);
+        assert.equal(m[0x433 + slot], 104, 'adjacent columns do not obstruct an aligned ascent');
+        position(120, 120, 120); m[0x56E + slot] = 8; run(24);
+        assert.equal(m[0x433 + slot], 120, 'the centered lower sample blocks a column-aligned drop');
+        position(152, 136, 104); run(24);
+        assert.equal(m[0x433 + slot], 120, 'the centered upper sample blocks a column-aligned ascent');
+        position(132, 136, 104, true, 10); m[0x764] &= 0xF0; m[0x783] &= 0xF0; run(32);
+        assert.equal(m[0x433 + slot], 120, 'an offset rider ceiling blocks ascent with a clear bird column');
         assert.equal(m[0x41E], 104, 'the rider head remains flush below the ceiling');
         assert.equal(m[0x53E + slot], 1);
-        m[0x754] &= 0xF0; m[0x764] &= 0xF0; run(8);
-        assert.equal(m[0x433 + slot], 112, 'the rider and bird continue only once the ceiling clears');
+        m[0x754] &= 0xF0; run(16);
+        assert.equal(m[0x433 + slot], 104, 'the rider and bird continue once the ceiling clears');
     }
 });
 
@@ -457,8 +468,8 @@ realTest('native bird/fish cancel repeated landings above land before patrolling
             assert.equal(m[0x53E + slot], 1, `${context}: landing ${landing + 1} reaches the bird`);
             assert.equal(m[0x433 + slot], height, `${context}: real row 7 terrain blocks landing ${landing + 1}`);
             assert.equal(m[0x546 + slot], height, `${context}: landing ${landing + 1} stores no lower destination`);
-            assert.equal(m[0x56E + slot], 0, `${context}: landing ${landing + 1} stores no half-step`);
-            assert.equal(m[0x57E + slot], 0, `${context}: landing ${landing + 1} stores no recovery countdown`);
+            assert.equal(m[0x56E + slot], 0, `${context}: a fully blocked landing stores no descent`);
+            assert.equal(m[0x57E + slot], 0, `${context}: no displacement needs recovery`);
         }
 
         let beyondCliffFrames = 0;
@@ -481,11 +492,12 @@ realTest('ridden bird/fish retain autonomous wall reversal at half-grid heights'
     for(const [scene, wide] of [[0, false], [4, true]]) {
         const nes = start(stage(scene, wide, true)), m = nes.cpu.mem;
         const slot = m.slice(0x4FE, 0x506).indexOf(12), directions = new Set();
-        m[0x433 + slot] = m[0x546 + slot] = 112;
+        m[0x433 + slot] = 112; m[0x546 + slot] = 104; m[0x56E + slot] = 8;
         m[0x516 + slot] = m[0x526 + slot] = m[0xC2] = 128;
         m[0x50E + slot] = m[0xC1] = m[0x7D] = m[0xC7] = m[0xC8] = 0;
         m[0x53E + slot] = m[0xC0] = 1; m[0x41E] = 96; m[0x556 + slot] = 4;
         for(let frame = 0; frame < 500; frame++) {
+            m[0x57E + slot] = 90; // Hold the half-row fixture while exercising horizontal patrol.
             nes.frame(); directions.add(m[0x556 + slot]);
             const x = m[0x50E + slot] * 256 + m[0x516 + slot];
             assert.ok(x >= 80 && x < 192, `ridden wall penetration at X=${x}`);

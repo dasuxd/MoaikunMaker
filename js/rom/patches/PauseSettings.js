@@ -34,10 +34,11 @@ class PauseSettings {
         emit(0xE6, 3, 0xCA); branch(0xD0, 'menuArtByte');
         emit(0xA9, 1, 0x8D, 0, 0x80, 0x60);
 
-        const bankStart = 0x7310, bankEnd = 0x8010;
+        // The bird/fish lane worker owns $BB00-$BFFF after this page.
+        const bankStart = 0x7310, bankEnd = 0x4000 + BirdFish.LANES_BASE - 0x8000 + 0x10;
         if (rom.subarray(bankStart, bankEnd).some(Boolean))
             throw new Error('Bank 1 settings page area is occupied');
-        org(0xB300, 0xC000, 1);
+        org(0xB300, BirdFish.LANES_BASE, 1);
         const title = 'SETTINGS', camera = '> CENTER CAMERA', empty = 'NO OPTIONS';
         const back = 'B BACK', controls = 'A CHANGE    ' + back;
         const alphabet = [...new Set(' ' + title + camera + empty + controls)];

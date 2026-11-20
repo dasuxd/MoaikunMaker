@@ -1,4 +1,8 @@
 class BirdFish {
+    // Bank 1 after the settings page. Only the guarded fixed-bank bridge
+    // calls this worker; it reads map RAM directly and never calls bank 0.
+    static LANES_BASE = 0xBB00;
+    static LANES_LIMIT = 0xC000;
     // Native object arrays end at $05C5. These private eight-slot arrays are
     // also cleared by the original whole-page stage reset.
     static BIRD_RAM = Object.freeze({ fright: 0x5C6, speed: 0x5CE, yHigh: 0x5D6, targetHigh: 0x5DE });
@@ -8,7 +12,8 @@ class BirdFish {
      * 16x16 frames occupy sprite tiles $AA-$B1. Native enemy-type tables end
      * at 11, so this object bypasses their AI, collision-damage and animation
      * dispatch while retaining map probes, movement, facing and projection.
-     * Rideable-platform physics live at $F5BC-$F7FF; native per-enemy Y
+     * Rideable-platform hooks live at $F5BC-$F7C7, with lane planning in
+     * bank 1 $BB00-$BFFF; native per-enemy Y
      * velocity/action bytes are private to this type and reset with the level.
      * Fixed bank 7 $FD00-$FDC1 is cleared former level storage. The scene CHR
      * uploader follows at $FDC2, the Tile 13 lift lives at $FE60, and pause
@@ -182,11 +187,13 @@ class BirdFish {
 
         label('liftTarget');
         slot(0xBD, targetHigh); branch(0xD0, 'exitTarget');
-        emit(0x18, 0xBD, 0x46, 0x05, 0x7D, 0x6E, 0x05, 0x38, 0xE9, 0x10);
+        // A lift replaces the current action, using the whole-row baseline,
+        // never an interpolated Y or the temporary half-row displacement.
+        emit(0xBD, 0x46, 0x05, 0x29, 0xF0, 0x09, 0x08, 0x38, 0xE9, 0x10);
         branch(0xB0, 'positiveTarget'); emit(0xC9, 0xF8); branch(0xB0, 'negativeTarget');
         label('exitTarget'); emit(0xA9, 0xF8);
         label('negativeTarget'); emit(0x9D, 0x46, 0x05, 0xA9, 0xFF); slot(0x9D, targetHigh);
-        emit(0xA9, 0x00); absolute(0x4C, 'clearStep');
+        emit(0xA9, 0x00); branch(0xF0, 'clearStep');
         label('positiveTarget'); emit(0x9D, 0x46, 0x05, 0xA9, 0x00); slot(0x9D, targetHigh);
         label('clearStep'); emit(0x9D, 0x6E, 0x05, 0x9D, 0x7E, 0x05, 0x60);
 
@@ -215,8 +222,8 @@ class BirdFish {
         label('frightDone'); emit(0x60);
 
         // Four exact 8.8 speeds: 0.5, 1, 1.5, 2 pixels per active update.
-        // Acceleration only belongs to the upward leg, including when a
-        // landing changes its destination before the next patrol update.
+        // Acceleration only belongs to the upward leg, including when an
+        // obstruction changes its destination before the next patrol update.
         label('velocity'); slot(0xBD, fright); branch(0xF0, 'normalSpeed');
         absolute(0x20, 'compareHeight'); branch(0xB0, 'normalSpeed');
         slot(0xBD, speed); absolute(0x4C, 'speedMagnitude');
@@ -230,7 +237,8 @@ class BirdFish {
 
         label('compareHeight'); slot(0xBD, targetHigh); slot(0xDD, yHigh);
         branch(0xF0, 'compareLow');
-        slot(0xBD, targetHigh); emit(0x49, 0xFF, 0xC9, 0x80, 0x60);
+        // Unequal high bytes are 0/$FF: target >= Y exactly when Y is negative.
+        slot(0xBD, yHigh); emit(0xC9, 0x80, 0x60);
         label('compareLow');
         emit(0x18, 0xBD, 0x46, 0x05, 0x7D, 0x6E, 0x05, 0xDD, 0x33, 0x04, 0x60);
 
@@ -276,10 +284,153 @@ class BirdFish {
             0xBD, 0x16, 0x05, 0x85, 0x00, 0xBD, 0x0E, 0x05, 0x85, 0x01,
             0x20, 0x30, 0x93, 0x68, 0xA8, 0xA5, 0xAC, 0x05, 0xAD, 0x05, 0xAE, 0x60);
 
+        // Share the motion reservation to leave room for blocked-drop handling.
+        label('reverse');
+        absolute(0x20, 0xB013);
+        absolute(0x20, 0xAFEF); // Reverse the already prepared velocity this frame too.
+        emit(0x18, 0x60);
+
         resolve();
         Asm6502.writeBytes(romData, file(base), bytes);
         return Object.fromEntries(['reset', 'hazards', 'liftTarget', 'startFright', 'finishFright', 'velocity',
-            'compareHeight', 'rise', 'walls', 'bodyProbe'].map(name => [name, labels.get(name)]));
+            'compareHeight', 'rise', 'walls', 'bodyProbe', 'clearStep', 'reverse'].map(name => [name, labels.get(name)]));
+    }
+
+    /** Whole-row goals, temporary half rows, and swept 16x16 terrain bounds. */
+    static addBirdFishLanes(romData) {
+        const base = BirdFish.LANES_BASE, limit = BirdFish.LANES_LIMIT;
+        const file = address => address - 0x8000 + 0x4010;
+        if (romData.subarray(file(base), file(limit)).some(Boolean))
+            throw new Error('Reserved bird/fish lane area in bank 1 is occupied');
+        const b = Asm6502.block(base, limit);
+        const {bytes, labels, emit, label, absolute: abs, branch, resolve} = b;
+        const lx = address => abs(0xBD, address), sx = address => abs(0x9D, address);
+        const jump = target => abs(0x4C, target), jsr = target => abs(0x20, target);
+        const far = (op, target) => { emit(op ^ 0x20, 3); jump(target); };
+        // Commands: 0=tick, 1=landing, 2=blocked descent, 3=blocked ascent.
+        emit(0xC9, 2); far(0xF0, 'cancelDrop');
+        emit(0xC9, 3); far(0xF0, 'cancelRise');
+        emit(0x48);
+        // Repair legacy goals, not the visible position. All new goals have
+        // center Y=16*row+8; only 0, 8 and 16 are valid action displacements.
+        lx(0x546); emit(0x29, 0xF0, 0x09, 8); sx(0x546);
+        lx(0x56E); branch(0xF0, 'validStep');
+        emit(0xC9, 8); branch(0xF0, 'validStep');
+        emit(0xC9, 16); branch(0xF0, 'validStep'); jsr('clearStep');
+        label('validStep'); emit(0x68); far(0xD0, 'landing');
+
+        label('tick'); jsr('goal');
+        lx(BirdFish.BIRD_RAM.targetHigh); far(0xD0, 'moving');
+        lx(0x433); emit(0xC5, 0x0C); far(0xD0, 'moving');
+        lx(0x56E); emit(0xC9, 16); branch(0xD0, 'halfTimer');
+        // Commit a full row only after reaching it; interrupted drops retain
+        // the previous baseline and can roll back to the completed half row.
+        emit(0xA5, 0x0C); sx(0x546); jsr('clearStep'); jump('hold');
+        label('halfTimer'); emit(0xC9, 8); far(0xD0, 'hold');
+        lx(0x57E); branch(0xF0, 'recover'); abs(0xDE, 0x57E); far(0xD0, 'hold');
+        label('recover'); jsr('clearStep'); jump('hold'); // Rise starts next update.
+
+        label('landing');
+        // An airborne player can attach during interpolation, but cannot
+        // interrupt that action or turn its intermediate Y into a new row.
+        lx(BirdFish.BIRD_RAM.targetHigh); far(0xD0, 'hold');
+        jsr('goal'); lx(0x433); emit(0xC5, 0x0C); far(0xD0, 'hold');
+        lx(0x56E); emit(0xC9, 16); branch(0xD0, 'landedLane');
+        emit(0xA5, 0x0C); sx(0x546); jsr('clearStep');
+        label('landedLane');
+        lx(0x56E); emit(0xC9, 8); branch(0xF0, 'secondLanding');
+        lx(0x546); emit(0xC9, 0xD9); far(0xB0, 'hold');
+        emit(0xA9, 8); sx(0x56E); emit(0xA9, 90); sx(0x57E); jump('hold');
+        label('secondLanding'); lx(0x546); emit(0xC9, 0xD8); far(0xB0, 'hold');
+        emit(0xA9, 16); sx(0x56E); jump('hold');
+
+        label('moving');
+        // Old saves may already be above the screen; native rise owns exit.
+        lx(BirdFish.BIRD_RAM.yHigh); far(0x30, 'move');
+        jsr('sweep'); far(0xB0, 'move');
+        // Native patrol ran first. Reject only the carried horizontal step
+        // if it moves the pending vertical corridor into a wall or ceiling.
+        lx(0x516); abs(0xDD, 0x526); branch(0xF0, 'obstructed');
+        emit(0x48); lx(0x50E); emit(0x48); lx(0x516);
+        emit(0x38); abs(0xFD, 0x526); branch(0x30, 'undoLeft');
+        branch(0xB0, 'restoreX'); abs(0xDE, 0x50E); jump('restoreX');
+        label('undoLeft'); branch(0x90, 'restoreX'); abs(0xFE, 0x50E);
+        label('restoreX'); lx(0x50E); emit(0x25, 0x3D); sx(0x50E);
+        lx(0x526); sx(0x516); jsr('sweep'); branch(0x90, 'alreadyBlocked');
+        emit(0x68, 0x68); jump('move'); // Only the new horizontal step caused the blockage.
+        label('alreadyBlocked'); emit(0x68); sx(0x50E); emit(0x68); sx(0x516);
+        // If both corridors were blocked, keep patrolling below the ceiling
+        // so the bird can find room to finish its pending rise.
+        label('obstructed'); emit(0xA5, 0x0D); branch(0xD0, 'cancelRise');
+        label('cancelDrop');
+        lx(0x56E); branch(0xF0, 'hold'); emit(0xC9, 16); branch(0xF0, 'backToHalf');
+        jsr('clearStep'); jump('hold');
+        label('backToHalf'); emit(0xA9, 8); sx(0x56E); jump('hold');
+        label('cancelRise');
+        // A dynamic obstruction may arrive after a preflight. Return to the
+        // previous 8px boundary instead of parking at an arbitrary pixel.
+        lx(0x433); emit(0x29, 7); branch(0xF0, 'hold');
+        lx(0x433); emit(0x18, 0x69, 7, 0x29, 0xF8, 0x85, 0x0C,
+            0x38, 0xE9, 8, 0x29, 0xF0, 0x09, 8); sx(0x546);
+        emit(0xA5, 0x0C, 0x38); abs(0xFD, 0x546); sx(0x56E);
+        emit(0xA9, 90); sx(0x57E); emit(0xA9, 0); sx(BirdFish.BIRD_RAM.targetHigh);
+        label('hold'); emit(0x18, 0x60);
+        label('move'); emit(0x38, 0x60);
+        label('clearStep'); emit(0xA9, 0); sx(0x56E); sx(0x57E); emit(0x60);
+        label('goal'); emit(0x18); lx(0x546); abs(0x7D, 0x56E); emit(0x85, 0x0C, 0x60);
+
+        // Scratch: $0C endpoint, $0D rising, $0A/$0B min/max center Y,
+        // $08:$09 center X, $00/$01 tile columns, $02/$03 row offsets.
+        // Sweep to the next 8px boundary on ascent (including top exit), or
+        // all the way to the pending half/full-row destination on descent.
+        label('sweep');
+        emit(0xA9, 0, 0x85, 0x0D);
+        lx(BirdFish.BIRD_RAM.targetHigh); branch(0xD0, 'sweepUp');
+        lx(0x433); emit(0xC5, 0x0C); branch(0xB0, 'sweepUp');
+        emit(0x85, 0x0A, 0xA5, 0x0C, 0x85, 0x0B); jump('birdBounds');
+        label('sweepUp'); emit(0xE6, 0x0D);
+        lx(0x433); emit(0x85, 0x0B, 0x38, 0xE9, 1, 0x29, 0xF8, 0x85, 0x0A);
+        lx(BirdFish.BIRD_RAM.targetHigh); branch(0xD0, 'birdBounds');
+        emit(0xA5, 0x0A, 0xC5, 0x0C); branch(0xB0, 'birdBounds');
+        emit(0xA5, 0x0C, 0x85, 0x0A);
+        label('birdBounds');
+        lx(0x516); emit(0x85, 8); lx(0x50E); emit(0x85, 9);
+        emit(0xA5, 0x0A, 0x38, 0xE9, 8); branch(0xB0, 'birdTop'); emit(0xA9, 0);
+        label('birdTop'); emit(0x85, 2, 0xA5, 0x0B, 0x18, 0x69, 7, 0x85, 3);
+        jsr('rectangle'); branch(0x90, 'blocked');
+        emit(0xA5, 0x0D); branch(0xF0, 'clear'); lx(0x53E); branch(0xF0, 'clear');
+        // Test the rider at its prospective carried X, with the same signed
+        // wrap as shiftPlayerX. The rider's center is 16px above the bird.
+        emit(0x38); lx(0x516); abs(0xFD, 0x526); emit(0x85, 8, 0x0A,
+            0xA9, 0, 0xE9, 0, 0x49, 0xFF, 0x85, 9,
+            0x18, 0xA5, 0xC2, 0x65, 8, 0x85, 8, 0xA5, 0xC1, 0x65, 9, 0x25, 0x3D, 0x85, 9,
+            0xA5, 0x0B, 0x38, 0xE9, 9); branch(0x90, 'clear');
+        emit(0x85, 3, 0xA5, 0x0A, 0x38, 0xE9, 24); branch(0xB0, 'riderTop'); emit(0xA9, 0);
+        label('riderTop'); emit(0x85, 2); jump('rectangle');
+        label('clear'); emit(0x38, 0x60); label('blocked'); emit(0x18, 0x60);
+
+        // Inclusive integer bounds represent [center-8, center+8): touching
+        // the row above/below is not overlap. At a half row both rows count.
+        label('rectangle');
+        emit(0xA5, 2, 0x29, 0xF0, 0x85, 2, 0xA5, 3, 0x29, 0xF0, 0x85, 3,
+            0xA5, 0x3D, 0x0A, 0x0A, 0x0A, 0x0A, 0x09, 15, 0x85, 6,
+            0xA5, 8, 0x38, 0xE9, 8, 0x85, 4, 0xA5, 9, 0xE9, 0, 0x4A,
+            0xA5, 4, 0x6A, 0x4A, 0x4A, 0x4A, 0x25, 6, 0x85, 0,
+            0xA5, 8, 0x18, 0x69, 7, 0x85, 4, 0xA5, 9, 0x69, 0, 0x4A,
+            0xA5, 4, 0x6A, 0x4A, 0x4A, 0x4A, 0x25, 6, 0x85, 1);
+        label('row'); emit(0xA5, 0); jsr('tile'); branch(0xD0, 'blocked');
+        emit(0xA5, 1); jsr('tile'); branch(0xD0, 'blocked');
+        emit(0xA5, 2, 0xC5, 3); branch(0xF0, 'clear');
+        emit(0x18, 0x69, 16, 0x85, 2); jump('row');
+        label('tile'); emit(0xA4, 2, 0xC0, 0xE0); branch(0xB0, 'outsideMap');
+        emit(0x85, 4, 0x4A, 0x05, 2, 0xA8);
+        abs(0xB9, 0x700); emit(0x85, 5, 0xA5, 4, 0x4A, 0xA5, 5); branch(0xB0, 'lowTile');
+        emit(0x4A, 0x4A, 0x4A, 0x4A);
+        label('lowTile'); emit(0x29, 15, 0xA8); abs(0xB9, 'solidity'); emit(0x60);
+        label('outsideMap'); emit(0xA9, 0, 0x60);
+        label('solidity'); emit(...romData.subarray(RomLayout.programOffset(0xBF20), RomLayout.programOffset(0xBF30)));
+        resolve(); romData.set(bytes, file(base));
+        return {entry: base, end: base + bytes.length, labels: Object.fromEntries(labels)};
     }
 
     /** One-way birds/fish: two distinct landings commit one 16px step. */
@@ -289,8 +440,9 @@ class BirdFish {
         if(romData.subarray(file(base), file(limit)).some(byte => byte !== 0))
             throw new Error('Reserved bird/fish platform area in bank 7 is occupied');
         const motion = BirdFish.addBirdFishMotion(romData);
+        const lanes = BirdFish.addBirdFishLanes(romData);
         const {bytes, labels, emit, label, absolute, branch, resolve} = Asm6502.block(base, limit);
-        // $053E rider latch; $0546 committed Y; $056E temporary 8px step;
+        // $053E rider latch; $0546 whole-row Y; $056E action offset (0/8/16);
         // $057E recovery timer; $0526 previous X for horizontal carrying.
         label('init');
         emit(0xBD, 0x06, 0x05); branch(0xD0, 'initialized');
@@ -305,7 +457,7 @@ class BirdFish {
         emit(0x60);
 
         label('detach'); emit(0xA9, 0x00, 0x9D, 0x3E, 0x05);
-        absolute(0x4C, 'vertical');
+        label('resumeVertical'); absolute(0x4C, 'vertical');
         label('update');
         emit(0xA5, 0x56, 0xC9, 0x03); branch(0xD0, 'detach');
         emit(0xA5, 0xC0, 0xC9, 0x03); branch(0xB0, 'detach');
@@ -313,7 +465,7 @@ class BirdFish {
         absolute(0x20, 'overlap'); branch(0x90, 'detach');
         emit(0xBD, 0x3E, 0x05); branch(0xF0, 'landing');
         // A rider stays latched until an actual jump or a walk off the edge.
-        emit(0xA5, 0xC0, 0xC9, 0x01); branch(0xF0, 'vertical');
+        emit(0xA5, 0xC0, 0xC9, 0x01); branch(0xF0, 'resumeVertical');
         label('landing');
         emit(0xA5, 0xC0, 0xC9, 0x02); branch(0xD0, 'detach');
         // Descending feet must cross the top this frame, not the sides/bottom.
@@ -326,31 +478,19 @@ class BirdFish {
         emit(0xA9, 0x01, 0x9D, 0x3E, 0x05, 0x85, 0xC0,
             0xA9, 0x00, 0x85, 0xC4, 0x85, 0xC7, 0x85, 0xC8,
             0x85, 0xDA, 0x85, 0x5B);
-        // One landing temporarily lowers the bird half a tile; a second
-        // landing before recovery commits the next complete tile instead.
-        emit(0xBD, 0x46, 0x05, 0xC9, 0xD9); branch(0xB0, 'vertical');
-        emit(0xBD, 0x6E, 0x05); branch(0xD0, 'commit');
-        emit(0xA9, 0x08, 0x9D, 0x6E, 0x05,
-            0xA9, 0x5A, 0x9D, 0x7E, 0x05);
-        absolute(0x4C, 'vertical');
-        // A floor cancels the unfinished drop at the actual supported height.
-        // Never bank blocked landings for a later fall after leaving a ledge.
-        label('blockedDescent');
-        emit(0xBD, 0x33, 0x04, 0x9D, 0x46, 0x05);
-        absolute(0x4C, 'clearDrop');
-        label('commit');
-        // Bottom row 13 is Y=$D8. Its half-step $E0 leaves the rider at
-        // $D0, safely above native death Y=$D5; a full step $E8 would not.
-        emit(0xBD, 0x46, 0x05, 0xC9, 0xD8); branch(0xB0, 'vertical');
-        emit(0x69, 0x10, 0x9D, 0x46, 0x05); // CMP left carry clear.
-        label('clearDrop');
-        emit(0xA9, 0x00, 0x9D, 0x6E, 0x05, 0x9D, 0x7E, 0x05);
+        emit(0xA9, 1); absolute(0x20, 'lanes');
         label('vertical');
-        // Ease one pixel/frame, counting the recovery delay only once the
-        // lower half-step is reached so short and full jumps can both commit.
+        // Ordinary whole-row patrol needs no bank switch or terrain sweep.
+        absolute(0x20, motion.compareHeight); branch(0xD0, 'planVertical');
+        emit(0xBD, 0x6E, 0x05); branch(0xD0, 'planVertical');
+        emit(0xBD, 0x46, 0x05, 0x29, 15, 0xC9, 8); branch(0xD0, 'planVertical');
+        absolute(0x4C, 'held');
+        label('planVertical');
+        // Plan on discrete lanes, then integrate at most one real pixel.
+        emit(0xA9, 0); absolute(0x20, 'lanes'); branch(0x90, 'held');
         absolute(0x20, motion.compareHeight);
-        branch(0xF0, 'atTarget'); branch(0x90, 'rise');
-        absolute(0x20, motion.finishFright); // A stomp can replace the rising goal with a drop.
+        branch(0xF0, 'carry'); branch(0x90, 'rise');
+        absolute(0x20, motion.finishFright); // Downward motion never retains the ascent boost.
         // Sample the leading body edge, including either horizontal tile.
         // This private probe remains valid between native 16px grid rows.
         emit(0xBD, 0x33, 0x04, 0x18, 0x69, 0x08);
@@ -360,17 +500,18 @@ class BirdFish {
         absolute(0x20, 0x9BE3); branch(0x90, 'sink');
         emit(0xA9, 0x00, 0x9D, 0x3E, 0x05);
         label('sink');
-        emit(0xFE, 0x33, 0x04); absolute(0x4C, 'carry');
+        emit(0xFE, 0x33, 0x04); branch(0xD0, 'carry'); // Safe downward goals never wrap Y to zero.
         label('rise');
+        emit(0xBD, 0x33, 0x04, 0x48);
         absolute(0x20, motion.rise);
-        emit(0xBD, 0x06, 0x05, 0xC9, 0x01); branch(0xF0, 'carry'); emit(0x60);
-        label('atTarget');
-        absolute(0x20, motion.finishFright);
-        emit(0xBD, 0x7E, 0x05); branch(0xF0, 'carry');
-        emit(0xDE, 0x7E, 0x05); branch(0xD0, 'carry');
-        emit(0xA9, 0x00, 0x9D, 0x6E, 0x05);
+        emit(0x68, 0xDD, 0x33, 0x04); branch(0xD0, 'riseState');
+        emit(0xA9, 3); absolute(0x20, 'lanes');
+        label('riseState'); emit(0xBD, 0x06, 0x05, 0xC9, 0x01); branch(0xF0, 'carry');
+        label('updateDone'); emit(0x60);
+        label('blockedDescent'); emit(0xA9, 2); absolute(0x20, 'lanes');
+        label('held'); absolute(0x20, motion.finishFright);
         label('carry');
-        emit(0xBD, 0x3E, 0x05); branch(0xD0, 'carryRider'); emit(0x60);
+        emit(0xBD, 0x3E, 0x05); branch(0xF0, 'updateDone');
         label('carryRider');
         emit(0x38, 0xBD, 0x33, 0x04, 0xE9, 0x10, 0x8D, 0x1E, 0x04);
         absolute(0xBD, BirdFish.BIRD_RAM.yHigh);
@@ -382,7 +523,7 @@ class BirdFish {
         // Native body probes prevent a moving platform from carrying a
         // standing player through walls. Roll back only the carried pixel.
         // The movement delta, rather than an unsigned comparison, handles seams.
-        emit(0xBD, 0x16, 0x05, 0x38, 0xFD, 0x26, 0x05); branch(0x30, 'probeLeft');
+        emit(0xA5, 0x00); branch(0x30, 'probeLeft'); // shiftPlayerX preserves the signed delta in $00.
         absolute(0x20, 0x9BBD); absolute(0x4C, 'probeResult');
         label('probeLeft'); absolute(0x20, 0x9BB9);
         label('probeResult'); branch(0x90, 'return');
@@ -431,11 +572,12 @@ class BirdFish {
         // A match leaves X=0..7; an exhausted search leaves X=$FF.
         label('supported'); emit(0xE8, 0xE0, 0x01, 0x68, 0xAA, 0x60);
 
-        // Riders never choose horizontal direction: patrol reverses normally.
-        label('reverse');
-        absolute(0x20, 0xB013);
-        absolute(0x20, 0xAFEF); // Velocity was prepared before wall probes; reverse it this frame too.
-        emit(0x18, 0x60);
+        // Keep the NMI bank guard raised for the entire bank-1 call, restore
+        // bank 0 before clearing it, and preserve the caller's Y and result C.
+        label('lanes'); emit(0x85, 0x10, 0x98, 0x48, 0xA9, 1);
+        absolute(0x8D, Portal.PORTAL_RAM.bankActive); emit(0x8D, 0, 0x80, 0xA5, 0x10);
+        absolute(0x20, lanes.entry); emit(0x08, 0xA9, 0, 0x8D, 0, 0x80);
+        absolute(0x8D, Portal.PORTAL_RAM.bankActive); emit(0x28, 0x68, 0xA8, 0x60);
 
         // $A9CF maps states 10+ to type-independent routines. Preserve the
         // native knockback velocities, current bird/fish frame and tumble
@@ -465,9 +607,9 @@ class BirdFish {
         // Keep all controls native; Up/Down no longer command bird movement.
         Asm6502.writeBytes(romData, file(0x8B57), [0x20, 0x1A, 0x94]);
         return {init: labels.get('init'), update: labels.get('update'), walls: motion.walls, motion,
-            reverse: labels.get('reverse'), defeat: labels.get('defeat'),
+            reverse: motion.reverse, defeat: labels.get('defeat'),
             spawn: labels.get('spawn'), draw: labels.get('draw'), project: labels.get('project'),
             findRider: labels.get('findRider'), overlap: labels.get('overlap'),
-            carry: labels.get('carry'), playerControl: 0x941A};
+            carry: labels.get('carry'), lanes: labels.get('lanes'), laneWorker: lanes, playerControl: 0x941A};
     }
 }

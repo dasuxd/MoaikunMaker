@@ -14,6 +14,7 @@ function machine({ auxiliary = false } = {}) {
     const data = new Uint8Array(0x20010);
     data.set([0x4E, 0x45, 0x53, 0x1A, 8, 0, 0x21]);
     data.set([0, 0x80, 0, 0x80, 0, 0x80], 0x2000A);
+    data.set([0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 0, 0], 0x3F30);
     const entries = auxiliary ? (BirdFish.addBirdFishAuxiliary(data), {}) : BirdFish.addBirdFishPlatform(data);
     const nes = new jsnes.NES({ onFrame() {}, onAudioSample() {}, emulateSound: false });
     nes.loadROM(Buffer.from(data).toString('binary'));
@@ -37,6 +38,8 @@ function call(game, entry, slot = 0, preserveY = true) {
     c.REG_X = slot; c.REG_Y = 17;
     c.REG_SP = 0x1FF; c.REG_PC = 0x7FFF; c.irqRequested = false;
     m[0x8000] = 0x20; m[0x8001] = entry & 255; m[0x8002] = entry >> 8;
+    // Native test doubles must survive the lane worker's bank-1 round trip.
+    for(let i = 0; i < 0x4000; i++) game.nes.rom.rom[0][i] = m[0x8000 + i];
     for(let i = 0; i < 10000; i++) {
         c.emulate();
         if(c.REG_PC === 0x8002) {
@@ -143,21 +146,23 @@ test('a second distinct landing commits one tile permanently and two more landin
         advance(game, 1);
         assert.equal(m[RAM.rider], 0);
         descend(game);
-        assert.equal(m[RAM.committedY], base + 16);
-        assert.equal(m[RAM.halfStep], 0);
-        assert.equal(m[RAM.timer], 0);
+        assert.equal(m[RAM.committedY], base, 'the permanent row changes only on arrival');
+        assert.equal(m[RAM.halfStep], 16, 'the second half is still in transit');
         assert.equal(m[RAM.y], base + 9);
         advance(game, 7);
         assert.equal(m[RAM.y], base + 16);
         advance(game, 180);
         assert.equal(m[RAM.y], base + 16, 'the completed tile does not recover');
+        assert.equal(m[RAM.committedY], base + 16);
+        assert.equal(m[RAM.halfStep], 0);
+        assert.equal(m[RAM.timer], 0);
         assert.equal(m[0x41E], base);
         m[0xC0] = 2; m[0xC7] = 0xFC;
         advance(game, 1);
     }
 });
 
-test('a landing after recovery has started begins a new half-step instead of committing a tile', () => {
+test('a landing during recovery attaches the rider without interrupting the current goal', () => {
     const game = machine(), { m } = game, top = platform(game);
     descend(game); advance(game, 7 + 90 + 1);
     assert.equal(m[RAM.y], top + 7, 'recovery has started');
@@ -166,8 +171,9 @@ test('a landing after recovery has started begins a new half-step instead of com
     advance(game, 1);
     descend(game);
     assert.equal(m[RAM.committedY], top, 'an expired first landing cannot commit');
-    assert.equal(m[RAM.halfStep], 8);
-    assert.equal(m[RAM.timer], 90);
+    assert.equal(m[RAM.halfStep], 0);
+    assert.equal(m[RAM.timer], 0);
+    assert.equal(m[RAM.rider], 1);
     advance(game, 90 + 16);
     assert.equal(m[RAM.y], top);
 });
@@ -274,20 +280,20 @@ test('Up/Down cannot steer a standing bird or create additional landings', () =>
     }
 });
 
-test('a landing that turns a frightened ascent into a drop immediately restores ordinary speed', () => {
+test('a landing during frightened ascent cannot replace the whole-row target', () => {
     const game = machine(), { m } = game, top = platform(game);
-    // A new landing completes a half-step while the carrier is still rising.
-    // Its new goal is below the current height, so acceleration must stop now.
-    m[RAM.y] = top - 2; m[RAM.committedY] = top - 16; m[RAM.halfStep] = 8;
+    // Contact during an unfinished ascent attaches without creating a drop
+    // or turning the intermediate pixel position into a permanent height.
+    m[RAM.y] = top - 2; m[RAM.committedY] = top - 16;
     m[BirdFish.BIRD_RAM.fright] = 1; m[BirdFish.BIRD_RAM.speed] = 3;
     m[0x556] = 4; m[0x52E] = 2; m[0x536] = 0;
     descend(game);
-    assert.equal(m[RAM.committedY], top, 'the landing replaces the upward goal with a lower checkpoint');
-    assert.equal(m[RAM.y], top - 1, 'normal downward easing still runs');
-    assert.equal(m[BirdFish.BIRD_RAM.fright], 0, 'the interrupted ascent cannot retain fright');
-    assert.equal(m[BirdFish.BIRD_RAM.speed], 0);
-    assert.equal(m[0x52E], 0);
-    assert.equal(m[0x536], 0x80, 'the new velocity is the ordinary half-pixel patrol');
+    assert.equal(m[RAM.committedY], top - 16);
+    assert.equal(m[RAM.y], top - 3, 'ascent continues one pixel at a time');
+    assert.equal(m[RAM.rider], 1);
+    advance(game, 13);
+    assert.equal(m[RAM.y], top - 16);
+    assert.equal(m[BirdFish.BIRD_RAM.fright], 0, 'fright ends upon reaching the whole row');
 });
 
 test('rider controls retain the native player entry and every controller button', () => {
@@ -421,10 +427,10 @@ test('bird body terrain probes cancel blocked drops but wait for recovery under 
     assert.equal(m[RAM.y], top);
     assert.equal(m[0x03], top + 8, 'downward probe samples the lower body edge');
     assert.equal(m[RAM.committedY], top, 'blocked descent keeps the actual supported height');
-    assert.equal(m[RAM.halfStep], 0, 'blocked descent leaves no pending half-step');
-    assert.equal(m[RAM.timer], 0, 'blocked descent leaves no pending recovery');
+    assert.equal(m[RAM.halfStep], 0, 'a fully blocked landing is cancelled');
+    assert.equal(m[RAM.timer], 0, 'no displacement needs recovery');
     assert.equal(m[0x41E], top - 16);
-    // Leaving the floor cannot replay a blocked landing.
+    // Leave the floor before the old recovery window could expire.
     m.splice(0x9330, 9, 0xA9, 0, 0x85, 0xAC, 0x85, 0xAD, 0x85, 0xAE, 0x60);
     advance(game, 120);
     assert.equal(m[RAM.y], top);
@@ -456,7 +462,6 @@ test('repeated landings against a floor cannot bank descent for the next ledge',
             m[0xC0] = 2; m[0xC7] = 0xFC;
             advance(game, 1, slot);
             descend(game, slot);
-            advance(game, 100, slot);
             assert.equal(m[RAM.y + slot], top);
             assert.equal(m[RAM.committedY + slot], top);
             assert.equal(m[RAM.halfStep + slot], 0);
@@ -472,26 +477,68 @@ test('repeated landings against a floor cannot bank descent for the next ledge',
     }
 });
 
-test('a floor reached during a committed descent cancels its uncompleted remainder', () => {
-    const game = machine(), { m } = game, top = platform(game);
-    descend(game); advance(game, 7);
-    descend(game);
-    assert.equal(m[RAM.committedY], top + 16);
-    advance(game, 2);
-    const stoppedY = m[RAM.y];
-    assert.equal(stoppedY, top + 11);
-    // A newly encountered obstruction cancels a target set on an earlier frame.
-    m.splice(0x9330, 11, 0xA9, 0, 0x85, 0xAC, 0x85, 0xAD,
-        0xA9, 1, 0x85, 0xAE, 0x60);
-    advance(game, 1);
-    assert.equal(m[RAM.y], stoppedY, 'cancellation never teleports the bird or rider');
-    assert.equal(m[RAM.committedY], stoppedY);
-    assert.equal(m[RAM.halfStep], 0);
-    assert.equal(m[RAM.timer], 0);
-    assert.equal(m[0x41E], stoppedY - 16);
-    m.splice(0x9330, 9, 0xA9, 0, 0x85, 0xAC, 0x85, 0xAD, 0x85, 0xAE, 0x60);
-    advance(game, 180);
-    assert.equal(m[RAM.y], stoppedY, 'a partial committed drop cannot resume beyond a ledge');
+test('an interrupted first drop rolls back smoothly instead of waiting at a pixel height', () => {
+    for(const slot of [0, 7]) for(const dropped of [1, 4, 7]) for(const rider of [false, true]) {
+        const game = machine(), { m } = game, top = platform(game, slot);
+        descend(game, slot); advance(game, dropped - 1, slot);
+        if(!rider) { m[0xC0] = 2; m[0xC7] = 0xFC; }
+        const stoppedY = top + dropped;
+        // A new obstacle blocks only further descent, not the way back.
+        m.splice(0x9330, 15, 0xA5, 0x02, 0xC9, stoppedY + 8,
+            0xA9, 0, 0x85, 0xAD, 0x85, 0xAE, 0x69, 0, 0x85, 0xAC, 0x60);
+        advance(game, 1, slot);
+        assert.equal(m[RAM.y + slot], stoppedY, 'cancellation never teleports');
+        assert.equal(m[RAM.committedY + slot], top);
+        assert.equal(m[RAM.halfStep + slot], 0);
+        assert.equal(m[RAM.timer + slot], 0, 'only a completed half row gets the 90-frame wait');
+        m.splice(0x9330, 9, 0xA9, 0, 0x85, 0xAC, 0x85, 0xAD, 0x85, 0xAE, 0x60);
+        for(let remaining = dropped - 1; remaining >= 0; remaining--) {
+            advance(game, 1, slot);
+            assert.equal(m[RAM.y + slot], top + remaining, 'return one pixel per update');
+        }
+        if(rider) assert.equal(m[0x41E], top - 16);
+        advance(game, 120, slot);
+        assert.equal(m[RAM.y + slot], top, 'clearing terrain cannot replay the cancelled drop');
+    }
+});
+
+test('a blocked second descent returns to the completed half row and retains its remaining wait', () => {
+    for(const slot of [0, 7]) for(const dropped of [1, 4, 7]) {
+        const game = machine(), { m } = game, top = platform(game, slot);
+        descend(game, slot); advance(game, 7 + 20, slot);
+        const remaining = m[RAM.timer + slot];
+        descend(game, slot); advance(game, dropped - 1, slot);
+        const stoppedY = top + 8 + dropped;
+        assert.equal(m[RAM.committedY + slot], top, 'the next row is not committed early');
+        m.splice(0x9330, 15, 0xA5, 0x02, 0xC9, stoppedY + 8,
+            0xA9, 0, 0x85, 0xAD, 0x85, 0xAE, 0x69, 0, 0x85, 0xAC, 0x60);
+        advance(game, 1, slot);
+        assert.equal(m[RAM.y + slot], stoppedY);
+        assert.equal(m[RAM.halfStep + slot], 8);
+        assert.equal(m[RAM.timer + slot], remaining);
+        m.splice(0x9330, 9, 0xA9, 0, 0x85, 0xAC, 0x85, 0xAD, 0x85, 0xAE, 0x60);
+        advance(game, dropped, slot);
+        assert.equal(m[RAM.y + slot], top + 8);
+        advance(game, remaining + 8, slot);
+        assert.equal(m[RAM.y + slot], top);
+        assert.equal(m[RAM.committedY + slot], top, 'no partial permanent row');
+    }
+});
+
+test('repeated landings during either descent do not accumulate unfinished rows', () => {
+    for(const second of [false, true]) for(const pixel of [1, 4, 7]) {
+        const game = machine(), { m } = game, top = platform(game);
+        descend(game);
+        if(second) { advance(game, 7); descend(game); }
+        advance(game, pixel - 1);
+        const offset = second ? 16 : 8;
+        descend(game);
+        assert.equal(m[RAM.committedY], top);
+        assert.equal(m[RAM.halfStep], offset, 'a new contact cannot replace an in-flight goal');
+        advance(game, 8);
+        assert.equal(m[RAM.y], top + offset);
+        assert.equal(m[RAM.committedY], second ? top + 16 : top);
+    }
 });
 
 test('a native floor takes over support without a sinking platform pulling its rider through it', () => {
@@ -502,9 +549,9 @@ test('a native floor takes over support without a sinking platform pulling its r
     const floorY = m[0x41E];
     // An actual tile now supports the rider. Record the floor probe and
     // return carry set, while leaving its native standing position intact.
-    m.splice(0x9BE3, 4, 0xE6, 0x03, 0x38, 0x60);
+    m.splice(0x9BE3, 4, 0xE6, 0x72, 0x38, 0x60);
     advance(game, 1);
-    assert.equal(m[0x03], 1);
+    assert.equal(m[0x72], 1);
     assert.equal(m[RAM.y], top + 4, 'the platform can continue sinking');
     assert.equal(m[RAM.rider], 0, 'the floor releases the platform latch');
     assert.equal(m[0x41E], floorY, 'the player remains standing on the native floor');
@@ -512,11 +559,11 @@ test('a native floor takes over support without a sinking platform pulling its r
     advance(game, 4);
     assert.equal(m[RAM.y], top + 8);
     assert.equal(m[0x41E], floorY);
-    assert.equal(m[0x03], 1, 'a detached carrier does not repeat player floor probes');
+    assert.equal(m[0x72], 1, 'a detached carrier does not repeat player floor probes');
     const support = m[0x9585] | (m[0x9586] << 8);
     call(game, support, 3);
     assert.equal(c.F_CARRY, 1, 'native support remains available after the handoff');
-    assert.equal(m[0x03], 2);
+    assert.equal(m[0x72], 2);
 });
 
 test('top-row support sinks across signed Y zero and recovers to standing at minus eight', () => {
